@@ -13,21 +13,21 @@ Set step frequency of individual pumps to alter speed
 
 #  Do all imports here or allow them to be made inside modules?
 # import serial 
-# import numpy as np 
-
-from control.packages import arduinoInterface
-from control.packages import kinematics
-from control.packages import mouseGUI
-from control.packages import pumpLog
-from control.packages import streaming
-from control.packages import omniStream
-
 
 import csv
 import traceback
 import time
+import numpy as np 
 # import math
 # import random
+
+from modules import arduinoInterface
+from modules import kinematics
+from modules import mouseGUI
+from modules import pumpLog
+from modules import streaming
+from modules import omniStream
+
 
 ############################################################
 # Instantiate classes:
@@ -371,7 +371,7 @@ try:
 
     # Close GUI if Esc hit
     # flagStop = mouseTrack.closeTracker()
-    flagStop = True # Will close immediately 
+    flagStop = False # Will close immediately 
 
 
 
@@ -463,5 +463,5 @@ finally:
 
 
 
-if __name__ == '__main__':
-    run()
+# if __name__ == '__main__':
+#     pass

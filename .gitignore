@@ -1,0 +1,4 @@
+control/__pycache__/
+control/modules/__pycache__/
+control/logs/
+venv/

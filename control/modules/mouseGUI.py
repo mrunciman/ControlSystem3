@@ -14,9 +14,10 @@ import os
 # Append timestamp in ms to name
 # location = "Imperial College London/Imperial/Fluidic Control/ControlSystem/logs"
 location = os.path.dirname(__file__)
+parent = os.path.dirname(location)
 logTime = time.strftime("%Y-%m-%d %H-%M-%S")
-relative = "logs/positions " + logTime + ".csv"
-fileName = os.path.join(location, relative) # USE THIS IN REAL TESTS
+relative = "logs/positions/desired " + logTime + ".csv"
+fileName = os.path.join(parent, relative) # USE THIS IN REAL TESTS
 # fileName = location + "/positions " + logTime + ".csv" 
 # fileName = 'test.csv' # For test purposes
 with open(fileName, mode ='w', newline='') as posLog1: 

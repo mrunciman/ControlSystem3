@@ -1,4 +1,4 @@
 from control import softcontrol
 
 if __name__ == '__main__':
-    softcontrol.run()
+    pass

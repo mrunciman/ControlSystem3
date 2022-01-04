@@ -7,9 +7,10 @@ import os
 # Append timestamp in ms to name
 # location = "Imperial College London/Imperial/Fluidic Control/ControlSystem/logs/pumps"
 location = os.path.dirname(__file__)
+parent = os.path.dirname(location)
 logTime = time.strftime("%Y-%m-%d %H-%M-%S")
 relative = "logs/pumps/arduinoLogs " + logTime + ".csv"
-fileName = os.path.join(location, relative) # USE THIS IN REAL TESTS
+fileName = os.path.join(parent, relative) # USE THIS IN REAL TESTS
 # fileName = 'ardLogFile.csv' # For test purposes
 with open(fileName, mode ='w', newline='') as arduinoLog1: 
     ardLog1 = csv.writer(arduinoLog1)
@@ -28,20 +29,22 @@ class ardLogger():
         self.ardData = []
         self.numRows = 0
 
-    def ardLog(self,lhsS, lhsLc, lhsA, lhsMaster, lhsP, lhsMed, lhsT,\
-        rhsS, rhsLc, rhsA, rhsMaster, rhsP, rhsMed, rhsT,\
-        topS, topLc, topA, topMaster, topP, topMed, topT,\
-        extS, extLc, extA, extMaster, extP, extMed, extT,\
-        pneuS, pneuLc, pneuA, pneuMaster, pneuP, pneuMed, pneuT,\
-        lhsC, rhsC, topC, degC):
+    def ardLog(self, secondstep, length, theta, primarystep, press, median, timems):
+    # lhsS, lhsLc, lhsA, lhsMaster, lhsP, lhsMed, lhsT,\
+        # rhsS, rhsLc, rhsA, rhsMaster, rhsP, rhsMed, rhsT,\
+        # topS, topLc, topA, topMaster, topP, topMed, topT,\
+        # extS, extLc, extA, extMaster, extP, extMed, extT,\
+        # pneuS, pneuLc, pneuA, pneuMaster, pneuP, pneuMed, pneuT,\
+        # lhsC, rhsC, topC, degC):
         """
         Save stepCount, master cable lengths, pressure values and time 
         from pumps in a list to later save in csv.
         """
-        # Take a list as an argument and unpack that?
-        args = locals() # Dictionary of input arguments
-        args.pop('self') # Take argument 'self' out of dictionary
-        self.ardData.append([i for i in args.values()])
+        # # Take a list as an argument and unpack that?
+        # args = locals() # Dictionary of input arguments
+        # args.pop('self') # Take argument 'self' out of dictionary
+        # self.ardData.append([i for i in args.values()])
+        self.ardData.append([secondstep] + [length] + [theta] + [primarystep] + [press] + [median] + [timems])
         # print(self.ardData[self.numRows])
         # self.numRows = self.numRows + 1
 
@@ -50,6 +53,13 @@ class ardLogger():
         #     + [topS] + [topLc] + [topA] + [topMaster] + [topP] + [topT])
         return
 
+    def ardLogCollide(self, lhsC, rhsC, topC, degC):
+        self.ardData.append([lhsC] + [rhsC] + [topC] + [degC])
+        return
+
+    def ardRowInc(self):
+        self.numRows = self.numRows + 1
+        return
 
     def ardSave(self):
         """
