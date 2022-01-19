@@ -27,8 +27,13 @@ class omniStreamer():
             # self.sock.setblocking(0)
             self.sock.settimeout(0.024)
             print("Connected to {:s}".format(repr(self.server_addr)))
+            return True
         except AttributeError as ae:
             print("Error creating the socket: {}".format(ae))
+            return False
+        except OSError as os:
+            print("Error creating the socket: {}".format(os))
+            return False
 
     def getOmniCoords(self):
         try:

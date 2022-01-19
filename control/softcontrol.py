@@ -39,8 +39,6 @@ ardLogging = pumpLog.ardLogger()
 opTrack = streaming.optiTracker()
 phntmOmni = omniStream.omniStreamer()
 
-phntmOmni.connectOmni()
-
 ############################################################
 pathCounter = 0
 cycleCounter = 0
@@ -55,18 +53,22 @@ cDir, targDir = 0, 0
 xPath = []
 yPath = []
 zPath = []
+
+# Try to connect to phantom omni. If not connected, use pre-determined coords.
+if not phntmOmni.connectOmni():
+    with open('paths/spiralOnCyl 2021-04-09 13-01-04 10mmRad18.911EqSide.csv', newline = '') as csvPath:
+        coordReader = csv.reader(csvPath)
+        for row in coordReader:
+            xPath.append(float(row[0]))
+            yPath.append(float(row[1]))
+            zPath.append(float(row[2]))
+
 # omniX, omniY, omniZ = 0.0, 0.0, 0.0
 phntmOmni.getOmniCoords()
 [xMap, yMap, zMap] = phntmOmni.omniMap()
 
-
-# Read path coordinates from file:
-with open('paths/spiralOnCyl 2021-04-09 13-01-04 10mmRad18.911EqSide.csv', newline = '') as csvPath:
-    coordReader = csv.reader(csvPath)
-    for row in coordReader:
-        xPath.append(float(row[0]))
-        yPath.append(float(row[1]))
-        zPath.append(float(row[2]))
+# MOVE AWAY FROM MOUSETRACK FOR PATH VARIABLES,
+# USE OMNISTREAM OR VARIABLE IN MAIN INSTEAD
 
 # Do you want to use mouse as primary?
 useMouse = False
@@ -163,27 +165,41 @@ pneuPress = 1949
 ###############################################################
 # Connect to Arduinos
 
-# Set COM port for each pump
-lhsCOM = 8
-rhsCOM = 6
-topCOM = 7
-priCOM = 10
-pneuCOM = 15
-closeMessage = "Closed"
+# Create function to find available COM ports, listen to replies, and assign COM ports based on replies
+[pumpCOMS, pumpSer, pumpNames] = arduinoInterface.ardConnect()
+
+# Set COM port for each pump by using its handshake key
+if len(pumpCOMS) == 5:
+    lhsCOM = pumpCOMS(pumpNames[0])
+    rhsCOM = pumpCOMS(pumpNames[1])
+    topCOM = pumpCOMS(pumpNames[2])
+    priCOM = pumpCOMS(pumpNames[3])
+    pneuCOM = pumpCOMS(pumpNames[4])
+
+    lhsSer = pumpSer[lhsCOM]
+    rhsSer = pumpSer[rhsCOM]
+    topSer = pumpSer[topCOM]
+    priSer = pumpSer[priCOM]
+    pneuSer = pumpSer[pneuCOM]
+else:
+    # use data from file
+    pass
+
+CLOSEMESSAGE = "Closed"
 try:
-    ardIntLHS = arduinoInterface.ardInterfacer("LHS", lhsCOM)
+    ardIntLHS = arduinoInterface.ardInterfacer(pumpNames[0], lhsSer)
     reply = ardIntLHS.connect()
     print(reply)
-    ardIntRHS = arduinoInterface.ardInterfacer("RHS", rhsCOM)
+    ardIntRHS = arduinoInterface.ardInterfacer(pumpNames[1], rhsSer)
     reply = ardIntRHS.connect()
     print(reply)
-    ardIntTOP = arduinoInterface.ardInterfacer("TOP", topCOM)
+    ardIntTOP = arduinoInterface.ardInterfacer(pumpNames[2], topSer)
     reply = ardIntTOP.connect()
     print(reply)
-    ardIntPRI = arduinoInterface.ardInterfacer("PRI", priCOM)
+    ardIntPRI = arduinoInterface.ardInterfacer(pumpNames[3], priSer)
     reply = ardIntPRI.connect()
     print(reply)
-    ardIntPNEU = arduinoInterface.ardInterfacer("PNEU", pneuCOM)
+    ardIntPNEU = arduinoInterface.ardInterfacer(pumpNames[4], pneuSer)
     reply = ardIntPNEU.connect()
     print(reply)
 
@@ -407,19 +423,19 @@ finally:
         flagStop = True
 
         if ardIntLHS.ser.is_open:
-            ardIntLHS.sendStep(closeMessage)
+            ardIntLHS.sendStep(CLOSEMESSAGE)
 
         if ardIntRHS.ser.is_open:
-            ardIntRHS.sendStep(closeMessage)
+            ardIntRHS.sendStep(CLOSEMESSAGE)
         
         if ardIntTOP.ser.is_open:
-            ardIntTOP.sendStep(closeMessage)
+            ardIntTOP.sendStep(CLOSEMESSAGE)
 
         if ardIntPRI.ser.is_open:
-            ardIntPRI.sendStep(closeMessage)
+            ardIntPRI.sendStep(CLOSEMESSAGE)
 
         if ardIntPNEU.ser.is_open:
-            ardIntPNEU.sendStep(closeMessage)
+            ardIntPNEU.sendStep(CLOSEMESSAGE)
 
         time.sleep(0.2)
         [realStepL, pressL, timeL] = ardIntLHS.listenReply()

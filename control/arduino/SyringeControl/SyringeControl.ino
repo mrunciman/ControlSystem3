@@ -59,7 +59,7 @@ String flushInputBuffer;
 // Handshake variables
 bool shakeFlag = false;
 String shakeInput; // 3 bit password to assign pump name/position
-char shakeKey[5] = "TOP"; 
+char shakeKey[5] = "TOP"; // INTERRUPTS INVERTED!!!!!
 // TOP = 7, RHS = 6, LHS = 8
 // PRI = 10, PNEU = 15
 
@@ -146,9 +146,9 @@ void setup() {
   // External interrupt config.
   // 3k3 Pull-up resistors used, switch connects pin to gnd, so falling edge or LOW trigger.
   pinMode(fwdIntrrptPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(fwdIntrrptPin), forwardInterrupt, LOW);
+  attachInterrupt(digitalPinToInterrupt(fwdIntrrptPin), forwardInterrupt, HIGH);
   pinMode(bwdIntrrptPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(bwdIntrrptPin), backwardInterrupt, LOW);
+  attachInterrupt(digitalPinToInterrupt(bwdIntrrptPin), backwardInterrupt, HIGH);
 
   // Configuration of DRV8825 driver pins
   pinMode(directionPin, OUTPUT);

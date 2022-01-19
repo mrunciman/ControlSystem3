@@ -5,18 +5,69 @@ Enables connection, pressure monitoring, and step count monitoring for later bur
 protection and volume calculation.
 """
 import serial 
+import serial.tools.list_ports
 import time
 import numpy as np
 
+def ardConnect():
+    # serial.tools.list_ports.comports()
+    comlist = []
+    for comport in serial.tools.list_ports.comports():
+        comlist.append(comport.device)
+
+    PUMPNAMES = ['LHS', 'RHS', 'TOP', 'PRI', 'PNEU']
+    pumpDict = {}
+    serialDict = {}
+
+    reply = ""
+    replyFlag = 0
+    MAXREPLYNO  = 5
+    MESSAGE = '1'
+    MESSAGE = MESSAGE.encode('utf-8')
+
+    # Find the pumps and determine their names, otherwise flag that they're not connected
+    
+    # Open each device in COM port list
+    for device in comlist:
+
+        with serial.Serial() as ser:
+            ser.baudrate = 115200
+            ser.port = device
+            ser.timeout = 0
+            ser.open()
+            ser.reset_input_buffer()
+            #Leave time to initialise
+            time.sleep(1)
+
+            while(replyFlag != MAXREPLYNO):
+                ser.write(MESSAGE)
+                #delay before reading reply
+                time.sleep(2)
+                reply = ser.readline().strip()
+                reply = reply.decode('ascii')
+                ser.reset_input_buffer()
+
+                if reply in PUMPNAMES:
+                    index = PUMPNAMES.index(reply) # WHich one of pumpNames was reply
+                    pumpDict.update({PUMPNAMES[index]:device})
+                    serialDict.update({device:ser})
+                    reply = ""
+                    break
+
+                replyFlag += 1
+
+    return pumpDict, serialDict, PUMPNAMES
+
 class ardInterfacer:
 
-    def __init__(self, namePump, numPort):
-        self.pumpName = namePump
-        self.portNumber = numPort
-        self.ser = serial.Serial()
-        self.ser.port = 'COM%s' % (self.portNumber) 
-        self.ser.baudrate = 115200
-        self.ser.timeout = 0
+    def __init__(self, namePump, ser):
+        # self.pumpName = namePump
+        # self.portNumber = numPort
+        # self.ser = serial.Serial()
+        # self.ser.port = 'COM%s' % (self.portNumber) 
+        # self.ser.baudrate = 115200
+        # self.ser.timeout = 0
+        self.ser = ser
 
         self.press1 = 0.0
         self.press2 = 0.0
@@ -46,7 +97,7 @@ class ardInterfacer:
         on each arduino.
         e.g. top = connect("TOP", 4)
         """
-        self.ser.open()
+        # self.ser.open()
         message = self.pumpName + "\n"
         reply = ""
         message = message.encode('utf-8')    #Encode message

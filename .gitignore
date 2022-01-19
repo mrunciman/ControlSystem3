@@ -1,6 +1,6 @@
 control/__pycache__/
 control/modules/__pycache__/
 control/logs/
-venv/
+.venv-inflate/
 control/arduino/SyringeControl/.vscode/
 .vscode/
