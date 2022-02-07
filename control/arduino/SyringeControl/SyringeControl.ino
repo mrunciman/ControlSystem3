@@ -22,13 +22,15 @@ char shakeKey[5] = "TOP"; // INTERRUPTS INVERTED!!!!!
 
 
 ////////////////////////////////////////////////////////
-// uStepper S Lite Setup
+//uStepper S Lite Setup
 #define MAXACCELERATION 10000       //Max acceleration in steps/s^2 (2000 = 5 mm/s^2)
 #define MAXVELOCITY 10000           //Max velocity in steps/s (2000 is 5 mm/s)
 float SPEEDP_HIGH = 1000.0;
 float SPEEDP_LOW = 500.0;
-float STEPPERREV = 3200.0;
-float angPos = 0.0; // 180/PI * stepIn/3200;
+float STEPS_PER_REV = 3200.0;
+float DEG_PER_REV = 360.0;
+float angPos = 0.0; //DEG_PER_REV * stepIn/STEPS_PER_REV = 180/PI * stepIn/STEPS_PER_REV;
+float angMeas = 0.0; // stepCount = angMeas*STEPS_PER_REV/DEG_PER_REV
 uStepperSLite stepper(MAXACCELERATION, MAXVELOCITY);
 
 // USEFUL FUNCTIONS:
@@ -137,6 +139,7 @@ int maxSteps = ((maxV/As)*stepsPMM - (3*stepsPerLoop/4));
 int minSteps = 10;
 
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void setup() {
   Wire.begin();
     //Sensor startup - see https://github.com/sparkfun/MS5803-14BA_Breakout/
@@ -152,10 +155,6 @@ void setup() {
     ;
   }
 
-
-  // uStepper S Lite setup - http://ustepper.com/docs/ustepperslite/html/classuStepperSLite.html#a9522d6afb14f71c6034ece6537180e00
-  stepper.setup();
-  stepper.softStop(SOFT);
   // Disable all interrupts
   noInterrupts();
   
@@ -174,6 +173,13 @@ void setup() {
   // TCCR2B |= (1 << CS22) | (1 << CS21) | (1 << CS20);   // Turn on
   TIMSK2 |= (1 << OCIE2A);  // enable timer compare interrupt
   interrupts();             // enable all interrupts
+
+
+  // uStepper S Lite setup - 
+  //http://ustepper.com/docs/ustepperslite/html/classuStepperSLite.html#a9522d6afb14f71c6034ece6537180e00
+  // stepper.setup();
+  stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
+  stepper.softStop(SOFT);
 }
 
 // Internal interrupt service routine, timer 2 overflow
@@ -370,7 +376,10 @@ void readWriteSerial() {
       if (stepIn < minSteps){
         stepIn = minSteps;
       }
-      stepCount = -stepper.getStepsSinceReset();
+      angPos = DEG_PER_REV*(float(stepIn)/STEPS_PER_REV);
+      // stepCount = stepper.getStepsSinceReset();
+      angMeas = stepper.encoder.getAngleMoved();
+      stepCount = int(angMeas*STEPS_PER_REV/DEG_PER_REV);
       stepError = stepIn - stepCount;
       //Send stepCount
       writeSerial('S');
@@ -426,7 +435,7 @@ void stepAftertStep(){
 }
 
 void contStep(){
-  stepCount = -stepper.getStepsSinceReset();
+  stepCount = stepper.getStepsSinceReset();
   stepError = stepIn - stepCount;
   Serial.println(stepCount);
 
@@ -568,8 +577,10 @@ void loop() {
         disconFlag = true;
       }
       // Step the motor if enough time has passed.
+      stepper.moveToAngle(angPos, HARD);
+
       // stepAftertStep();
-      contStep();
+      // contStep();
       break;
 
     //////////////////////////////////////////////////////////////////////////////////////////
