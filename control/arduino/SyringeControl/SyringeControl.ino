@@ -129,10 +129,10 @@ char limitHit[3] = "L ";
 // Actuator geometry
 float STROKE = 25.0; //Eq. triangle length in mm
 float L0 = STROKE/(1.0 - 2.0/PI); // flat length for contraction = STROKE
-float WIDTH = 30.0; // width of muscle in mm
+float ACT_WIDTH = 30.0; // width of muscle in mm
 float NUM_L = 3; // number of subdivisions in muscle
 float A_SYRINGE = PI*pow(13.25, 2.0); // piston area in mm^2
-float FACT_V = (WIDTH*pow(L0 , 2.0))/(2.0*NUM_L);
+float FACT_V = (ACT_WIDTH*pow(L0 , 2.0))/(2.0*NUM_L);
 float MAX_V = FACT_V*(2.0/PI); // volume in mm^3 when fully actuated
 // steps to fill actuator rounded down, minus some fraction of a timestep's worth
 int maxSteps = ((MAX_V/A_SYRINGE)*STEPS_PER_MM - (3*stepsPerLoop/4)); 
