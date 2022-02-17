@@ -135,7 +135,7 @@ float A_SYRINGE = PI*pow(13.25, 2.0); // piston area in mm^2
 float FACT_V = (WIDTH*pow(L0 , 2.0))/(2.0*NUM_L);
 float MAX_V = FACT_V*(2.0/PI); // volume in mm^3 when fully actuated
 // steps to fill actuator rounded down, minus some fraction of a timestep's worth
-int maxSteps = ((MAX_V A_SYRINGE)*STEPS_PER_MM - (3*stepsPerLoop/4)); 
+int maxSteps = ((MAX_V/A_SYRINGE)*STEPS_PER_MM - (3*stepsPerLoop/4)); 
 int minSteps = 10;
 
 
@@ -178,7 +178,7 @@ void setup() {
   // uStepper S Lite setup - 
   //http://ustepper.com/docs/ustepperslite/html/classuStepperSLite.html#a9522d6afb14f71c6034ece6537180e00
   // stepper.setup();
-  stepper.setup(PID, STEPS_PER_REV, 10.0, 0.1, 0.0, true);
+  stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
   stepper.softStop(SOFT);
 }
 
@@ -295,17 +295,17 @@ void pressInitZeroVol() {
     case 1:
       //Move motor forwards
       // if not moving or it is moving clockwise:
-      if (!stepper.getMotorState() || !stepper.getCurrentDirection()){ 
-        stepper.moveSteps(pressSteps, CCW, HARD);
-      }
+      // if (!stepper.getMotorState() || !stepper.getCurrentDirection()){ 
+      stepper.moveSteps(pressSteps, CCW, HARD);
+      // }
       //Serial.println("INCREASE PRESSURE");
       break;
     case 2:
       //Move motor backwards
       // if not moving or it is moving anticlockwise
-      if (!stepper.getMotorState() || stepper.getCurrentDirection() ){ 
-        stepper.moveSteps(pressSteps, CW, HARD);
-      }
+      // if (!stepper.getMotorState() || stepper.getCurrentDirection() ){ 
+      stepper.moveSteps(pressSteps, CW, HARD);
+      // }
       //Serial.println("DECREASE PRESSURE");
       break;
     default:
