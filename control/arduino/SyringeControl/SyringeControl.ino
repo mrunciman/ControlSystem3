@@ -29,7 +29,7 @@ float SPEEDP_HIGH = 1000.0;
 float SPEEDP_LOW = 500.0;
 float STEPS_PER_REV = 3200.0;
 float DEG_PER_REV = 360.0;
-float angPos = 0.0; //DEG_PER_REV * stepIn/STEPS_PER_REV = 180/PI * stepIn/STEPS_PER_REV;
+float angPos = 0.0; //DEG_PER_REV * stepIn/STEPS_PER_REV = 360 * stepIn/STEPS_PER_REV;
 float angMeas = 0.0; // stepCount = angMeas*STEPS_PER_REV/DEG_PER_REV
 uStepperSLite stepper(MAXACCELERATION, MAXVELOCITY);
 
@@ -43,7 +43,7 @@ uStepperSLite stepper(MAXACCELERATION, MAXVELOCITY);
 // getMotorState()
 // RPMToStepDelay
 // currentPidSpeed
-
+// moveToAngle()
 // moveSteps(int32_t steps, bool dir, bool holdMode=BRAKEON)
 // getStepsSinceReset() Steps applied in the clockwise direction is added and steps applied in the counter clockwise direction is subtracted.
 // CCW moves piston forwards
@@ -72,21 +72,22 @@ String flushInputBuffer;
 // Pressure sensor variables
 MS5803 sensor(ADDRESS_LOW);//CSB pin pulled low, so address low
 double pressureAbs = 1000.00; // Initial value
-int pressThresh = 10;//mbar
-int pressMAX = 3500;
-int pressMIN = 400;
+int PRESS_THRESH = 10;//mbar
+int PRESS_MAX = 3500;
+int PRESS_MIN = 400;
+int PRESS_FINE = 50; // When within this threshold, use finer movements
 double pressSetpoint = 850.00;//mbar
 bool pressFlag = true;
 int pressureError;
-int pressSteps = 200; // Num steps to move when calibrating
-int sampDiv = 6; // Factor to divide Timer2 frequency by
+int pressSteps = 64; // Num steps to move when calibrating
+int SAMP_DIV = 6; // Factor to divide Timer2 frequency by
 volatile int sampCount = 0;
 volatile bool sampFlag = false;
 // int OCR_2p5mmps = 7999;
 // Calibration
 int stateCount = 0;
 int startTime;
-int stableTime = 4000; // time in milliseconds reqd for pressure to be at setpoint
+int STABLE_TIME = 4000; // time in milliseconds reqd for pressure to be at calibration setpoint
 bool lowFlag = false;
 
 ////////////////////////////////////////////////////////
@@ -97,16 +98,15 @@ bool lowFlag = false;
 //16 microsteps per step, so 3200 steps per revolution
 //Lead = start*pitch      Lead screw is 4 start, 2 mm pitch, therefore Lead = 8
 //Steps/mm = (StepPerRev*Microsteps)/(Lead) = 400 steps/mm
-int stepsPMM = 400; // Higher steps per mm value for ustepper s lite than old setup (old = 100 steps/mm)
-int limitSteps = stepsPMM*2; // number of pulses for 2 mm
+int STEPS_PER_MM = 400; // Higher steps per mm value for ustepper s lite than old setup (old = 100 steps/mm)
+int limitSteps = STEPS_PER_MM*2; // number of pulses for 2 mm
 int prevMotorState = 0;
 int motorState = 3;
 volatile int stepCount = 0;
 String stepRecv;
 int stepIn;
 int stepError = 0;
-int isAntiClock = 1; // 0 is CW, 1 is CCW 
-int isMoving = 0; // 0 for not moving, 1 is moving
+
 int fSamp = 21;
 int stepsPerLoop = 2000/fSamp; // number of steps at max step frequency in fSamp Hz timestep
 unsigned long tSampu = 1000000/fSamp; // (1/fSamp)e6 Time between samples in microseconds
@@ -127,15 +127,15 @@ char limitHit[3] = "L ";
 
 ////////////////////////////////////////////////////////
 // Actuator geometry
-float S = 25.0; //Eq. triangle length in mm
-float L0 = S/(1.0 - 2.0/PI); // flat length for contraction = S
-float W = 30.0; // width of muscle in mm
-float numLs = 3; // number of subdivisions in muscle
-float As = PI*pow(13.25, 2.0); // piston area in mm^2
-float factV = (W*pow(L0 , 2.0))/(2.0*numLs);
-float maxV = factV*(2.0/PI); // volume in mm^3 when fully actuated
+float STROKE = 25.0; //Eq. triangle length in mm
+float L0 = STROKE/(1.0 - 2.0/PI); // flat length for contraction = STROKE
+float WIDTH = 30.0; // width of muscle in mm
+float NUM_L = 3; // number of subdivisions in muscle
+float A_SYRINGE = PI*pow(13.25, 2.0); // piston area in mm^2
+float FACT_V = (WIDTH*pow(L0 , 2.0))/(2.0*NUM_L);
+float MAX_V = FACT_V*(2.0/PI); // volume in mm^3 when fully actuated
 // steps to fill actuator rounded down, minus some fraction of a timestep's worth
-int maxSteps = ((maxV/As)*stepsPMM - (3*stepsPerLoop/4)); 
+int maxSteps = ((MAX_V A_SYRINGE)*STEPS_PER_MM - (3*stepsPerLoop/4)); 
 int minSteps = 10;
 
 
@@ -185,8 +185,8 @@ void setup() {
 // Internal interrupt service routine, timer 2 overflow
 ISR(TIMER2_COMPA_vect){
   interrupts(); //re-enable interrupts
-  // This will be called at 125 Hz, so every sampDiv times set sampling flag, reducing the frequency.
-  if (sampCount == sampDiv){
+  // This will be called at 125 Hz, so every SAMP_DIV times set sampling flag, reducing the frequency.
+  if (sampCount == SAMP_DIV){
     sampFlag = true;
     sampCount = 1;
   }
@@ -201,14 +201,14 @@ void pressureRead() {
   pressureAbs = sensor.getPressure(ADC_4096);
   // Filter out false readings
   // Stop motor and wait if pressure exceeds maximum
-  if (pressureAbs > pressMAX){
+  if (pressureAbs > PRESS_MAX){
     // extInterrupt = true;
     stepper.softStop(SOFT); // Stop and disable
   }
   else if (pressureAbs < 0){
     pressureAbs = 0.00;
   }
-  // else if (pressureAbs < pressMIN){
+  // else if (pressureAbs < PRESS_MIN){
   //   extInterrupt = true;
   // }
 
@@ -222,9 +222,9 @@ void pressInitZeroVol() {
   pressureError = pressureAbs - pressSetpoint;
   prevMotorState = motorState;
   // Assign motor state based on pressure error
-  if (pressureAbs < pressSetpoint - pressThresh){ // The pressure is less than setpoint minus threshold
+  if (pressureAbs < pressSetpoint - PRESS_THRESH){ // The pressure is less than setpoint minus threshold
     lowFlag = true;
-    if (pressureAbs > pressSetpoint - 2*pressThresh){
+    if (pressureAbs > pressSetpoint - 2*PRESS_THRESH){
       // Pressure is at setpoint minus between 1 and 2 times threshold
       motorState = 0;
       // Increment counter if previous state was also zero
@@ -245,7 +245,7 @@ void pressInitZeroVol() {
   }
   else { // Pressure is over lower bound
     if (lowFlag == true){
-      if (pressureAbs <= pressSetpoint + pressThresh){
+      if (pressureAbs <= pressSetpoint + PRESS_THRESH){
         // If we previously reached lower bound and within threshold, stop
         motorState = 0;
         // Increment counter if previous state was also zero
@@ -274,13 +274,14 @@ void pressInitZeroVol() {
 
   // If close to target pressure, use finer movements
   if (motorState == 1 || motorState == 2){
-    if (abs(pressureError) < 50){ // if within 50 mbar go slower
+    // if within 50 mbar of target pressure go slower
+    if (abs(pressureError) < PRESS_FINE){ 
       pressSteps = 16;
-      stepper.setMaxVelocity(SPEEDP_LOW);
+      // stepper.setMaxVelocity(SPEEDP_LOW);
     }
     else{
       pressSteps = 64;
-      stepper.setMaxVelocity(SPEEDP_HIGH);
+      // stepper.setMaxVelocity(SPEEDP_HIGH);
     }
   }
 
@@ -290,34 +291,20 @@ void pressInitZeroVol() {
       // Stop motor
       // Serial.println("Stop");
       stepper.softStop(HARD);
-      // if (stepper.getMotorState()){
-      //   stepper.softStop(HARD);
-      // }
       break;
     case 1:
-      //Move motor forwards at 2.5 mm/s 
-      // Serial.println("Forwards");
-      // stepper.setMaxVelocity(SPEED_2MM5);
-      if (!stepper.getMotorState() || !stepper.getCurrentDirection()){ // if not moving or it is moving clockwise:
-        // stepper.moveSteps(pressSteps, CCW, HARD);
-        stepper.runContinous(CCW);
+      //Move motor forwards
+      // if not moving or it is moving clockwise:
+      if (!stepper.getMotorState() || !stepper.getCurrentDirection()){ 
+        stepper.moveSteps(pressSteps, CCW, HARD);
       }
-      // stepper.runContinous(CCW);
-      // stepper.moveSteps(pressSteps, CCW, HARD);
-      // if (!stepper.getMotorState()){ // if not moving or it is moving clockwise:
-      //   stepper.runContinous(CCW);
-      // }
       //Serial.println("INCREASE PRESSURE");
       break;
     case 2:
-      //Move motor back at 2.5 mm/s
-      // Serial.println("Back");
-      // stepper.setMaxVelocity(SPEED_2MM5);
-      // stepper.runContinous(CW);
-      // stepper.moveSteps(pressSteps, CW, HARD);
-      if (!stepper.getMotorState() || stepper.getCurrentDirection() ){ // if not moving or it is moving anticlockwise
-        // stepper.moveSteps(pressSteps, CW, HARD);
-        stepper.runContinous(CW);
+      //Move motor backwards
+      // if not moving or it is moving anticlockwise
+      if (!stepper.getMotorState() || stepper.getCurrentDirection() ){ 
+        stepper.moveSteps(pressSteps, CW, HARD);
       }
       //Serial.println("DECREASE PRESSURE");
       break;
@@ -434,22 +421,6 @@ void stepAftertStep(){
   }
 }
 
-void contStep(){
-  stepCount = stepper.getStepsSinceReset();
-  stepError = stepIn - stepCount;
-  Serial.println(stepCount);
-
-  if ((stepError > 0) & (stepCount < maxSteps)){
-    stepper.runContinous(CCW); // Forwrds
-  }
-  else if ((stepError < 0) & (stepCount > 0)){
-    stepper.runContinous(CW); // Backwards
-  }
-  else if (stepError == 0){
-    stepper.hardStop(HARD);
-  }
-}
-
 
 void writeSerial(char msg){
   writeTime = millis();
@@ -463,7 +434,7 @@ void writeSerial(char msg){
     sprintf(data, "%s%s,%d,%lu%s", limitHit, shakeKey, int(pressureAbs*10), writeTime, endByte);
   }
   else if (msg == 'p'){ // Calibrating
-    sprintf(data, "%04d%s,%d,%lu%s", stableTime-stateCount, shakeKey, int(pressureAbs*10), writeTime, endByte);
+    sprintf(data, "%04d%s,%d,%lu%s", STABLE_TIME-stateCount, shakeKey, int(pressureAbs*10), writeTime, endByte);
   }
   else if(msg = 'P'){ // Calibration finished
     sprintf(data, "%04d%s,%d,%lu%s", stepCount, shakeKey, int(pressureAbs*10), writeTime, endByte);
@@ -482,7 +453,7 @@ void loop() {
   else if(disconFlag == true){
     pumpState = 2;//Disconnection
   }
-  else if(pressFlag == false){//CHANGE TO TRUE TO ACTIVATE
+  else if(pressFlag == true){//CHANGE TO TRUE TO ACTIVATE
     pumpState = 3;//Calibration
   }
   else{
@@ -510,7 +481,7 @@ void loop() {
       break;
 
     //////////////////////////////////////////////////////////////////////////////////////////
-    //Handshake/disconnection
+    //Handshake
     case 1:
       handShake();
       break;
@@ -530,13 +501,13 @@ void loop() {
 
       if (sampFlag == true) {
         // If enough time has passed, say volume is 0, tell python and move on
-        if (stateCount >= stableTime){
+        if (stateCount >= STABLE_TIME){
           // Step count should now be zero - muscle empty.
           stepCount = 0;
           stepper.encoder.setHome();
           // Notify that calibration is done
           writeSerial('P');
-          stepper.softStop(HARD);
+          stepper.hardStop(HARD);
           pressFlag = false;
         }
         else{
@@ -576,11 +547,9 @@ void loop() {
       else if (!Serial) { //if serial disconnected, go to disconected state
         disconFlag = true;
       }
-      // Step the motor if enough time has passed.
-      stepper.moveToAngle(angPos, HARD);
-
+      // Move to the desired position
       // stepAftertStep();
-      // contStep();
+      stepper.moveToAngle(angPos, HARD);
       break;
 
     //////////////////////////////////////////////////////////////////////////////////////////
