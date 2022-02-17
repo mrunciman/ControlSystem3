@@ -31,7 +31,7 @@ from modules import omniStream
 
 ############################################################
 # Instantiate classes:
-sideLength = 18.911 # mm, from workspace2 model
+sideLength = 30 # mm, from workspace2 model
 
 kineSolve = kinematics.kineSolver(sideLength)
 mouseTrack = mouseGUI.mouseTracker(sideLength)
@@ -54,18 +54,20 @@ xPath = []
 yPath = []
 zPath = []
 
+omni_connected = phntmOmni.connectOmni()
+
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
-if not phntmOmni.connectOmni():
+if not omni_connected:
     with open('paths/spiralOnCyl 2021-04-09 13-01-04 10mmRad18.911EqSide.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
             yPath.append(float(row[1]))
             zPath.append(float(row[2]))
-
-# omniX, omniY, omniZ = 0.0, 0.0, 0.0
-phntmOmni.getOmniCoords()
-[xMap, yMap, zMap] = phntmOmni.omniMap()
+else:
+    # omniX, omniY, omniZ = 0.0, 0.0, 0.0
+    phntmOmni.getOmniCoords()
+    [xMap, yMap, zMap] = phntmOmni.omniMap()
 
 # MOVE AWAY FROM MOUSETRACK FOR PATH VARIABLES,
 # USE OMNISTREAM OR VARIABLE IN MAIN INSTEAD
@@ -84,7 +86,7 @@ if not useMouse:
 
 
 # Initialise variables 
-SAMP_FREQ = 1/kineSolve.timeStep
+SAMP_FREQ = 1/kineSolve.TIMESTEP
 flagStop = False
 
 # Target must be cast as immutable type (float, in this case) so that 
@@ -107,7 +109,7 @@ initPressLogNum = 10
 
 # Initialise cable length variables at home position
 cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
-cableL, cableR, cableT = kineSolve.sideLength, kineSolve.sideLength, kineSolve.sideLength
+cableL, cableR, cableT = kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH
 prismP = 0
 targetP = 0
 [targetXideal, targetYideal, targetP] = kineSolve.intersect(targetX, targetY, targetZ)
@@ -130,7 +132,7 @@ repJpinv = cJpinv
 [tVolT, vDotT, dDotT, fStepT, tStepT, tSpeedT, LcRealT, angleT] = kineSolve.volRate(cVolT, cableT, targetT)
 fStepP = 0
 tStepP = 0
-LcRealP = tStepP/kineSolve.stepsPMM
+LcRealP = tStepP/kineSolve.STEPS_PER_MM
 [LStep, RStep, TStep, PStep] = kineSolve.freqScale(fStepL, fStepR, fStepT, fStepP)
 LStep, RStep, TStep, PStep = 0, 0, 0, 0
 
@@ -160,7 +162,7 @@ dStepL, dStepR, dStepT, dStepP  = 0, 0, 0, 0
 StepNoL, StepNoR, StepNoT, StepNoP = tStepL, tStepR, tStepT, tStepP
 initStepNoL, initStepNoR, initStepNoT = 0, 0, 0
 realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA = 0, 0, 0, 0, 0, 0, 0
-pneuPress = 1949
+pneuPress = 2000
 
 ###############################################################
 # Connect to Arduinos
@@ -261,15 +263,17 @@ try:
             delayCount += 1
             pathCounter = 0
 
+        if not omni_connected:
         # Go sequentially through path coordinates
-        # XYPathCoords = [xPath[pathCounter], yPath[pathCounter]]
-        # XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
-        phntmOmni.getOmniCoords()
-        [xMap, yMap, zMap] = phntmOmni.omniMap()
-        XYZPathCoords = [xMap, yMap, zMap]
+            # XYPathCoords = [xPath[pathCounter], yPath[pathCounter]]
+            XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
+        else:
+            phntmOmni.getOmniCoords()
+            [xMap, yMap, zMap] = phntmOmni.omniMap()
+            XYZPathCoords = [xMap, yMap, zMap]
         # pathCounter += 1
 
-        # Ignore coords from file if mouse is being used
+        # Ignore coords from file/omni if mouse is being used
         if useMouse:
             XYZPathCoords = None # Problem here - need to get desired point from GUI but kineSolve.intersect() needs argument first
         # End test when last coords reached
@@ -285,15 +289,15 @@ try:
 
         # Return target cable lengths at target coords and jacobian at current coords
         [targetL, targetR, targetT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetX, targetY)
-        tStepP = int(targetP*kineSolve.stepsPMM)
+        tStepP = int(targetP*kineSolve.STEPS_PER_MM)
         tStepP += targDir*antiHystSteps
-        LcRealP = tStepP/kineSolve.stepsPMM
+        LcRealP = tStepP/kineSolve.STEPS_PER_MM
         # For anti-hysteresis in prismatic joint, check target direction and current direction of motion:
         if tStepP > cStepP:
             targDir = 1
         elif tStepP < cStepP:
             targDir = -1
-        # If stopped, preserve previous direction as target: 
+        # If stopped, preserve previous direction as target direction: 
         elif tStepP == cStepP:
             targDir = cDir
 
