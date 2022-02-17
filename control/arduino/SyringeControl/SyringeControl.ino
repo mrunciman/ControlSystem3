@@ -24,7 +24,7 @@ char shakeKey[5] = "TOP"; // INTERRUPTS INVERTED!!!!!
 ////////////////////////////////////////////////////////
 //uStepper S Lite Setup
 #define MAXACCELERATION 10000       //Max acceleration in steps/s^2 (2000 = 5 mm/s^2)
-#define MAXVELOCITY 10000           //Max velocity in steps/s (2000 is 5 mm/s)
+#define MAXVELOCITY 3000           //Max velocity in steps/s (2000 is 5 mm/s)
 float SPEEDP_HIGH = 1000.0;
 float SPEEDP_LOW = 500.0;
 float STEPS_PER_REV = 3200.0;
@@ -178,7 +178,7 @@ void setup() {
   // uStepper S Lite setup - 
   //http://ustepper.com/docs/ustepperslite/html/classuStepperSLite.html#a9522d6afb14f71c6034ece6537180e00
   // stepper.setup();
-  stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
+  stepper.setup(PID, STEPS_PER_REV, 10.0, 0.1, 0.0, true);
   stepper.softStop(SOFT);
 }
 
