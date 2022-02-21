@@ -58,7 +58,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('paths/spiralOnCyl 2021-04-09 13-01-04 10mmRad18.911EqSide.csv', newline = '') as csvPath:
+    with open('control/paths/spiralOnCyl 2021-04-09 13-01-04 10mmRad18.911EqSide.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
