@@ -89,6 +89,7 @@ int stateCount = 0;
 int startTime;
 int STABLE_TIME = 4000; // time in milliseconds reqd for pressure to be at calibration setpoint
 bool lowFlag = false;
+bool highFlag = true;
 
 ////////////////////////////////////////////////////////
 // Stepper variables
@@ -188,12 +189,12 @@ ISR(TIMER2_COMPA_vect){
   // This will be called at 125 Hz, so every SAMP_DIV times set sampling flag, reducing the frequency.
   if (sampCount == SAMP_DIV){
     sampFlag = true;
+    serFlag = true;
     sampCount = 1;
   }
   else {
     sampCount += 1;
   }
-  serFlag = true;
 }
 
 
@@ -203,7 +204,7 @@ void pressureRead() {
   // Stop motor and wait if pressure exceeds maximum
   if (pressureAbs > PRESS_MAX){
     // extInterrupt = true;
-    stepper.softStop(SOFT); // Stop and disable
+    stepper.softStop(HARD); // Stop and disable
   }
   else if (pressureAbs < 0){
     pressureAbs = 0.00;
@@ -285,7 +286,6 @@ void pressInitZeroVol() {
     }
   }
 
-
   switch (motorState) {
     case 0:
       // Stop motor
@@ -315,6 +315,63 @@ void pressInitZeroVol() {
       break;
   }
 }
+
+
+void pressControl() {
+  //Set state for motor motion based on comparison of pressure signal with setpoint
+  //If within pressThresh mbar, don't move motor
+
+  pressureRead();
+  // pressureError = pressureAbs - pressSetpoint;
+  prevMotorState = motorState;
+  // Assign motor state based on pressure
+  if (pressureAbs < pressSetpoint + PRESS_THRESH){
+    if (pressureAbs > pressSetpoint - PRESS_THRESH){
+      highFlag = true;
+      // Pressure is at setpoint minus between 1 and 2 times threshold
+      motorState = 0; // Stationary
+      // Increment counter if previous state was also zero
+      // Pressure is stable if counter reaches some limit
+      if (prevMotorState == 0){
+        stateCount = millis() - startTime;
+      }
+      // Set back to zero if not
+      else{
+        stateCount = 0;
+        startTime = millis();
+      }
+    }
+    else{
+      // Pressure too low, move plunger forward
+      motorState = 1;
+    }
+  }
+  else { // Pressure is higher than upper bound
+    motorState = 2; // Move backwards
+  }
+
+  // Check if volume is too high
+  if (stepCount >= maxSteps){
+    motorState = 0;
+  }
+
+  switch (motorState) {
+    case 0:
+      // Stop
+      break;
+    case 1:
+      //Move motor forwards at 5 mm/s
+      break;
+    case 2:
+      //Move motor back at 5 mm/s
+      break;
+    default:
+      //Just in case nothing matches, stop timer/counter
+      break;
+  }
+}
+
+
 
 
 
@@ -540,7 +597,7 @@ void loop() {
         sampFlag = false;
       }
 
-      if (Serial.available() > 0) { //Changed from serFlag to see if I can make things faster
+      if (serFlag == true) { //Changed from serFlag to see if I can make things faster
         readWriteSerial(); // Read stepIn, send stepCount and pressure
         serFlag = false;
       }
