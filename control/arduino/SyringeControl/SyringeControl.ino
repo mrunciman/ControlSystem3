@@ -577,6 +577,7 @@ void loop() {
           writeSerial('S');
           if (stateCount >= STABLE_TIME){
             // Toggle between high and low setpoints
+            pressSetpoint = pressForceTest;
           }
         }
       }

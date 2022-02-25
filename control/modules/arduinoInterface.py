@@ -61,7 +61,7 @@ def ardConnect():
 class ardInterfacer:
 
     def __init__(self, namePump, ser):
-        # self.pumpName = namePump
+        self.PUMP_NAME = namePump
         # self.portNumber = numPort
         # self.ser = serial.Serial()
         # self.ser.port = 'COM%s' % (self.portNumber) 
@@ -97,8 +97,8 @@ class ardInterfacer:
         on each arduino.
         e.g. top = connect("TOP", 4)
         """
-        # self.ser.open()
-        message = self.pumpName + "\n"
+        self.ser.open()
+        message = self.PUMP_NAME + "\n"
         reply = ""
         message = message.encode('utf-8')    #Encode message
         time.sleep(1)     #give arduino time to set up (there are delays in arduino code for pressure sensor)
@@ -111,7 +111,7 @@ class ardInterfacer:
                 self.ser.reset_input_buffer()
                 reply = reply.decode('ascii')
 
-                if reply == self.pumpName:
+                if reply == self.PUMP_NAME:
                     self.ser.reset_output_buffer()
                     break
 
