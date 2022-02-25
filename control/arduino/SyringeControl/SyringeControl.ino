@@ -90,6 +90,8 @@ int startTime;
 int STABLE_TIME = 4000; // time in milliseconds reqd for pressure to be at calibration setpoint
 bool lowFlag = false;
 bool highFlag = true;
+bool posPressFlag = false;
+double pressForceTest = 2000.00 + PRESS_THRESH;
 
 ////////////////////////////////////////////////////////
 // Stepper variables
@@ -311,7 +313,7 @@ void pressInitZeroVol() {
     default:
       //Just in case nothing matches, stop motor
       // Serial.println("Default");
-      stepper.softStop(SOFT);
+      stepper.softStop(HARD);
       break;
   }
 }
@@ -328,14 +330,14 @@ void pressControl() {
   if (pressureAbs < pressSetpoint + PRESS_THRESH){
     if (pressureAbs > pressSetpoint - PRESS_THRESH){
       highFlag = true;
-      // Pressure is at setpoint minus between 1 and 2 times threshold
+      // Pressure is at setpoint plus or minus threshold
       motorState = 0; // Stationary
       // Increment counter if previous state was also zero
       // Pressure is stable if counter reaches some limit
       if (prevMotorState == 0){
         stateCount = millis() - startTime;
       }
-      // Set back to zero if not
+      // Set back to zero if pressure previously out of threshold
       else{
         stateCount = 0;
         startTime = millis();
@@ -350,25 +352,39 @@ void pressControl() {
     motorState = 2; // Move backwards
   }
 
-  // Check if volume is too high
-  if (stepCount >= maxSteps){
-    motorState = 0;
+  // If close to target pressure, use finer movements
+  if (motorState == 1 || motorState == 2){
+    // if within 50 mbar of target pressure go slower
+    if (abs(pressureError) < PRESS_FINE){ 
+      pressSteps = 16;
+      // stepper.setMaxVelocity(SPEEDP_LOW);
+    }
+    else{
+      pressSteps = 64;
+      // stepper.setMaxVelocity(SPEEDP_HIGH);
+    }
   }
 
   switch (motorState) {
     case 0:
       // Stop
+      stepper.softStop(HARD);
       break;
     case 1:
-      //Move motor forwards at 5 mm/s
+      //Move motor forwards
+      stepper.moveSteps(pressSteps, CCW, HARD);
       break;
     case 2:
-      //Move motor back at 5 mm/s
+      //Move motor back
+      stepper.moveSteps(pressSteps, CW, HARD);
       break;
     default:
-      //Just in case nothing matches, stop timer/counter
+      //Stop just in case nothing matches
+      stepper.softStop(HARD);
       break;
   }
+  angMeas = stepper.encoder.getAngleMoved();
+  stepCount = int(angMeas*STEPS_PER_REV/DEG_PER_REV);
 }
 
 
@@ -554,37 +570,51 @@ void loop() {
     //////////////////////////////////////////////////////////////////////////////////////////
     //Calibration
     case 3:
-      pressInitZeroVol();
-
-      if (sampFlag == true) {
-        // If enough time has passed, say volume is 0, tell python and move on
-        if (stateCount >= STABLE_TIME){
-          // Step count should now be zero - muscle empty.
-          stepCount = 0;
-          stepper.encoder.setHome();
-          // Notify that calibration is done
-          writeSerial('P');
-          stepper.hardStop(HARD);
-          pressFlag = false;
+      if (posPressFlag == true){
+        
+        if (sampFlag == true) {
+          pressControl();
+          writeSerial('S');
+          if (stateCount >= STABLE_TIME){
+            // Toggle between high and low setpoints
+          }
         }
-        else{
-          // Check for disconnection
-          if (Serial.available() > 0) {
-            firstDigit = Serial.read();
-            if (firstDigit == 83) {
-              stepRecv = Serial.readStringUntil('\n');
-              if (stepRecv == "Closed"){
-                disconFlag = true;
-                writeSerial('D');
+      }
+      else{
+        pressInitZeroVol();
+
+        if (sampFlag == true) {
+          // If enough time has passed, say volume is 0, tell python and move on
+          if (stateCount >= STABLE_TIME){
+            // Step count should now be zero - muscle empty.
+            stepCount = 0;
+            stepper.encoder.setHome();
+            // Notify that calibration is done
+            writeSerial('P');
+            stepper.hardStop(HARD);
+            posPressFlag = true; // TRANSITION HERE TO POSITIVE PRESSURE CONTROL
+            pressSetpoint = pressForceTest;
+            // pressFlag = false;
+          }
+          else{
+            // Check for disconnection
+            if (Serial.available() > 0) {
+              firstDigit = Serial.read();
+              if (firstDigit == 83) {
+                stepRecv = Serial.readStringUntil('\n');
+                if (stepRecv == "Closed"){
+                  disconFlag = true;
+                  writeSerial('D');
+                }
               }
             }
+            // If no reply, say calibration in progress
+            else{
+              writeSerial('p');
+            }
           }
-          // If no reply, say calibration in progress
-          else{
-            writeSerial('p');
-          }
+          sampFlag = false;
         }
-        sampFlag = false;
       }
       break;
 
