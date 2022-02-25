@@ -76,6 +76,7 @@ int PRESS_THRESH = 10;//mbar
 int PRESS_MAX = 3500;
 int PRESS_MIN = 400;
 int PRESS_FINE = 50; // When within this threshold, use finer movements
+double PRESS_LOW = 1000.00;
 double pressSetpoint = 850.00;//mbar
 bool pressFlag = true;
 int pressureError;
@@ -91,7 +92,7 @@ int STABLE_TIME = 4000; // time in milliseconds reqd for pressure to be at calib
 bool lowFlag = false;
 bool highFlag = true;
 bool posPressFlag = false;
-double pressForceTest = 2000.00 + PRESS_THRESH;
+double PRESS_FORCE_TEST = 2000.00 + PRESS_THRESH;
 
 ////////////////////////////////////////////////////////
 // Stepper variables
@@ -279,11 +280,11 @@ void pressInitZeroVol() {
   if (motorState == 1 || motorState == 2){
     // if within 50 mbar of target pressure go slower
     if (abs(pressureError) < PRESS_FINE){ 
-      pressSteps = 16;
+      pressSteps = 10;
       // stepper.setMaxVelocity(SPEEDP_LOW);
     }
     else{
-      pressSteps = 64;
+      pressSteps = 50;
       // stepper.setMaxVelocity(SPEEDP_HIGH);
     }
   }
@@ -298,7 +299,7 @@ void pressInitZeroVol() {
       //Move motor forwards
       // if not moving or it is moving clockwise:
       // if (!stepper.getMotorState() || !stepper.getCurrentDirection()){ 
-      stepper.moveSteps(pressSteps, CCW, HARD);
+      stepper.moveSteps(pressSteps, CW, HARD);
       // }
       //Serial.println("INCREASE PRESSURE");
       break;
@@ -306,7 +307,7 @@ void pressInitZeroVol() {
       //Move motor backwards
       // if not moving or it is moving anticlockwise
       // if (!stepper.getMotorState() || stepper.getCurrentDirection() ){ 
-      stepper.moveSteps(pressSteps, CW, HARD);
+      stepper.moveSteps(pressSteps, CCW, HARD);
       // }
       //Serial.println("DECREASE PRESSURE");
       break;
@@ -356,11 +357,11 @@ void pressControl() {
   if (motorState == 1 || motorState == 2){
     // if within 50 mbar of target pressure go slower
     if (abs(pressureError) < PRESS_FINE){ 
-      pressSteps = 16;
+      pressSteps = 10;
       // stepper.setMaxVelocity(SPEEDP_LOW);
     }
     else{
-      pressSteps = 64;
+      pressSteps = 50;
       // stepper.setMaxVelocity(SPEEDP_HIGH);
     }
   }
@@ -372,11 +373,11 @@ void pressControl() {
       break;
     case 1:
       //Move motor forwards
-      stepper.moveSteps(pressSteps, CCW, HARD);
+      stepper.moveSteps(pressSteps, CW, HARD);
       break;
     case 2:
       //Move motor back
-      stepper.moveSteps(pressSteps, CW, HARD);
+      stepper.moveSteps(pressSteps, CCW, HARD);
       break;
     default:
       //Stop just in case nothing matches
@@ -498,7 +499,7 @@ void stepAftertStep(){
 void writeSerial(char msg){
   writeTime = millis();
   if (msg == 'S'){ // Normal operation, send stepCount etc
-    sprintf(data, "%04d,%d,%lu%s", stepCount, int(pressureAbs*10), writeTime, endByte);
+    sprintf(data, "%05d,%d,%lu%s", stepCount, int(pressureAbs*10), writeTime, endByte);
   }
   else if (msg == 'D'){ // Python cut off comms, acknowledge this
     sprintf(data, "%s%s,%d,%lu%s", disableMsg, shakeKey, int(pressureAbs*10), writeTime, endByte);
@@ -510,7 +511,7 @@ void writeSerial(char msg){
     sprintf(data, "%04d%s,%d,%lu%s", STABLE_TIME-stateCount, shakeKey, int(pressureAbs*10), writeTime, endByte);
   }
   else if(msg = 'P'){ // Calibration finished
-    sprintf(data, "%04d%s,%d,%lu%s", stepCount, shakeKey, int(pressureAbs*10), writeTime, endByte);
+    sprintf(data, "%05d%s,%d,%lu%s", stepCount, shakeKey, int(pressureAbs*10), writeTime, endByte);
   }
   Serial.write(data);
 }
@@ -577,7 +578,13 @@ void loop() {
           writeSerial('S');
           if (stateCount >= STABLE_TIME){
             // Toggle between high and low setpoints
-            pressSetpoint = pressForceTest;
+            if (pressSetpoint == PRESS_FORCE_TEST){
+              pressSetpoint = PRESS_LOW;
+            }
+            else if (pressSetpoint == PRESS_LOW){
+              pressSetpoint = PRESS_FORCE_TEST;
+            }
+            
           }
         }
       }
@@ -594,7 +601,8 @@ void loop() {
             writeSerial('P');
             stepper.hardStop(HARD);
             posPressFlag = true; // TRANSITION HERE TO POSITIVE PRESSURE CONTROL
-            pressSetpoint = pressForceTest;
+            pressSetpoint = PRESS_FORCE_TEST;
+            stateCount = 0;
             // pressFlag = false;
           }
           else{

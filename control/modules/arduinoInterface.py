@@ -158,17 +158,17 @@ class ardInterfacer:
 
         stepPress = stepPress.decode('utf-8')
         stepPress = stepPress.split(',')
-        # print(stepPress)
+        print(stepPress)
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
 
         # IF STEP COUNT = L_'pumpName' STOP AND DISCONNECT ALL
-
+        print(stepPress)
         if stepPress == ['']:
             stepCount = "S_Empty" # Change this later to handle dropped values
             pumpPress = "P_Empty"
             pumpTime = "T_Empty"
-        else:
+        elif len(stepPress) == 3:
             stepCount = stepPress[0]
             if "L " in stepCount: # If "L " in stepPress then limit hit/pressure error
                 print("In from arduino: ", stepPress)
@@ -176,8 +176,12 @@ class ardInterfacer:
             pumpPress = float(stepPress[1])/10
             # if pumpPress < 0:
             #     print("Negative pressure: ", stepPress)
-            #     raise TypeError('Error reading pressure in main loop')
+            #     raise TypeError('Error reading pressure isn main loop')
             pumpTime = int(stepPress[2])
+        else:
+            stepCount = stepPress
+            pumpPress = 0
+            pumpTime = 0
         return stepCount, pumpPress, pumpTime
 
 
@@ -189,45 +193,49 @@ class ardInterfacer:
             pumpTime = timeIn
             return stepCount, pumpPress, pumpTime
         else:
-            x = "e"
-            stepPress = b""
-            while self.ser.in_waiting == 0:
-                pass
-            # Check for end character
-            while ord(x) != ord("E"):
-                x = self.ser.read()
-                if x == b"":
-                    break
-                elif x == b"E":
-                    break
-                stepPress = stepPress + x
-
-            stepPress = stepPress.decode('utf-8')
-            stepPress = stepPress.split(',')
-            self.ser.reset_input_buffer()
-            self.ser.reset_output_buffer()
-
-            if stepPress == b"":
-                stepCount = "S_Empty" # Change this later to handle dropped values
-                pumpPress = "P_Empty"
-                pumpTime = "T_Empty"
-            else:
-                # print(stepPress)
-                stepCount = stepPress[0]
-                if "L " in stepCount: # If "L " in stepPress then limit hit/pressure error
-                    print("In from arduino: ", stepPress)
-                    raise TypeError('Pressure limit or switch hit during calibration')
-                pumpPress = float(stepPress[1])/10
-                # if pumpPress < 0:
-                #     print("Negative pressure: ", stepPress)
-                #     raise TypeError('Error reading pressure during calibration')
-                pumpTime = int(stepPress[2])
-
-            # if (isPumpZero == True):
-            #     stepCount = 0
-            #     pumpPress = pressIn
-            #     pumpTime = timeIn
+            [stepCount, pumpPress, pumpTime] = self.listenReply()
             return stepCount, pumpPress, pumpTime
+        # else:
+        #     x = "e"
+        #     stepPress = b""
+        #     while self.ser.in_waiting == 0:
+        #         pass
+        #     # Check for end character
+        #     while ord(x) != ord("E"):
+        #         x = self.ser.read()
+        #         if x == b"":
+        #             break
+        #         elif x == b"E":
+        #             break
+        #         stepPress = stepPress + x
+
+        #     stepPress = stepPress.decode('utf-8')
+        #     stepPress = stepPress.split(',')
+        #     self.ser.reset_input_buffer()
+        #     self.ser.reset_output_buffer()
+        #     print("In from arduino: ", stepPress)
+
+        #     if stepPress == b"":
+        #         stepCount = "S_Empty" # Change this later to handle dropped values
+        #         pumpPress = "P_Empty"
+        #         pumpTime = "T_Empty"
+        #     else:
+        #         # print(stepPress)
+        #         stepCount = stepPress[0]
+        #         if "L " in stepCount: # If "L " in stepPress then limit hit/pressure error
+        #             print("In from arduino: ", stepPress)
+        #             raise TypeError('Pressure limit or switch hit during calibration')
+        #         pumpPress = float(stepPress[1])/10
+        #         # if pumpPress < 0:
+        #         #     print("Negative pressure: ", stepPress)
+        #         #     raise TypeError('Error reading pressure during calibration')
+        #         pumpTime = int(stepPress[2])
+
+        #     # if (isPumpZero == True):
+        #     #     stepCount = 0
+        #     #     pumpPress = pressIn
+        #     #     pumpTime = timeIn
+        #     return stepCount, pumpPress, pumpTime
 
     def newPressMed(self, newPress):
         self.press10 = self.press9

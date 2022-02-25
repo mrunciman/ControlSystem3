@@ -228,7 +228,7 @@ try:
         # [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
         # print(realStepR, pressR)
         [realStepT, pressT, timeT] = ardIntTOP.listenZero(calibT, pressT, timeT)
-        print(realStepT, pressT)
+        # print(realStepT, pressT)
         # [realStepP, pressP, timeP] = ardIntPRI.listenZero(calibP, pressP, timeP)
         # print(realStepP, calibP)
         # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()

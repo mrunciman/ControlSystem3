@@ -1,8 +1,10 @@
 control/__pycache__/
-control/modules/__pycache__/*
+control/modules/__pycache__/**
+**__pycache__/
 control/logs/
 control/paths/
 .venv-inflate/
 .venv-deploy/
 control/arduino/SyringeControl/.vscode/
 .vscode/
+*.pyc
