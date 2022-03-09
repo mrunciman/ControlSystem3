@@ -222,7 +222,6 @@ void pressureRead() {
 void pressInitZeroVol() {
   //Set state for motor motion based on comparison of pressure signal with setpoint
   pressureRead();
-  // pressureAbs = 1000.00;
   pressureError = pressureAbs - pressSetpoint;
   prevMotorState = motorState;
   // Assign motor state based on pressure error
@@ -384,8 +383,6 @@ void pressControl() {
       stepper.softStop(HARD);
       break;
   }
-  angMeas = stepper.encoder.getAngleMoved();
-  stepCount = int(angMeas*STEPS_PER_REV/DEG_PER_REV);
 }
 
 
@@ -574,18 +571,23 @@ void loop() {
       if (posPressFlag == true){
         
         if (sampFlag == true) {
-          pressControl();
-          writeSerial('S');
-          if (stateCount >= STABLE_TIME){
-            // Toggle between high and low setpoints
-            if (pressSetpoint == PRESS_FORCE_TEST){
+          sampFlag = false;
+          // Toggle between high and low setpoints
+          if (pressSetpoint == PRESS_FORCE_TEST){
+            pressControl();
+            if (pressureAbs >= PRESS_FORCE_TEST){
               pressSetpoint = PRESS_LOW;
             }
-            else if (pressSetpoint == PRESS_LOW){
+          }
+          else if (pressSetpoint == PRESS_LOW){
+            pressInitZeroVol();
+            if (pressureAbs <= PRESS_LOW){
               pressSetpoint = PRESS_FORCE_TEST;
             }
-            
           }
+          angMeas = stepper.encoder.getAngleMoved();
+          stepCount = int(angMeas*STEPS_PER_REV/DEG_PER_REV);
+          writeSerial('S');
         }
       }
       else{
