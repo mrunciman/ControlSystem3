@@ -172,44 +172,43 @@ pneuPress = 2000
 # Create function to find available COM ports, listen to replies, and assign COM ports based on replies
 [pumpCOMS, pumpSer, pumpNames] = arduinoInterface.ardConnect()
 
-topCOM = pumpCOMS[pumpNames[2]]
+# topCOM = pumpCOMS[pumpNames[2]]
 # print(topCOM)
-topSer = pumpSer[topCOM]
+# topSer = pumpSer[topCOM]
 # print(topSer)
 
 
 # Set COM port for each pump by using its handshake key
-if len(pumpCOMS) == 5:
-    lhsCOM = pumpCOMS(pumpNames[0])
-    rhsCOM = pumpCOMS(pumpNames[1])
-    topCOM = pumpCOMS(pumpNames[2])
-    priCOM = pumpCOMS(pumpNames[3])
-    pneuCOM = pumpCOMS(pumpNames[4])
+if len(pumpCOMS) == 4:
+    lhsCOM = pumpCOMS[pumpNames[0]]
+    rhsCOM = pumpCOMS[pumpNames[1]]
+    topCOM = pumpCOMS[pumpNames[2]]
+    priCOM = pumpCOMS[pumpNames[3]]
+    # pneuCOM = pumpCOMS[pumpNames[4]]
 
     lhsSer = pumpSer[lhsCOM]
     rhsSer = pumpSer[rhsCOM]
     topSer = pumpSer[topCOM]
     priSer = pumpSer[priCOM]
-    pneuSer = pumpSer[pneuCOM]
+    # pneuSer = pumpSer[pneuCOM]
 # else:
     # use data from file
     # pass
 
 CLOSEMESSAGE = "Closed"
 try:
-    # ardIntLHS = arduinoInterface.ard
-    # Interfacer(pumpNames[0], lhsSer)
-    # reply = ardIntLHS.connect()
-    # print(reply)
-    # ardIntRHS = arduinoInterface.ardInterfacer(pumpNames[1], rhsSer)
-    # reply = ardIntRHS.connect()
-    # print(reply)
+    ardIntLHS = arduinoInterface.ardInterfacer(pumpNames[0], lhsSer)
+    reply = ardIntLHS.connect()
+    print(reply)
+    ardIntRHS = arduinoInterface.ardInterfacer(pumpNames[1], rhsSer)
+    reply = ardIntRHS.connect()
+    print(reply)
     ardIntTOP = arduinoInterface.ardInterfacer(pumpNames[2], topSer)
     reply = ardIntTOP.connect()
     print(reply)
-    # ardIntPRI = arduinoInterface.ardInterfacer(pumpNames[3], priSer)
-    # reply = ardIntPRI.connect()
-    # print(reply)
+    ardIntPRI = arduinoInterface.ardInterfacer(pumpNames[3], priSer)
+    reply = ardIntPRI.connect()
+    print(reply)
     # ardIntPNEU = arduinoInterface.ardInterfacer(pumpNames[4], pneuSer)
     # reply = ardIntPNEU.connect()
     # print(reply)
@@ -220,30 +219,30 @@ try:
     calibR = False
     calibT = False
     calibP = False
-    calibA = False
+    calibA = True
     # Has the mechanism been calibrated/want to run without calibration?:
     calibrated = False
     # Perform calibration:
     while (not calibrated):
-        # [realStepL, pressL, timeL] = ardIntLHS.listenZero(calibL, pressL, timeL)
-        # print(realStepL, pressL)
-        # [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
-        # print(realStepR, pressR)
+        [realStepL, pressL, timeL] = ardIntLHS.listenZero(calibL, pressL, timeL)
+        print(realStepL, pressL)
+        [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
+        print(realStepR, pressR)
         [realStepT, pressT, timeT] = ardIntTOP.listenZero(calibT, pressT, timeT)
-        # print(realStepT, pressT)
-        # [realStepP, pressP, timeP] = ardIntPRI.listenZero(calibP, pressP, timeP)
-        # print(realStepP, calibP)
+        print(realStepT, pressT)
+        [realStepP, pressP, timeP] = ardIntPRI.listenZero(calibP, pressP, timeP)
+        print(realStepP, calibP)
         # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
         # print(pressA, calibA)
 
-        # if (realStepL == "0000LHS"):
-        #     calibL = True
-        # if (realStepR == "0000RHS"):
-        #     calibR = True
+        if (realStepL == "0000LHS"):
+            calibL = True
+        if (realStepR == "0000RHS"):
+            calibR = True
         if (realStepT == "0000TOP"):
             calibT = False
-        # if (realStepP == "0200PRI"):
-            # calibP = True
+        if (realStepP == "0200PRI"):
+            calibP = True
         # if (pressA >= pneuPress):
         #     calibA = True
         if (calibL * calibR * calibT * calibP * calibA == 1):
@@ -252,8 +251,14 @@ try:
             StepNoL, StepNoR, StepNoT, StepNoP, StepNoA = 0
             pressLMed, pressRMed, pressTMed, pressPMed, pressAMed = 0
 
+        ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
+        ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
         ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
+        ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
+        # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
+        # ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
         ardLogging.ardRowInc()
+        print(ardLogging.ardData)
 
     ################################################################
     # Begin main loop
@@ -275,7 +280,7 @@ try:
             phntmOmni.getOmniCoords()
             [xMap, yMap, zMap] = phntmOmni.omniMap()
             XYZPathCoords = [xMap, yMap, zMap]
-        # pathCounter += 1
+        pathCounter += 1
 
         # Ignore coords from file/omni if mouse is being used
         if useMouse:
@@ -351,7 +356,7 @@ try:
         pressLMed = ardIntLHS.newPressMed(pressL)
         pressRMed = ardIntRHS.newPressMed(pressR)
         pressTMed = ardIntTOP.newPressMed(pressT)
-        pressAMed = ardIntPNEU.newPressMed(pressA)
+        # pressAMed = ardIntPNEU.newPressMed(pressA)
         [conLHS, dLHS] = ardIntLHS.derivPress(timeL, prevTimeL)
         [conRHS, dRHS] =  ardIntRHS.derivPress(timeR, prevTimeR)
         [conTOP, dTOP] = ardIntTOP.derivPress(timeT, prevTimeT)
@@ -379,19 +384,27 @@ try:
         prevTimeT = timeT
 
         # Log values from arduinos
-        ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL,\
-            realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed,  timeR,\
-            realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT,\
-            realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP,\
-            realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA,\
-            conLHS, conRHS, conTOP, collisionAngle)
+        # ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL,\
+        #     realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed,  timeR,\
+        #     realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT,\
+        #     realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP,\
+        #     realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA,\
+        #     conLHS, conRHS, conTOP, collisionAngle)
+
+        ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
+        ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
+        ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
+        ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
+        # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
+        ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
+        ardLogging.ardRowInc()
 
         # Get current pump position, pressure and times from arduinos
         [realStepL, pressL, timeL] = ardIntLHS.listenReply()
         [realStepR, pressR, timeR] = ardIntRHS.listenReply()
         [realStepT, pressT, timeT] = ardIntTOP.listenReply()
         [realStepP, pressP, timeP] = ardIntPRI.listenReply()
-        [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
+        # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
 
     # Close GUI if Esc hit
     # flagStop = mouseTrack.closeTracker()
@@ -419,52 +432,58 @@ finally:
     # Disable pumps and set them to idle state
     try:
         # Save values gathered from arduinos
+        ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
+        ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
         ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
+        ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
+        # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
+        ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
+        ardLogging.ardRowInc()
         ardLogging.ardSave()
 
         # flagStop = mouseTrack.closeTracker()
         flagStop = True
 
-        # if ardIntLHS.ser.is_open:
-        #     ardIntLHS.sendStep(CLOSEMESSAGE)
+        if ardIntLHS.ser.is_open:
+            ardIntLHS.sendStep(CLOSEMESSAGE)
 
-        # if ardIntRHS.ser.is_open:
-        #     ardIntRHS.sendStep(CLOSEMESSAGE)
+        if ardIntRHS.ser.is_open:
+            ardIntRHS.sendStep(CLOSEMESSAGE)
         
         if ardIntTOP.ser.is_open:
             ardIntTOP.sendStep(CLOSEMESSAGE)
 
-        # if ardIntPRI.ser.is_open:
-        #     ardIntPRI.sendStep(CLOSEMESSAGE)
+        if ardIntPRI.ser.is_open:
+            ardIntPRI.sendStep(CLOSEMESSAGE)
 
         # if ardIntPNEU.ser.is_open:
         #     ardIntPNEU.sendStep(CLOSEMESSAGE)
 
-        # time.sleep(0.2)
-        # [realStepL, pressL, timeL] = ardIntLHS.listenReply()
-        # print(realStepL, pressL, timeL)
-        # time.sleep(0.2)
-        # [realStepR, pressR, timeR] = ardIntRHS.listenReply()
-        # print(realStepR, pressR, timeR)
+        time.sleep(0.2)
+        [realStepL, pressL, timeL] = ardIntLHS.listenReply()
+        print(realStepL, pressL, timeL)
+        time.sleep(0.2)
+        [realStepR, pressR, timeR] = ardIntRHS.listenReply()
+        print(realStepR, pressR, timeR)
         time.sleep(0.2)
         [realStepT, pressT, timeT] = ardIntTOP.listenReply()
         print(realStepT, pressT, timeT)
-        # time.sleep(0.2)
-        # [realStepP, pressP, timeP] = ardIntPRI.listenReply()
-        # print(realStepP, pressP, timeP)
-        # time.sleep(0.2)
+        time.sleep(0.2)
+        [realStepP, pressP, timeP] = ardIntPRI.listenReply()
+        print(realStepP, pressP, timeP)
+        time.sleep(0.2)
         # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
         # print(realStepA, pressA, timeA)
 
     except NameError:
-        # reply = ardIntLHS.connect()
-        # print(reply)
-        # reply = ardIntRHS.connect()
-        # print(reply)
+        reply = ardIntLHS.connect()
+        print(reply)
+        reply = ardIntRHS.connect()
+        print(reply)
         reply = ardIntTOP.connect()
         print(reply)
-        # reply = ardIntPRI.connect()
-        # print(reply)
+        reply = ardIntPRI.connect()
+        print(reply)
         # reply = ardIntPNEU.connect()
         # print(reply)
 
@@ -474,10 +493,10 @@ finally:
         # print(tb_textTE)
 
     # Close serial connections
-    # ardIntLHS.ser.close()
-    # ardIntRHS.ser.close()
+    ardIntLHS.ser.close()
+    ardIntRHS.ser.close()
     ardIntTOP.ser.close()
-    # ardIntPRI.ser.close()
+    ardIntPRI.ser.close()
     # ardIntPNEU.ser.close()
 
 

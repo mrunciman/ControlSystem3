@@ -16,7 +16,7 @@
 // Handshake variables
 bool shakeFlag = false;
 String shakeInput; // 3 bit password to assign pump name/position
-char shakeKey[5] = "TOP"; // INTERRUPTS INVERTED!!!!!
+char shakeKey[5] = "TOP";
 // TOP = 7, RHS = 6, LHS = 8
 // PRI = 10, PNEU = 15
 
@@ -422,6 +422,7 @@ void readWriteSerial() {
     if (stepRecv == "Closed"){
       // Disable the motor
       disconFlag = true;
+      stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
       stepper.disableMotor(); // digitalWrite(enablePin, HIGH);
       //Send disable message
       writeSerial('D');
@@ -615,6 +616,8 @@ void loop() {
                 stepRecv = Serial.readStringUntil('\n');
                 if (stepRecv == "Closed"){
                   disconFlag = true;
+                  // Reset using the setup function
+                  stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
                   writeSerial('D');
                 }
               }

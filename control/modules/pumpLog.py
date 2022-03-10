@@ -26,35 +26,19 @@ with open(fileName, mode ='w', newline='') as arduinoLog1:
 class ardLogger():
 
     def __init__(self):
-        self.ardData = []
+        self.ardData = [[], []]
         self.numRows = 0
 
     def ardLog(self, secondstep, length, theta, primarystep, press, median, timems):
-    # lhsS, lhsLc, lhsA, lhsMaster, lhsP, lhsMed, lhsT,\
-        # rhsS, rhsLc, rhsA, rhsMaster, rhsP, rhsMed, rhsT,\
-        # topS, topLc, topA, topMaster, topP, topMed, topT,\
-        # extS, extLc, extA, extMaster, extP, extMed, extT,\
-        # pneuS, pneuLc, pneuA, pneuMaster, pneuP, pneuMed, pneuT,\
-        # lhsC, rhsC, topC, degC):
         """
         Save stepCount, master cable lengths, pressure values and time 
         from pumps in a list to later save in csv.
         """
-        # # Take a list as an argument and unpack that?
-        # args = locals() # Dictionary of input arguments
-        # args.pop('self') # Take argument 'self' out of dictionary
-        # self.ardData.append([i for i in args.values()])
-        self.ardData.append([secondstep] + [length] + [theta] + [primarystep] + [press] + [median] + [timems])
-        # print(self.ardData[self.numRows])
-        # self.numRows = self.numRows + 1
-
-        # ardData.append([lhsS] + [lhsLc] + [lhsA] + [lhsMaster] + [lhsP] + [lhsT]\
-        #     + [rhsS] + [rhsLc] + [rhsA] + [rhsMaster] + [rhsP] + [rhsT]\
-        #     + [topS] + [topLc] + [topA] + [topMaster] + [topP] + [topT])
+        self.ardData[self.numRows] = self.ardData[self.numRows] + [secondstep] + [length] + [theta] + [primarystep] + [press] + [median] + [timems]
         return
 
     def ardLogCollide(self, lhsC, rhsC, topC, degC):
-        self.ardData.append([lhsC] + [rhsC] + [topC] + [degC])
+        self.ardData[self.numRows] = self.ardData[self.numRows] + [lhsC] + [rhsC] + [topC] + [degC]
         return
 
     def ardRowInc(self):

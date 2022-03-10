@@ -19,8 +19,8 @@ import struct
 from threading import Thread
 import copy
 import time
-from NatNetClient import DataDescriptions
-from NatNetClient import MoCapData
+from modules import DataDescriptions
+from modules import MoCapData
 
 def trace( *args ):
     # uncomment the one you want to use

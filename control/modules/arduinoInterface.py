@@ -15,7 +15,7 @@ def ardConnect():
     for comport in serial.tools.list_ports.comports():
         comlist.append(comport.device)
 
-    PUMPNAMES = ['LHS', 'RHS', 'TOP', 'PRI', 'PNEU']
+    PUMPNAMES = ['LHS', 'RHS', 'TOP', 'PRI']#, 'PNEU']
     pumpDict = {}
     serialDict = {}
 
@@ -158,7 +158,7 @@ class ardInterfacer:
 
         stepPress = stepPress.decode('utf-8')
         stepPress = stepPress.split(',')
-        print(stepPress)
+        # print(stepPress)
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
 
