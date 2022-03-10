@@ -2,9 +2,9 @@ import csv
 import os
 import time
 import sys
-from modules.NatNetClient import NatNetClient
-from modules.NatNetClient import DataDescriptions
-from modules.NatNetClient import MoCapData
+from NatNetClient import NatNetClient
+from NatNetClient import DataDescriptions
+from NatNetClient import MoCapData
 
 location = os.path.dirname(__file__)
 parent = os.path.dirname(location)

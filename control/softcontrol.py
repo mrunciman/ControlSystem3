@@ -36,17 +36,10 @@ sideLength = 30 # mm, from workspace2 model
 kineSolve = kinematics.kineSolver(sideLength)
 mouseTrack = mouseGUI.mouseTracker(sideLength)
 ardLogging = pumpLog.ardLogger()
-opTrack = optiStream.optiTracker()
+# opTrack = optiStream.optiTracker()
 phntmOmni = omniStream.omniStreamer()
-# opTrack.closeSocket()
-cnt = 0
-while(cnt<10):
-    opTrack.readSocket()
-    print("done")
-    cnt += 1
 
-opTrack.optiSave()
-opTrack.closeSocket()
+
 
 ############################################################
 pathCounter = 0
