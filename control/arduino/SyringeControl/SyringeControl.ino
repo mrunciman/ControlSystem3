@@ -72,6 +72,7 @@ String flushInputBuffer;
 // Pressure sensor variables
 MS5803 sensor(ADDRESS_LOW);//CSB pin pulled low, so address low
 double pressureAbs = 1000.00; // Initial value
+int pressureX10 = int(pressureAbs*10);
 int PRESS_THRESH = 10;//mbar
 int PRESS_MAX = 3500;
 int PRESS_MIN = 400;
@@ -422,10 +423,11 @@ void readWriteSerial() {
     if (stepRecv == "Closed"){
       // Disable the motor
       disconFlag = true;
+      writeSerial('D');
       stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
       stepper.disableMotor(); // digitalWrite(enablePin, HIGH);
       //Send disable message
-      writeSerial('D');
+      
     }
     else{
       stepIn = stepRecv.toInt();
@@ -496,20 +498,21 @@ void stepAftertStep(){
 
 void writeSerial(char msg){
   writeTime = millis();
+  pressureX10 = int(pressureAbs*10);
   if (msg == 'S'){ // Normal operation, send stepCount etc
-    sprintf(data, "%05d,%d,%lu%s", stepCount, int(pressureAbs*10), writeTime, endByte);
+    sprintf(data, "%05d,%d,%lu%s", stepCount, pressureX10, writeTime, endByte);
   }
   else if (msg == 'D'){ // Python cut off comms, acknowledge this
-    sprintf(data, "%s%s,%d,%lu%s", disableMsg, shakeKey, int(pressureAbs*10), writeTime, endByte);
+    sprintf(data, "%s%s,%d,%lu%s", disableMsg, shakeKey, pressureX10, writeTime, endByte);
   }
   else if (msg == 'L'){ // Limit switch hit, advise Python
-    sprintf(data, "%s%s,%d,%lu%s", limitHit, shakeKey, int(pressureAbs*10), writeTime, endByte);
+    sprintf(data, "%s%s,%d,%lu%s", limitHit, shakeKey, pressureX10, writeTime, endByte);
   }
   else if (msg == 'p'){ // Calibrating
-    sprintf(data, "%04d%s,%d,%lu%s", STABLE_TIME-stateCount, shakeKey, int(pressureAbs*10), writeTime, endByte);
+    sprintf(data, "%04d%s,%d,%lu%s", STABLE_TIME-stateCount, shakeKey, pressureX10, writeTime, endByte);
   }
   else if(msg = 'P'){ // Calibration finished
-    sprintf(data, "%05d%s,%d,%lu%s", stepCount, shakeKey, int(pressureAbs*10), writeTime, endByte);
+    sprintf(data, "%05d%s,%d,%lu%s", stepCount, shakeKey, pressureX10, writeTime, endByte);
   }
   Serial.write(data);
 }
@@ -550,6 +553,7 @@ void loop() {
       flushInputBuffer = Serial.readStringUntil('\n');
       // Notify that limit hit
       writeSerial('L');
+      stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
       break;
 
     //////////////////////////////////////////////////////////////////////////////////////////
@@ -561,7 +565,7 @@ void loop() {
     //////////////////////////////////////////////////////////////////////////////////////////
     //Disconnection
     case 2:
-      stepper.softStop(SOFT);
+      // stepper.softStop(SOFT);
       // Turn off timers for interrupts
       TCCR2B = 0;
       break;
@@ -569,10 +573,10 @@ void loop() {
     //////////////////////////////////////////////////////////////////////////////////////////
     //Calibration
     case 3:
-      if (posPressFlag == true){
-        
-        if (sampFlag == true) {
-          sampFlag = false;
+      if (sampFlag == true) {
+        sampFlag = false;
+
+        if (posPressFlag == true){ // Positive pressure test
           // Toggle between high and low setpoints
           if (pressSetpoint == PRESS_FORCE_TEST){
             pressControl();
@@ -590,11 +594,9 @@ void loop() {
           stepCount = int(angMeas*STEPS_PER_REV/DEG_PER_REV);
           writeSerial('S');
         }
-      }
-      else{
-        pressInitZeroVol();
-
-        if (sampFlag == true) {
+        else{
+          // CALIBRATE
+          pressInitZeroVol();
           // If enough time has passed, say volume is 0, tell python and move on
           if (stateCount >= STABLE_TIME){
             // Step count should now be zero - muscle empty.
@@ -606,29 +608,29 @@ void loop() {
             posPressFlag = true; // TRANSITION HERE TO POSITIVE PRESSURE CONTROL
             pressSetpoint = PRESS_FORCE_TEST;
             stateCount = 0;
-            // pressFlag = false;
+            pressFlag = false; // TRANSITION TO ACTIVE STATE (OVERRIDES POSITIVE PRESSURE FLAG)
           }
-          else{
-            // Check for disconnection
-            if (Serial.available() > 0) {
-              firstDigit = Serial.read();
-              if (firstDigit == 83) {
-                stepRecv = Serial.readStringUntil('\n');
-                if (stepRecv == "Closed"){
-                  disconFlag = true;
-                  // Reset using the setup function
-                  stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
-                  writeSerial('D');
-                }
-              }
-            }
-            // If no reply, say calibration in progress
-            else{
-              writeSerial('p');
-            }
-          }
-          sampFlag = false;
         }
+
+        // Check for disconnection
+        if (Serial.available() > 0) {
+          firstDigit = Serial.read();
+          if (firstDigit == 83) {
+            stepRecv = Serial.readStringUntil('\n');
+            if (stepRecv == "Closed"){
+              disconFlag = true;
+              writeSerial('D');
+              // Reset using the setup function
+              stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
+              
+            }
+          }
+        }
+        // If no reply, say calibration in progress
+        else{
+          writeSerial('p');
+        }
+        
       }
       break;
 
@@ -641,12 +643,14 @@ void loop() {
         sampFlag = false;
       }
 
-      if (serFlag == true) { //Changed from serFlag to see if I can make things faster
+      if (serFlag == true) { //Changed from serFlag to see if I can make things faster   if (Serial.available() > 0) 
         readWriteSerial(); // Read stepIn, send stepCount and pressure
         serFlag = false;
       }
       else if (!Serial) { //if serial disconnected, go to disconected state
         disconFlag = true;
+        writeSerial('D');
+        stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
       }
       // Move to the desired position
       // stepAftertStep();

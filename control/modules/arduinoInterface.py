@@ -14,6 +14,7 @@ def ardConnect():
     comlist = []
     for comport in serial.tools.list_ports.comports():
         comlist.append(comport.device)
+    # print(comlist)
 
     PUMPNAMES = ['LHS', 'RHS', 'TOP', 'PRI']#, 'PNEU']
     pumpDict = {}
@@ -21,7 +22,7 @@ def ardConnect():
 
     reply = ""
     replyFlag = 0
-    MAXREPLYNO  = 5
+    MAXREPLYNO  = len(PUMPNAMES)
     MESSAGE = '1'
     MESSAGE = MESSAGE.encode('utf-8')
 
@@ -29,7 +30,7 @@ def ardConnect():
     
     # Open each device in COM port list
     for device in comlist:
-
+        replyFlag = 0
         with serial.Serial() as ser:
             ser.baudrate = 115200
             ser.port = device
@@ -42,19 +43,20 @@ def ardConnect():
             while(replyFlag != MAXREPLYNO):
                 ser.write(MESSAGE)
                 #delay before reading reply
-                time.sleep(2)
+                time.sleep(1)
                 reply = ser.readline().strip()
                 reply = reply.decode('ascii')
                 ser.reset_input_buffer()
+                # print("Reply: ", reply)
 
                 if reply in PUMPNAMES:
-                    index = PUMPNAMES.index(reply) # WHich one of pumpNames was reply
+                    index = PUMPNAMES.index(reply) # Which one of pumpNames was reply
                     pumpDict.update({PUMPNAMES[index]:device})
                     serialDict.update({device:ser})
                     reply = ""
                     break
-
                 replyFlag += 1
+        # print(pumpDict)
 
     return pumpDict, serialDict, PUMPNAMES
 
@@ -159,11 +161,11 @@ class ardInterfacer:
         stepPress = stepPress.decode('utf-8')
         stepPress = stepPress.split(',')
         # print(stepPress)
-        self.ser.reset_input_buffer()
-        self.ser.reset_output_buffer()
+        # self.ser.reset_input_buffer()
+        # self.ser.reset_output_buffer()
 
         # IF STEP COUNT = L_'pumpName' STOP AND DISCONNECT ALL
-        print(stepPress)
+        # print(stepPress)
         if stepPress == ['']:
             stepCount = "S_Empty" # Change this later to handle dropped values
             pumpPress = "P_Empty"
@@ -173,11 +175,20 @@ class ardInterfacer:
             if "L " in stepCount: # If "L " in stepPress then limit hit/pressure error
                 print("In from arduino: ", stepPress)
                 raise TypeError('Pressure limit or switch hit in main loop')
-            pumpPress = float(stepPress[1])/10
-            # if pumpPress < 0:
-            #     print("Negative pressure: ", stepPress)
-            #     raise TypeError('Error reading pressure isn main loop')
-            pumpTime = int(stepPress[2])
+
+            filtPump = filter(str.isdigit, stepPress[1])
+            pumpPress = "".join(filtPump)
+            if pumpPress == "":
+                pumpPress = 0
+            pumpPress = int(pumpPress)*10 # pressure in Pascals
+            # pumpPress = int(stepPress[1])/10 # pressure in mbar
+
+            filtTime = filter(str.isdigit, stepPress[2])
+            pumpTime = "".join(filtTime)
+            if pumpPress == "":
+                pumpPress = 0
+            pumpTime = int(pumpTime)
+
         else:
             stepCount = stepPress
             pumpPress = 0
