@@ -26,7 +26,7 @@ with open(fileName, mode ='w', newline='') as arduinoLog1:
 class ardLogger():
 
     def __init__(self):
-        self.ardData = [[], []]
+        self.ardData = list()
         self.numRows = 0
 
     def ardLog(self, secondstep, length, theta, primarystep, press, median, timems):
