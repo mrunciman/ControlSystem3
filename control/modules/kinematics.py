@@ -21,25 +21,26 @@ class kineSolver:
         # Side length of equilateral triangle in mm
         self.SIDE_LENGTH = triangleSide
         # 'Flat' muscle length:
-        self.L0 = 25/(1 - 2/mt.pi)
+        self.L_0 = 50
         # Excess length of cable between entry point and muscle, in mm
         # self.Lx = 10
         # Total length of cable in flat/resting state
-        # self.Lt = self.L0 + self.Lx + self.SIDE_LENGTH
+        # self.Lt = self.L_0 + self.Lx + self.SIDE_LENGTH
         # print(Lt)
-        # Width of hydraulic muscle in mm
-        self.ACT_WIDTH = 30
+        # Equivalent width of hydraulic muscle in mm
+        self.ACT_WIDTH = 18
         # Number of length subdivisions
-        self.NUM_L = 3
+        self.NUM_L = 4
         # Syringe cross sectional area, diameter = 26.5 mm
         self.A_SYRINGE = mt.pi*(13.25**2) # mm^2
         # Real volume calc: there are numLs beams of length L0/numLs
-        self.FACT_V = (self.ACT_WIDTH*(self.L0)**2)/(2*self.NUM_L)
-        self.VOL_FACTOR = 0.9024 #12.6195/15.066 # Ratio of real volume to theoretical volume
+        self.FACT_V = (self.ACT_WIDTH*(self.L_0)**2)/(2*self.NUM_L)
+        self.VOL_FACTOR = 1 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
         self.CAL_FACTOR = 0.01 # % of max vol still in actuator at calibration
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
             mt.cos((mt.pi/2*self.FACT_ANG))*mt.sin((mt.pi/2*self.FACT_ANG)))/((mt.pi/2*self.FACT_ANG)**2)
+        self.DEAD_VOL = self.CAL_FACTOR*self.MAX_VOL
         # print(self.MAX_VOL)
         
         # For step count:
@@ -51,7 +52,7 @@ class kineSolver:
         #          = 200*4/8 = 100 steps/mm
         # For speed: pulses/mm * mm/s = pulses/s
         self.STEPS_PER_REV = 200
-        self.MICROSTEPS = 128
+        self.MICROSTEPS = 16
         self.LEAD = 8
         self.STEPS_PER_MM = (self.STEPS_PER_REV*self.MICROSTEPS)/(self.LEAD) # steps per mm
         self.STEPS_PER_MMCUBED = self.STEPS_PER_MM/self.A_SYRINGE # Steps per mm^3
@@ -59,7 +60,7 @@ class kineSolver:
         self.MIN_STEPS = 500
         # print(maxSteps)
         self.TIMESTEP = 6/125 # Inverse of sampling frequency on arduinos
-        self.cableSpeedLim = 4 # mm/s
+        self.CABLE_SPEED_LIM = 100 # mm/s SET HIGH TO REMOVE FROM SYSTEM FOR NOW
 
 
         ###################################################################
@@ -87,7 +88,7 @@ class kineSolver:
         # Lookup array of cable contractions/length changes.
         # Numpy uses unnormalised sinc function so divide by pi. Using sinc
         # avoids divide by zero errors returned when computing np.sin(x)/x
-        self.CABLE_LOOKUP = self.L0*(1 - np.sinc(self.THETA_VECT/mt.pi)) # Lc lookup
+        self.CABLE_LOOKUP = self.L_0*(1 - np.sinc(self.THETA_VECT/mt.pi)) # Lc lookup
         # self.derivL = np.gradient(self.CABLE_LOOKUP, self.SPACING)
 
         # Avoid division by zero by prepending volLookup with zero.
@@ -103,6 +104,20 @@ class kineSolver:
             # cableLength*(1 + d*mt.pi/(mt.pi - 2)) - d
         # d/dt(sinc(t)) = (t*cos(t)-sin(t))/t**2
         # print(cableLookup)
+
+
+        ###################################################################
+        # Analytical approximation of Volume based on Contraction
+        ###################################################################
+        self.DIST_TO_CENT = (self.SIDE_LENGTH/2)/mt.cos(mt.pi/6)
+        # Contraction  self.L_c = (self.SIDE_LENGTH - targetCable)/self.MA
+        # where targetCable is target cable length from lin algebra
+        self.MA = 3 # Mechanical advantage of pulleys
+        #Initialise at centre
+        self.L_c = (self.SIDE_LENGTH - self.DIST_TO_CENT)/self.MA
+        # Store current value of contraction 
+        self.cL_c = self.L_c
+        self.MIN_CONTRACT = 0.1
 
 
         ###################################################################
@@ -138,11 +153,12 @@ class kineSolver:
             [0, 1, 0]])
         self.uCables = np.transpose(self.uCables)
 
-
+        
         ###################################################################
         # Extension/Retraction Geometry
         ###################################################################
         # Point that the shaft rotates around - COR of universal joint
+        self.CONT_ARC_S = 15 # mm continuum joint arc length
         self.LEVER_BASE_Z = -30
         self.LEVER_POINT = np.array([0.5*self.SIDE_LENGTH,\
             0.5*self.SIDE_LENGTH*mt.tan(mt.pi/6),\
@@ -154,38 +170,88 @@ class kineSolver:
         self.N_PLANE = self.N_CROSS/la.norm(self.N_CROSS)
 
         self.SHAFT_LENGTH = 67.5 # mm
+
         # Set limits on shaft extension
         # self.minShaftExt = self.SHAFT_LENGTH + 1
-        # self.maxShaftExt = self.SHAFT_LENGTH + 13.5 # Range for spring loaded muscle different
-        self.MIN_EXTEND = 0.5
-        self.MAX_EXTEND = 38.5
+        self.MIN_EXTEND = 0.5 # mm
+        self.MAX_EXTEND = 38.5 # mm
+
+        # Set limit when curvature of continuum joint is assumed zero
+        self.MIN_CONT_RAD = 0.1 # mm 
 
 
     def intersect(self, tDesX, tDesY, tDesZ):
-        #Transform coords to reference base of continuum joint, not parallel mech centre:
+        # CONTINUUM JOINT
+        # Transform coords to reference base of continuum joint, not parallel mech centre
+        # path FILES GIVE Z COORD AS THE AMOUNT OF EXTENSION
         tDesZ = tDesZ + self.LEVER_BASE_Z + self.SHAFT_LENGTH
-        tExt = np.array([tDesX, tDesY, tDesZ]) # Point in 3D where tip should be
+        #Desired point P_des
+        P_des = np.array([tDesX, tDesY, tDesZ])
 
-        # Find vector PrD from lever point to target point
-        baseToPoint = la.norm(tExt - self.LEVER_POINT)
-        PrD = (tExt - self.LEVER_POINT)/baseToPoint
-        # How far along PrD the POI is, from desired point tExt
-        d = np.dot((self.ENTRY_POINTS[:, 0] - tExt), self.N_PLANE)/np.dot(PrD, self.N_PLANE)
-        POI = tExt + d*PrD
-        # print(POI, -d)
+        # Project desired point onto plane coincidnet with lever base point and 
+        # parallel to entry point plane
+        proj_lever_base = [tDesX, tDesY, self.LEVER_POINT[2]]
+        # Distance to centre of projected point
+        proj_rad = la.norm(proj_lever_base - self.LEVER_POINT)
 
-        LcE = abs(baseToPoint) - self.SHAFT_LENGTH
+        # Use continuum joint model if curvature of continuum part significant
+        # Else use universal joint model
+        if (proj_rad > self.MIN_CONT_RAD): 
+            x_bend_plane = proj_rad
+            y_bend_plane = tDesZ
+            # angle between x axis at base point and projected point
+            ang_around_shaft = mt.atan2(tDesY - self.LEVER_POINT[0], tDesX - self.LEVER_POINT[1])
+
+            # Find angle of continuum joint
+            # Use theta polynomial from Taylor approximations of sin, cos, & tan:
+            theta_poly = [x_bend_plane/3, -(self.CONT_ARC_S/2 - y_bend_plane), -x_bend_plane]
+            root_theta = np.roots(theta_poly)
+            theta_approx = root_theta(root_theta > 0)
+
+            # Continuum joint radius
+            cont_rad = self.CONT_ARC_S/theta_approx
+
+            # Continuum joint tip in bending plane (2D) frame of reference:
+            shaft_start_xL = cont_rad*(1 - mt.cos(theta_approx))
+            shaft_start_yL = cont_rad*(mt.sin(theta_approx))
+
+            # Transform from bending plane to 3D workspace
+            conty = np.array([shaft_start_xL, 0, shaft_start_yL])
+
+            # Rotate around z axis:
+            cont_Rz = np.array([[mt.cos(ang_around_shaft), -mt.sin(ang_around_shaft), 0],\
+                    [mt.sin(ang_around_shaft),  mt.cos(ang_around_shaft), 0],\
+                    [0,                0,               1]])
+
+            # This is tip of continuum joint
+            conty_glob = np.transpose(cont_Rz*conty) + self.LEVER_POINT
+
+            # Now find distance between this point and desired point,
+            # subtract fixed shaft length to find prismatic length.
+            L_Pri = la.norm(P_des - conty_glob) - self.SHAFT_LENGTH
+
+            # Find where line between conty_glob and desired point P_des
+            # intersects the entry point trangle:
+            u_Cont = (P_des - conty_glob)/la.norm(P_des - conty_glob); 
+
+        else: # Assume shaft is a UJ connected to lever point base
+            baseToPoint = la.norm(P_des - self.LEVER_POINT)
+            L_Pri = abs(baseToPoint) - self.SHAFT_LENGTH
+            # Find where line between conty_glob and desired point P_des
+            # intersects the entry point trangle:
+            u_Cont = (P_des - self.LEVER_POINT)/baseToPoint
+
+        # How far along u_Cont the POI lies, starting from desired point P_des
+        dist_to_POI = np.dot((self.ENTRY_POINTS[:, 0] - P_des), self.N_PLANE)/np.dot(u_Cont, self.N_PLANE)
+        POI_Cont = P_des + dist_to_POI*u_Cont
+
         # Impose contraction range
-        if LcE < self.MIN_EXTEND:
-            LcE = self.MIN_EXTEND
-        elif LcE > self.MAX_EXTEND:
-            LcE = self.MAX_EXTEND
+        if (L_Pri < self.MIN_EXTEND):
+            L_Pri = self.MIN_EXTEND
+        elif (L_Pri > self.MAX_EXTEND):
+            L_Pri = self.MAX_EXTEND
 
-        # THIS COMPENSATES FOR self.length2Vol WHERE CABLE IS CONSIDERED PART OF PARALLEL MECHANISM
-        # tCableE = self.SIDE_LENGTH - LcE
-        # stepsPrismatic = int(self.STEPS_PER_MM*LcE)
-
-        return POI[0], POI[1], LcE
+        return POI_Cont[0], POI_Cont[1], L_Pri
 
 
 
@@ -224,16 +290,16 @@ class kineSolver:
         # Compute the structure matrix A from cable unit vectors and cable attachment points 
         # in global frame, currPos_GI
         # Find cable unit vectors
-        u1 = cL[:,0]/cLhsCable    ### FILTER OUT ZERO LENGTH ERRORS
-        u2 = cL[:,1]/cRhsCable
-        u3 = cL[:,2]/cTopCable
-        self.uCables = np.array([u1, u2, u3])
+        uLhs = cL[:,0]/cLhsCable    ### FILTER OUT ZERO LENGTH ERRORS
+        uRhs = cL[:,1]/cRhsCable
+        uTop = cL[:,2]/cTopCable
+        self.uCables = np.array([uLhs, uRhs, uTop])
         self.uCables = np.transpose(self.uCables)
         # print(uCables)
         # Find cross products of cable unit vectors and attachment points
-        pCrossU1 = np.cross(currPos_GI[:,0], u1)
-        pCrossU2 = np.cross(currPos_GI[:,1], u2)
-        pCrossU3 = np.cross(currPos_GI[:,2], u3)
+        pCrossU1 = np.cross(currPos_GI[:,0], uLhs)
+        pCrossU2 = np.cross(currPos_GI[:,1], uRhs)
+        pCrossU3 = np.cross(currPos_GI[:,2], uTop)
         pCrossU = np.array([pCrossU1, pCrossU2, pCrossU3])
         pCrossU = np.transpose(pCrossU)
         # print(pCrossU)
@@ -258,44 +324,44 @@ class kineSolver:
         for required length, given contractedL = flatL times sin(theta)/theta
         e.g. length2Vol(17.32, 18)
         """
-        Lc = self.SIDE_LENGTH - targetCable
-        Lc0 = self.SIDE_LENGTH - currentCable
-        cableSpeed = (Lc-Lc0)/self.TIMESTEP
-        # Use lookup tables defined above to find theta angle based on input length
-        angle = np.interp(Lc, self.CABLE_LOOKUP, self.THETA_VECT)
-        # Calculate normalised volume of a beam of arbitrary size
-        if angle <= 0:
-            angle = 0.1
-        normV = (angle - mt.cos(angle)*mt.sin(angle))/(angle**2)    ### FILTER OUT ANGLE = 0 ERRORS
-        # normComp = ((angle*self.FACT_ANG) - mt.cos((angle*self.FACT_ANG))*mt.sin((angle*self.FACT_ANG)))/((angle*self.FACT_ANG)**2)
-        # print(angle)
-        # Real volume calc: multiply theta-dependent part of 
-        # volume by constant geometry-dependent factor
-        # self.VOL_FACTOR = 1 - 0.1*(angle/(mt.pi/2))
-        volume = normV*self.FACT_V
-        volComp = volume*self.VOL_FACTOR + self.CAL_FACTOR*self.MAX_VOL 
-        # volComp = normComp*self.FACT_V
+        # Find contraction of actuator, filtering zeros:
+        if targetCable < self.SIDE_LENGTH:
+            self.L_c = (self.SIDE_LENGTH - targetCable)/self.MA
+        else:
+            self.L_c = self.MIN_CONTRACT
+        # Similar for current contraction
+        self.cL_c = (self.SIDE_LENGTH - currentCable)/self.MA
+        
+        # Rate of change of cable length
+        cableSpeed = (self.cL_c - self.cL_c)/self.TIMESTEP
 
-        # angle = np.interp(volume, volLookup, theta)
+        # Use Taylor approximation of theta and sub into 
+        # theta-dependent part of volume equation:
+        thetaApprox = abs(mt.sqrt(6*self.L_c/self.L_0))
+        normV = thetaApprox*(thetaApprox**4 - 18*thetaApprox**2 + 96)/12
+        # Multiply theta-dependent part with geometry-dependent part:
+        volume = normV*self.FACT_V
+        volComp = volume*self.VOL_FACTOR + self.DEAD_VOL
+
         # Find distance syringe pump has to move to reach desired volume
         lengthSyringe = volume/self.A_SYRINGE
         lenComp = volComp/self.A_SYRINGE
-        # print(volume/1000)
 
-        stepCountComp = round(lenComp*self.STEPS_PER_MM)
+        # Find desired position of stepper:
         stepCountUncomp = round(lengthSyringe*self.STEPS_PER_MM)
+        stepCountComp = round(lenComp*self.STEPS_PER_MM)
 
         # Find discretised actuator length actuator actually commanded to go to:
-        lengthDisc = stepCountUncomp/self.STEPS_PER_MM
-        volDisc = lengthDisc*self.A_SYRINGE
-        normVDisc = volDisc/self.FACT_V
-        angleDisc = np.interp(normVDisc, self.VOL_LOOKUP, self.THETA_VECT)
-        LDisc = self.L0*mt.sin(angleDisc)/angleDisc
-        LcDisc = self.L0 - LDisc
+        # lengthDisc = stepCountComp/self.STEPS_PER_MM
+        # volDisc = lengthDisc*self.A_SYRINGE
+        # normVDisc = volDisc/self.FACT_V
+        # angleDisc = np.interp(normVDisc, self.VOL_LOOKUP, self.THETA_VECT)
+        # LDisc = self.L_0*mt.sin(angleDisc)/angleDisc
+        # LcDisc = self.L_0 - LDisc
         # print(Lc, LcDisc)
         # Convert from mm^3 to ml
         # volume = volume / 1000
-        return volComp, cableSpeed, stepCountComp, LcDisc, angleDisc
+        return volComp, cableSpeed, stepCountComp, self.L_c, thetaApprox
 
 
 
@@ -310,22 +376,15 @@ class kineSolver:
         # Find current and target volume and displacement of syringe
         # [cV, cD] = length2Vol(cCable)
         [tVol, tSpeed, stepNo, LcDisc, angleDisc] = self.length2Vol(cCable, tCable)
-        if stepNo > self.MAX_STEPS*self.VOL_FACTOR:
-            stepNo = self.MAX_STEPS*self.VOL_FACTOR
-        if stepNo < self.MIN_STEPS:
-            stepNo = self.MIN_STEPS
+        # if stepNo > self.MAX_STEPS*self.VOL_FACTOR:
+        #     stepNo = self.MAX_STEPS*self.VOL_FACTOR
+        # if stepNo < self.MIN_STEPS:
+        #     stepNo = self.MIN_STEPS
         # Calculate linear approximation of volume rate:
         volDiff = tVol-cVol
         vDot = (volDiff)/self.TIMESTEP #timeSecs  # mm^3/s
-        dDot = (vDot/self.A_SYRINGE) # mm/s
-
-        # For step count:
-        # Mapping from step to 1 revolution = 200 steps
-        # Set M0, M1, M2 to set microstep size
-        # Lead = start*pitch , Lead screw is 4 start, 2 mm pitch, therefore Lead = 8
-        # Steps/mm = (StepPerRev*Microsteps)/(Lead) 
-        # For speed: pulses/mm * mm/s = pulses/s
-        fStep = self.STEPS_PER_MM*dDot
+        dDot = (vDot/self.A_SYRINGE) # speed of syringe piston in mm/s
+        fStep = self.STEPS_PER_MM*dDot # stepper pulse frequency
 
         return tVol, vDot, dDot, fStep, stepNo, tSpeed, LcDisc, angleDisc
 
@@ -366,7 +425,7 @@ class kineSolver:
 
 
 
-    def cableSpeeds (self, cX, cY, tX, tY, Jaco, JacoPlus, timeSecs):
+    def cableSpeeds (self, cX, cY, tX, tY, Jaco, JacoPlus):
         """
         Returns required cable length change rates to reach target
         from current point within primary sampling period.
@@ -379,9 +438,8 @@ class kineSolver:
 
         # TARGET POINT, CURRENT POINT, TARGET SPEED ARE INPUTS
         # USED TO FIND CABLE LENGTHS AND RATE OF CABLE LENGTH CHANGE
+
         diffX = tX - cX
-        #############################################
-        # Testing to see how it looks with fixed time step, in this case 0.01 s for a 100 Hz loop
         tVx =  diffX/timeSecs
         diffY = tY - cY
         tVy = diffY/timeSecs
@@ -395,8 +453,8 @@ class kineSolver:
         vMax = np.amax(absRates)
         # If any cable speed is non-zero
         if np.any(cableRates):
-            if vMax > self.cableSpeedLim:
-                vFact = self.cableSpeedLim/vMax
+            if vMax > self.CABLE_SPEED_LIM:
+                vFact = self.CABLE_SPEED_LIM/vMax
                 vScaled = vFact*absRates
                 vScaled = vScaled*vSign
                 cableRates = vScaled

@@ -23,7 +23,7 @@ import numpy as np
 
 from modules import arduinoInterface
 from modules import kinematics
-from modules import mouseGUI
+# from modules import mouseGUI
 from modules import pumpLog
 # from modules import optiStream
 from modules import omniStream
@@ -34,7 +34,7 @@ from modules import omniStream
 sideLength = 30 # mm, from workspace2 model
 
 kineSolve = kinematics.kineSolver(sideLength)
-mouseTrack = mouseGUI.mouseTracker(sideLength)
+# mouseTrack = mouseGUI.mouseTracker(sideLength)
 ardLogging = pumpLog.ardLogger()
 # opTrack = optiStream.optiTracker()
 phntmOmni = omniStream.omniStreamer()
@@ -66,25 +66,28 @@ if not omni_connected:
             xPath.append(float(row[0]))
             yPath.append(float(row[1]))
             zPath.append(float(row[2]))
+        xMap, yMap, zMap = xPath[0], yPath[0], zPath[0]
 else:
     # omniX, omniY, omniZ = 0.0, 0.0, 0.0
     phntmOmni.getOmniCoords()
     [xMap, yMap, zMap] = phntmOmni.omniMap()
 
-# MOVE AWAY FROM MOUSETRACK FOR PATH VARIABLES,
-# USE OMNISTREAM OR VARIABLE IN MAIN INSTEAD
+xPath[0], yPath[0], zPath[0] = 15, 8.66, 20
+xMap, yMap, zMap = xPath[0], yPath[0], zPath[0]
+XYZPathCoords = [xMap, yMap, zMap]
+print(XYZPathCoords)
 
 # Do you want to use mouse as primary?
-useMouse = False
+# useMouse = False
 
-if not useMouse:
-    mouseTrack.xCoord = xPath[0]
-    mouseTrack.yCoord = yPath[0]
-    mouseTrack.zCoord = zPath[0]
-    #Down-sample path here for display
-    mouseTrack.xPathCoords = xPath[0: int(len(xPath)/noCycles)]  
-    mouseTrack.yPathCoords = yPath[0: int(len(yPath)/noCycles)]
-    mouseTrack.zPathCoords = zPath[0: int(len(zPath)/noCycles)]
+# if not useMouse:
+#     mouseTrack.xCoord = xPath[0]
+#     mouseTrack.yCoord = yPath[0]
+#     mouseTrack.zCoord = zPath[0]
+#     #Down-sample path here for display
+#     mouseTrack.xPathCoords = xPath[0: int(len(xPath)/noCycles)]  
+#     mouseTrack.yPathCoords = yPath[0: int(len(yPath)/noCycles)]
+#     mouseTrack.zPathCoords = zPath[0: int(len(zPath)/noCycles)]
 
 
 # Initialise variables 
@@ -93,12 +96,12 @@ flagStop = False
 
 # Target must be cast as immutable type (float, in this case) so that 
 # the current position doesn't update at same time as target
-currentX = mouseTrack.xCoord
-currentY = mouseTrack.yCoord
-currentZ = mouseTrack.zCoord
-targetX = mouseTrack.xCoord
-targetY = mouseTrack.yCoord
-targetZ = mouseTrack.zCoord
+currentX = XYZPathCoords[0]
+currentY = XYZPathCoords[1]
+currentZ = XYZPathCoords[2]
+targetX = XYZPathCoords[0]
+targetY = XYZPathCoords[1]
+targetZ = XYZPathCoords[2]
 
 # Create delay at start of any test
 delayCount = 0
@@ -172,6 +175,7 @@ pneuPress = 2000
 # Create function to find available COM ports, listen to replies, and assign COM ports based on replies
 print("Connecting to syringe pumps...")
 [pumpCOMS, pumpSer, pumpNames] = arduinoInterface.ardConnect()
+print(pumpCOMS)
 
 # Set COM port for each pump by using its handshake key
 if len(pumpCOMS) == 4:
@@ -220,7 +224,7 @@ try:
     calibP = False
     calibA = True
     # Has the mechanism been calibrated/want to run without calibration?:
-    calibrated = False
+    calibrated = True
     # Perform calibration:
     print("Zeroing hydraulic actuators...")
     while (not calibrated):
@@ -263,9 +267,6 @@ try:
 
     ################################################################
     # Begin main loop
-
-    # Bring up GUI
-    # mouseTrack.createTracker()
     while(flagStop == False):
 
         # Stay at first coord for number of cycles
@@ -277,28 +278,25 @@ try:
         # Go sequentially through path coordinates
             # XYPathCoords = [xPath[pathCounter], yPath[pathCounter]]
             XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
+            # print(XYZPathCoords)
+            XYZPathCoords = [15, 8.66, 20]
         else:
             phntmOmni.getOmniCoords()
             [xMap, yMap, zMap] = phntmOmni.omniMap()
             XYZPathCoords = [xMap, yMap, zMap]
         pathCounter += 1
 
-        # Ignore coords from file/omni if mouse is being used
-        if useMouse:
-            XYZPathCoords = None # Problem here - need to get desired point from GUI but kineSolve.intersect() needs argument first
         # End test when last coords reached
-        elif pathCounter >= len(xPath):
+        if pathCounter >= len(xPath):
             break
 
         # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
         # XYZPathCoords are desired coords in 3D.
         [targetXideal, targetYideal, targetP] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
-        [targetX, targetY, tMillis, flagStop] = mouseTrack.iterateTracker(pressL, pressR, pressT,\
-            [targetXideal, targetYideal], XYZPathCoords)
-        tSecs = tMillis/1000
 
         # Return target cable lengths at target coords and jacobian at current coords
-        [targetL, targetR, targetT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetX, targetY)
+        [targetL, targetR, targetT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
+
         tStepP = int(targetP*kineSolve.STEPS_PER_MM)
         tStepP += targDir*antiHystSteps
         LcRealP = tStepP/kineSolve.STEPS_PER_MM
@@ -313,7 +311,7 @@ try:
 
         # print(targetL, targetR, targetT, LcRealP)
         # Get cable speeds using Jacobian at current point and calculation of input speed
-        [lhsV, rhsV, topV, actualX, actualY] = kineSolve.cableSpeeds(currentX, currentY, targetX, targetY, cJaco, cJpinv, tSecs)
+        [lhsV, rhsV, topV, actualX, actualY] = kineSolve.cableSpeeds(currentX, currentY, targetX, targetY, cJaco, cJpinv)
         # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
         [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
         # Get volumes, volrates, syringe speeds, pulse freq & step counts estimate for each pump
@@ -399,9 +397,8 @@ try:
         [realStepP, pressP, timeP] = ardIntPRI.listenReply()
         # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
 
-    # Close GUI if Esc hit
-    # flagStop = mouseTrack.closeTracker()
-    flagStop = False # Will close immediately 
+        # Close GUI if Esc hit
+        # flagStop = False # Will close immediately 
 
 
 
@@ -433,7 +430,6 @@ finally:
         ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
         ardLogging.ardSave()
 
-        # flagStop = mouseTrack.closeTracker()
         flagStop = True
 
         if 'ardIntLHS' in locals():

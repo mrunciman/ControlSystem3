@@ -16,9 +16,9 @@
 // Handshake variables
 bool shakeFlag = false;
 String shakeInput; // 3 bit password to assign pump name/position
-char shakeKey[5] = "TOP";
-// TOP = 7, RHS = 6, LHS = 8
-// PRI = 10, PNEU = 15
+char shakeKey[5] = "LHS";
+// TOP = 4, RHS = 7, LHS = 8
+// PRI = 9
 
 
 ////////////////////////////////////////////////////////
@@ -54,14 +54,6 @@ uStepperSLite stepper(MAXACCELERATION, MAXVELOCITY);
 volatile int pumpState;
 bool disconFlag = false;
 volatile bool serFlag = false;
-
-//Set external interrupt pin numbers
-//Possible interrupt pins on Uno: 2, 3 - 18, 19 on Mega
-//First and second (Xmin and Xmax) end stop headers on Ramps Board
-// const byte fwdIntrrptPin = 2;
-// const byte bwdIntrrptPin = 3;
-// volatile bool extInterrupt = false;
-// volatile bool timer1Interrupt = false;
 
 ////////////////////////////////////////////////////////
 // Setting Serial input variables
@@ -125,17 +117,17 @@ unsigned long tStep2k = 1; // When tStep equals 500 us, 2 kHz pulse achieved - 6
 
 ////////////////////////////////////////////////////////
 // Messages
-char data[40]; // Char array to write stepNo, pressure and time into
+char data[64]; // Char array to write stepNo, pressure and time into
 char endByte[3] = "E";
 char disableMsg[3] = "D ";
 char limitHit[3] = "L ";
 
 ////////////////////////////////////////////////////////
 // Actuator geometry
-float STROKE = 25.0; //Eq. triangle length in mm
-float L0 = STROKE/(1.0 - 2.0/PI); // flat length for contraction = STROKE
-float ACT_WIDTH = 30.0; // width of muscle in mm
-float NUM_L = 3; // number of subdivisions in muscle
+float STROKE = 10.0; //Eq. triangle length in mm
+float L0 = 50; //STROKE/(1.0 - 2.0/PI); // flat length for contraction = STROKE
+float ACT_WIDTH = 18.0; // width of muscle in mm
+float NUM_L = 4; // number of subdivisions in muscle
 float A_SYRINGE = PI*pow(13.25, 2.0); // piston area in mm^2
 float FACT_V = (ACT_WIDTH*pow(L0 , 2.0))/(2.0*NUM_L);
 float MAX_V = FACT_V*(2.0/PI); // volume in mm^3 when fully actuated
@@ -187,6 +179,7 @@ void setup() {
   stepper.softStop(SOFT);
 }
 
+
 // Internal interrupt service routine, timer 2 overflow
 ISR(TIMER2_COMPA_vect){
   interrupts(); //re-enable interrupts
@@ -208,15 +201,11 @@ void pressureRead() {
   // Stop motor and wait if pressure exceeds maximum
   if (pressureAbs > PRESS_MAX){
     // extInterrupt = true;
-    stepper.softStop(HARD); // Stop and disable
+    stepper.softStop(HARD); // Stop motor
   }
   else if (pressureAbs < 0){
     pressureAbs = 0.00;
   }
-  // else if (pressureAbs < PRESS_MIN){
-  //   extInterrupt = true;
-  // }
-
 }
 
 
@@ -387,25 +376,28 @@ void pressControl() {
 }
 
 
-
-
-
 //Function to read input from python script and confirm pump position (TOP, LHS, RHS).
 void handShake() {
   while (Serial.available() > 0) {
+    // Read input from serial and reply with pump name
     shakeInput = Serial.readStringUntil('\n');
     if (shakeInput != ""){
       sprintf(data, "%s\n", shakeKey);
       Serial.write(data);
+
+      // Compare pump name with value read from serial
+      // If they match, handshake is successful
       if (shakeInput == shakeKey){
+        // Say handshake is complete for switch in loop()
         shakeFlag = true;
+
         // Enable the motor after handshaking
-        stepper.enableMotor(); // digitalWrite(enablePin, LOW);
+        stepper.enableMotor();
         shakeInput = "";
+
         // Start timer for pressure readings
         TCCR2B |= (1 << CS22) | (1 << CS21) | (1 << CS20);
-        // Initialise the time variables
-        timeAtStep = micros();
+
         flushInputBuffer = Serial.readStringUntil('\n');
       }
     }
@@ -414,7 +406,7 @@ void handShake() {
 
 
 //Function to read input in serial monitor and set the new desired pressure.
-void readWriteSerial() {
+void readSerial() {
   firstDigit = Serial.read();
   // Control code sends capital S to receive stepCount
   // Capital S in ASCII is 83, so check for that:
@@ -423,11 +415,9 @@ void readWriteSerial() {
     if (stepRecv == "Closed"){
       // Disable the motor
       disconFlag = true;
-      writeSerial('D');
+      writeSerial('D'); //Send disable message
       stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
-      stepper.disableMotor(); // digitalWrite(enablePin, HIGH);
-      //Send disable message
-      
+      stepper.disableMotor();   
     }
     else{
       stepIn = stepRecv.toInt();
@@ -437,25 +427,6 @@ void readWriteSerial() {
       if (stepIn < minSteps){
         stepIn = minSteps;
       }
-      angPos = DEG_PER_REV*(float(stepIn)/STEPS_PER_REV);
-      // stepCount = stepper.getStepsSinceReset();
-      angMeas = stepper.encoder.getAngleMoved();
-      stepCount = int(angMeas*STEPS_PER_REV/DEG_PER_REV);
-      stepError = stepIn - stepCount;
-      //Send stepCount
-      writeSerial('S');
-      if (abs(stepError) > 0){
-        // If piston not at desired position,
-        // work out timeStep so that piston reaches after 1/fSamp seconds
-        tStep = floor(tSampu/abs(stepError));
-        if (tStep < tStep2k){
-          tStep = tStep2k; // Limit fStep to freq of 1/(tStep2ke-6)
-        }
-      }
-      else{
-        // Set tStep to large value so no steps are made.
-        tStep = oneHour;
-      }
     }
   }
   else {
@@ -464,43 +435,12 @@ void readWriteSerial() {
 }
 
 
-void stepAftertStep(){
-  // Step the motor if enough time has passed.
-  timeNow = micros();
-  timeSinceStep = timeNow - timeAtStep;
-  if (tStep == oneHour){
-    ; // Do nothing
-  }
-  else if (timeSinceStep >= tStep){
-    if (stepError > 0){
-      if (stepCount < maxSteps){
-        stepper.moveSteps(1, CCW, HARD); // Move piston forwards
-        // digitalWrite(directionPin, HIGH);
-        // digitalWrite(stepPin, HIGH);
-        // digitalWrite(stepPin, LOW);
-        stepCount += 1;
-      }
-    }
-    else if (stepError < 0){
-      if (stepCount > 0){
-        stepper.moveSteps(1, CW, HARD); // Move piston backwards
-        // digitalWrite(directionPin, LOW);
-        // digitalWrite(stepPin, HIGH);
-        // digitalWrite(stepPin, LOW);
-        stepCount -= 1;
-      }
-    }
-    timeAtStep = micros();
-    stepError = stepIn - stepCount;
-  }
-}
-
-
 void writeSerial(char msg){
   writeTime = millis();
   pressureX10 = int(pressureAbs*10);
+
   if (msg == 'S'){ // Normal operation, send stepCount etc
-    sprintf(data, "%05d,%d,%lu%s", stepCount, pressureX10, writeTime, endByte);
+    sprintf(data, "%06d,%d,%lu%s", stepCount, pressureX10, writeTime, endByte);
   }
   else if (msg == 'D'){ // Python cut off comms, acknowledge this
     sprintf(data, "%s%s,%d,%lu%s", disableMsg, shakeKey, pressureX10, writeTime, endByte);
@@ -512,7 +452,7 @@ void writeSerial(char msg){
     sprintf(data, "%04d%s,%d,%lu%s", STABLE_TIME-stateCount, shakeKey, pressureX10, writeTime, endByte);
   }
   else if(msg = 'P'){ // Calibration finished
-    sprintf(data, "%05d%s,%d,%lu%s", stepCount, shakeKey, pressureX10, writeTime, endByte);
+    sprintf(data, "%06d%s,%d,%lu%s", stepCount, shakeKey, pressureX10, writeTime, endByte);
   }
   Serial.write(data);
 }
@@ -528,7 +468,7 @@ void loop() {
   else if(disconFlag == true){
     pumpState = 2;//Disconnection
   }
-  else if(pressFlag == true){//CHANGE TO TRUE TO ACTIVATE
+  else if(pressFlag == false){//CHANGE TO TRUE TO ACTIVATE
     pumpState = 3;//Calibration
   }
   else{
@@ -565,9 +505,15 @@ void loop() {
     //////////////////////////////////////////////////////////////////////////////////////////
     //Disconnection
     case 2:
-      // stepper.softStop(SOFT);
-      // Turn off timers for interrupts
+      // Stop motor
+      stepper.softStop(SOFT);
+      // Turn off timer for interrupts
       TCCR2B = 0;
+      // Move back into handshaking mode
+      disconFlag = false;
+      shakeFlag = false;
+      pressFlag = true;
+
       break;
 
     //////////////////////////////////////////////////////////////////////////////////////////
@@ -605,8 +551,8 @@ void loop() {
             // Notify that calibration is done
             writeSerial('P');
             stepper.hardStop(HARD);
-            posPressFlag = true; // TRANSITION HERE TO POSITIVE PRESSURE CONTROL
-            pressSetpoint = PRESS_FORCE_TEST;
+            // posPressFlag = true; // TRANSITION HERE TO POSITIVE PRESSURE CONTROL
+            // pressSetpoint = PRESS_FORCE_TEST;
             stateCount = 0;
             pressFlag = false; // TRANSITION TO ACTIVE STATE (OVERRIDES POSITIVE PRESSURE FLAG)
           }
@@ -615,7 +561,7 @@ void loop() {
         // Check for disconnection
         if (Serial.available() > 0) {
           firstDigit = Serial.read();
-          if (firstDigit == 83) {
+          if (firstDigit == 83) {  // Check for 'S'
             stepRecv = Serial.readStringUntil('\n');
             if (stepRecv == "Closed"){
               disconFlag = true;
@@ -644,8 +590,15 @@ void loop() {
       }
 
       if (serFlag == true) { //Changed from serFlag to see if I can make things faster   if (Serial.available() > 0) 
-        readWriteSerial(); // Read stepIn, send stepCount and pressure
-        serFlag = false;
+        if (Serial.available() > 0){ 
+          readSerial(); // Read stepIn
+          angPos = DEG_PER_REV*(float(stepIn)/STEPS_PER_REV);
+          angMeas = stepper.encoder.getAngleMoved();
+          stepCount = int(angMeas*STEPS_PER_REV/DEG_PER_REV);
+          //Send stepCount
+          writeSerial('S');
+          serFlag = false;
+        }
       }
       else if (!Serial) { //if serial disconnected, go to disconected state
         disconFlag = true;
@@ -653,7 +606,6 @@ void loop() {
         stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
       }
       // Move to the desired position
-      // stepAftertStep();
       stepper.moveToAngle(angPos, HARD);
       break;
 
