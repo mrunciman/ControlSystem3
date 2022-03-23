@@ -44,8 +44,8 @@ class optiTracker:
         self.trackSock.new_frame_listener = self.receive_new_frame
         self.trackSock.rigid_body_listener = self.receive_rigid_body_frame
 
-        # self.trackSoc.data_out = mocap_data = MoCapData.MoCapData() # See NatNetClient.py
-        self.markerData = []#self.trackSock.data_out.marker_set_data.unlabeled_markers.marker_pos_list      
+        # self.trackSock.data_out = mocap_data = MoCapData.MarkerSetData() # See NatNetClient.py
+        self.markerData = []#self.trackSock.data_out.marker_set_data.unlabeled_markers.marker_pos_list 
         self.timeCode = []#self.trackSock.data_out.suffix_data.timecode
 
 
@@ -79,25 +79,12 @@ class optiTracker:
     # These are callback functions that gets connected to the NatNet client
     # and called once per mocap frame.
     def receive_new_frame(self, data_dict):
-        self.markerData = self.trackSock.data_out.unlabeled_markers.marker_pos_list
+        markerDataLocal = self.trackSock.data_out.unlabeled_markers.marker_pos_list
+        self.markerData.append([item for t in markerDataLocal for item in t])
         # print(self.markerData)
         self.timeCode = self.trackSock.time_code
-        print(self.timeCode)
-        # order_list=[ "frameNumber", "markerSetCount", "unlabeledMarkersCount", "rigidBodyCount", "skeletonCount",
-        #             "labeledMarkerCount", "timecode", "timecodeSub", "timestamp", "isRecording", "trackedModelsChanged" ]
-        # dump_args = False
-        # if dump_args == True:
-        #     out_string = "    "
-        #     for key in data_dict:
-        #         out_string += key + "="
-        #         if key in data_dict :
-        #             out_string += data_dict[key] + " "
-        #         out_string+="/"
-                # self.trackData.append(out_string)
+        # print(self.timeCode)
 
-        # print(self.trackSock.data_out.unlabeled_markers.marker_pos_list)
-        # marker_data is MoCapData.MarkerSetData()
-        # modules.MoCapData.MoCapData
 
 
     # This is a callback function that gets connected to the NatNet client. 
