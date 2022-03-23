@@ -32,11 +32,12 @@ class kineSolver:
         # Number of length subdivisions
         self.NUM_L = 4
         # Syringe cross sectional area, diameter = 26.5 mm
-        self.A_SYRINGE = mt.pi*(13.25**2) # mm^2
+        self.A_SYRINGE = mt.pi*(13.25**2) # m^2
         # Real volume calc: there are numLs beams of length L0/numLs
-        self.FACT_V = (self.ACT_WIDTH*(self.L_0)**2)/(2*self.NUM_L)
-        self.VOL_FACTOR = 1 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
-        self.CAL_FACTOR = 0.01 # % of max vol still in actuator at calibration
+        self.FACT_V = ((self.ACT_WIDTH/1000)*(self.L_0/1000)**2)/(2*self.NUM_L)
+        self.M3_to_MM3 = 1e9
+        self.VOL_FACTOR = 0.85 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
+        self.CAL_FACTOR = 0.01 # % of max volume still in actuator after calibration
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
             mt.cos((mt.pi/2*self.FACT_ANG))*mt.sin((mt.pi/2*self.FACT_ANG)))/((mt.pi/2*self.FACT_ANG)**2)
@@ -337,10 +338,10 @@ class kineSolver:
 
         # Use Taylor approximation of theta and sub into 
         # theta-dependent part of volume equation:
-        thetaApprox = abs(mt.sqrt(6*self.L_c/self.L_0))
+        thetaApprox = abs(mt.sqrt(6*(self.L_c/1000)/(self.L_0/1000)))
         normV = thetaApprox*(thetaApprox**4 - 18*thetaApprox**2 + 96)/12
         # Multiply theta-dependent part with geometry-dependent part:
-        volume = normV*self.FACT_V
+        volume = normV*self.FACT_V*self.M3_to_MM3
         volComp = volume*self.VOL_FACTOR + self.DEAD_VOL
 
         # Find distance syringe pump has to move to reach desired volume
@@ -382,8 +383,8 @@ class kineSolver:
         #     stepNo = self.MIN_STEPS
         # Calculate linear approximation of volume rate:
         volDiff = tVol-cVol
-        vDot = (volDiff)/self.TIMESTEP #timeSecs  # mm^3/s
-        dDot = (vDot/self.A_SYRINGE) # speed of syringe piston in mm/s
+        vDot = (volDiff)/self.TIMESTEP #timeSecs  # m^3/s
+        dDot = (vDot/self.A_SYRINGE) # speed of syringe piston in m/s
         fStep = self.STEPS_PER_MM*dDot # stepper pulse frequency
 
         return tVol, vDot, dDot, fStep, stepNo, tSpeed, LcDisc, angleDisc

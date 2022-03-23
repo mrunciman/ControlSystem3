@@ -24,10 +24,11 @@ class optiTracker:
         optionsDict["clientAddress"] = "127.0.0.1"
         optionsDict["serverAddress"] = "127.0.0.1"
         optionsDict["use_multicast"] = True
-        self.trackSock = NatNetClient()
+        self.trackSock = NatNetClient.NatNetClient()
         self.trackSock.set_client_address(optionsDict["clientAddress"])
         self.trackSock.set_server_address(optionsDict["serverAddress"])
         self.trackSock.set_use_multicast(optionsDict["use_multicast"])
+        self.pluggedIn = False
         if self.trackSock.connected() is False:
             print("ERROR: Could not connect properly.  Check that Motive streaming is on.")
             try:
@@ -36,10 +37,19 @@ class optiTracker:
                 print("...")
             finally:
                 print("exiting")
+        else:
+            self.pluggedIn = True
+        self.pluggedIn = True
 
         self.trackSock.new_frame_listener = self.receive_new_frame
         self.trackSock.rigid_body_listener = self.receive_rigid_body_frame
 
+        # self.trackSoc.data_out = mocap_data = MoCapData.MoCapData() # See NatNetClient.py
+        self.markerData = []#self.trackSock.data_out.marker_set_data.unlabeled_markers.marker_pos_list      
+        self.timeCode = []#self.trackSock.data_out.suffix_data.timecode
+
+
+    def optiConnect(self):
         is_running = self.trackSock.run()
         if not is_running:
             print("ERROR: Could not start streaming client.")
@@ -49,32 +59,8 @@ class optiTracker:
                 print("...")
             finally:
                 print("exiting")
-        
-        # self.trackSock.setblocking(False)
-        # self.trackSock.connect(self.trackSock)
-        # print(self.trackSock)
-        self.packet = []
-        self.trackData = []
-        self.markerData = []
+        return is_running
 
-
-
-
-
-    def readSocket(self):
-        # self.trackData = self.trackSock.recv(MAX_PACKETSIZE)
-        self.trackData.send_request(socket, self.NAT_REQUEST_FRAMEOFDATA, command_str, address)
-        print(self.trackData)
-        self.packet = unpack(self.trackData, version=self.version)
-        if type(self.packet) is SenderData:
-            self.version = self.packet.natnet_version
-        self.marker1 = self.packet.labeled_markers[0].position
-        self.marker2 = self.packet.labeled_markers[1].position
-        self.markerData.append([self.marker1] + [self.marker2])
-        # self.marker3 = self.packet.labeled_markers[2].position
-        # print("M1: ", self.marker1, "M2: ", self.marker2, "M3: ", self.marker3)
-        # return self.marker1, self.marker2, self.marker3
-        return self.marker1, self.marker2
 
     def optiSave(self):
         with open(fileName, 'a', newline='') as optiLog:
@@ -83,28 +69,36 @@ class optiTracker:
                 optiLog2.writerow( self.markerData[i])
         return
 
-    def closeSocket(self):
-        self.trackSock.shutdown() # NatNetClient method
-        self.trackSock.close()
 
-    ######################################################################
-    # Not part of class
+    def optiClose(self):
+        self.trackSock.shutdown() # NatNetClient method
+        # self.trackSock.close()
+
+
     #####################################################################
-    # This is a callback function that gets connected to the NatNet client
+    # These are callback functions that gets connected to the NatNet client
     # and called once per mocap frame.
     def receive_new_frame(self, data_dict):
-        order_list=[ "frameNumber", "markerSetCount", "unlabeledMarkersCount", "rigidBodyCount", "skeletonCount",
-                    "labeledMarkerCount", "timecode", "timecodeSub", "timestamp", "isRecording", "trackedModelsChanged" ]
-        dump_args = False
-        if dump_args == True:
-            out_string = "    "
-            for key in data_dict:
-                out_string += key + "="
-                if key in data_dict :
-                    out_string += data_dict[key] + " "
-                out_string+="/"
-                self.trackData.append(out_string)
-            print(out_string)
+        self.markerData = self.trackSock.data_out.unlabeled_markers.marker_pos_list
+        # print(self.markerData)
+        self.timeCode = self.trackSock.time_code
+        print(self.timeCode)
+        # order_list=[ "frameNumber", "markerSetCount", "unlabeledMarkersCount", "rigidBodyCount", "skeletonCount",
+        #             "labeledMarkerCount", "timecode", "timecodeSub", "timestamp", "isRecording", "trackedModelsChanged" ]
+        # dump_args = False
+        # if dump_args == True:
+        #     out_string = "    "
+        #     for key in data_dict:
+        #         out_string += key + "="
+        #         if key in data_dict :
+        #             out_string += data_dict[key] + " "
+        #         out_string+="/"
+                # self.trackData.append(out_string)
+
+        # print(self.trackSock.data_out.unlabeled_markers.marker_pos_list)
+        # marker_data is MoCapData.MarkerSetData()
+        # modules.MoCapData.MoCapData
+
 
     # This is a callback function that gets connected to the NatNet client. 
     # It is called once per rigid body per frame

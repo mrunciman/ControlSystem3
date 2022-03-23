@@ -25,7 +25,7 @@ from modules import arduinoInterface
 from modules import kinematics
 # from modules import mouseGUI
 from modules import pumpLog
-# from modules import optiStream
+from modules import optiStream
 from modules import omniStream
 
 
@@ -36,10 +36,8 @@ sideLength = 30 # mm, from workspace2 model
 kineSolve = kinematics.kineSolver(sideLength)
 # mouseTrack = mouseGUI.mouseTracker(sideLength)
 ardLogging = pumpLog.ardLogger()
-# opTrack = optiStream.optiTracker()
+opTrack = optiStream.optiTracker()
 phntmOmni = omniStream.omniStreamer()
-
-
 
 ############################################################
 pathCounter = 0
@@ -83,13 +81,18 @@ print(XYZPathCoords)
 # if not useMouse:
 #     mouseTrack.xCoord = xPath[0]
 #     mouseTrack.yCoord = yPath[0]
-#     mouseTrack.zCoord = zPath[0]
+#     mouseTrack.zCoord = zPath[0]c
 #     #Down-sample path here for display
 #     mouseTrack.xPathCoords = xPath[0: int(len(xPath)/noCycles)]  
 #     mouseTrack.yPathCoords = yPath[0: int(len(yPath)/noCycles)]
 #     mouseTrack.zPathCoords = zPath[0: int(len(zPath)/noCycles)]
 
+############################################################################
+# Optitrack connection
+if opTrack.pluggedIn:
+    opTrack.optiConnect()
 
+############################################################################
 # Initialise variables 
 SAMP_FREQ = 1/kineSolve.TIMESTEP
 flagStop = False
@@ -318,6 +321,7 @@ try:
         [tVolL, vDotL, dDotL, fStepL, tStepL, tSpeedL, LcRealL, angleL] = kineSolve.volRate(cVolL, cableL, scaleTargL)
         [tVolR, vDotR, dDotR, fStepR, tStepR, tSpeedR, LcRealR, angleR] = kineSolve.volRate(cVolR, cableR, scaleTargR)
         [tVolT, vDotT, dDotT, fStepT, tStepT, tSpeedT, LcRealT, angleT] = kineSolve.volRate(cVolT, cableT, scaleTargT)
+        # print(LcRealL, LcRealR, LcRealT)
 
         # CALCULATE FREQS FROM VALID STEP NUMBER
         # tStepL is target pump position, cStepL is current, speed controlled position.
@@ -421,6 +425,10 @@ finally:
     # Stop program
     # Disable pumps and set them to idle state
     try:
+        #Save optitrack data
+        opTrack.optiSave()
+        opTrack.optiClose()
+
         # Save values gathered from arduinos
         ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
         ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)

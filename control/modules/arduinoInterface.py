@@ -165,7 +165,7 @@ class ardInterfacer:
         # self.ser.reset_output_buffer()
 
         # IF STEP COUNT = L_'pumpName' STOP AND DISCONNECT ALL
-        print(stepPress)
+        # print(stepPress)
         if stepPress == ['']:
             stepCount = "S_Empty" # Change this later to handle dropped values
             pumpPress = "P_Empty"

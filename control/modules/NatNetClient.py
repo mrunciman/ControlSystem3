@@ -58,7 +58,7 @@ class NatNetClient:
     # print_level = 0 off
     # print_level = 1 on
     # print_level = >1 on / print every nth mocap frame
-    print_level = 20
+    print_level = 0
     
     def __init__( self ):
         # Change this value to the IP address of the NatNet server.
@@ -107,6 +107,8 @@ class NatNetClient:
 
         self.stop_threads=False
 
+        self.data_out = MoCapData.MarkerSetData()
+        self.time_code = MoCapData.FrameSuffixData()
 
     # Client/server message ids
     NAT_CONNECT               = 0
@@ -457,6 +459,7 @@ class NatNetClient:
                 trace_mf( "\tMarker %3.1d : [%3.2f,%3.2f,%3.2f]"%( j, pos[0], pos[1], pos[2] ))
                 marker_data.add_pos(pos)
             marker_set_data.add_marker_data(marker_data)
+            self.data_pos_list = marker_data.marker_pos_list
 
         # Unlabeled markers count (4 bytes)
         unlabeled_markers_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
@@ -656,10 +659,12 @@ class NatNetClient:
         timecode = int.from_bytes( data[offset:offset+4], byteorder='little' )
         offset += 4
         frame_suffix_data.timecode = timecode
+        # self.time_code = frame_suffix_data.timecode
 
         timecode_sub = int.from_bytes( data[offset:offset+4], byteorder='little' )
         offset += 4
         frame_suffix_data.timecode_sub = timecode_sub
+        self.time_code = frame_suffix_data.timecode
 
         # Timestamp (increased to double precision in 2.7 and later)
         if ( major == 2 and minor >= 7 ) or (major > 2 ):
@@ -704,7 +709,7 @@ class NatNetClient:
     # Unpack data from a motion capture frame message
     def __unpack_mocap_data( self, data : bytes, packet_size, major, minor):
         mocap_data = MoCapData.MoCapData()
-        trace_mf( "MoCap Frame Begin\n-----------------" )
+        # trace_mf( "MoCap Frame Begin\n-----------------" )
         data = memoryview( data )
         offset = 0
         rel_offset = 0
@@ -778,7 +783,7 @@ class NatNetClient:
             data_dict[ "tracked_models_changed"] = tracked_models_changed
 
             self.new_frame_listener( data_dict )
-        trace_mf( "MoCap Frame End\n-----------------" )
+        # trace_mf( "MoCap Frame End\n-----------------" )
         return offset, mocap_data
 
 
@@ -1168,7 +1173,7 @@ class NatNetClient:
                 if stop():
                     #print("ERROR: command socket access error occurred:\n  %s" %msg)
                     #return 1
-                    print("shutting down")
+                    print("OptiTrack: shutting down")
             except  socket.herror:
                 print("ERROR: command socket access herror occurred")
                 return 2
@@ -1253,7 +1258,7 @@ class NatNetClient:
         major = self.get_major()
         minor = self.get_minor()
 
-        trace( "Begin Packet\n-----------------" )
+        # trace( "Begin Packet\n-----------------" )
         show_nat_net_version = False
         if show_nat_net_version:
             trace("NatNetVersion " , str(self.__nat_net_requested_version[0]), " "\
@@ -1268,40 +1273,42 @@ class NatNetClient:
         #skip the 4 bytes for message ID and packet_size
         offset = 4
         if message_id == self.NAT_FRAMEOFDATA :
-            trace( "Message ID  : %3.1d NAT_FRAMEOFDATA"% message_id )
-            trace( "Packet Size : ", packet_size )
+            # trace( "Message ID  : %3.1d NAT_FRAMEOFDATA"% message_id )
+            # trace( "Packet Size : ", packet_size )
 
             offset_tmp, mocap_data = self.__unpack_mocap_data( data[offset:], packet_size, major, minor )
             offset += offset_tmp
-            print("MoCap Frame: %d\n"%(mocap_data.prefix_data.frame_number))
+            self.data_out = mocap_data.marker_set_data
+            # print("MoCap Frame: %d\n"%(mocap_data.prefix_data.frame_number))
+
             # get a string version of the data for output
             mocap_data_str=mocap_data.get_as_string()
             if print_level >= 1:
                 print("%s\n"%mocap_data_str)
 
         elif message_id == self.NAT_MODELDEF :
-            trace( "Message ID  : %3.1d NAT_MODELDEF"% message_id )
-            trace( "Packet Size : %d"% packet_size )
+            # trace( "Message ID  : %3.1d NAT_MODELDEF"% message_id )
+            # trace( "Packet Size : %d"% packet_size )
             offset_tmp, data_descs = self.__unpack_data_descriptions( data[offset:], packet_size, major, minor)
             offset += offset_tmp
-            print("Data Descriptions:\n")
+            # print("Data Descriptions:\n")
             # get a string version of the data for output
             data_descs_str=data_descs.get_as_string()
             if print_level>0:
                 print("%s\n"%(data_descs_str))
 
         elif message_id == self.NAT_SERVERINFO :
-            trace( "Message ID  : %3.1d NAT_SERVERINFO"% message_id )
-            trace( "Packet Size : ", packet_size )
+            # trace( "Message ID  : %3.1d NAT_SERVERINFO"% message_id )
+            # trace( "Packet Size : ", packet_size )
             offset += self.__unpack_server_info( data[offset:], packet_size, major, minor)
 
         elif message_id == self.NAT_RESPONSE :
-            trace( "Message ID  : %3.1d NAT_RESPONSE"% message_id )
-            trace( "Packet Size : ", packet_size )
+            # trace( "Message ID  : %3.1d NAT_RESPONSE"% message_id )
+            # trace( "Packet Size : ", packet_size )
             if packet_size == 4 :
                 command_response = int.from_bytes( data[offset:offset+4], byteorder='little' )
                 offset += 4
-                trace( "Command response: %d"% command_response )
+                # trace( "Command response: %d"% command_response )
             else:
                 show_remainder = False
                 message, separator, remainder = bytes(data[offset:]).partition( b'\0' )
@@ -1326,7 +1333,7 @@ class NatNetClient:
             trace( "Packet Size : ", packet_size )
             trace( "ERROR: Unrecognized packet type" )
 
-        trace( "End Packet\n-----------------" )
+        # trace( "End Packet\n-----------------" )
         return message_id
 
     def send_request( self, in_socket, command, command_str, address ):
@@ -1426,7 +1433,7 @@ class NatNetClient:
         return True
 
     def shutdown(self):
-        print("shutdown called")
+        print("OptiTrack: shutdown called")
         self.stop_threads = True
         # closing sockets causes blocking recvfrom to throw
         # an exception and break the loop
