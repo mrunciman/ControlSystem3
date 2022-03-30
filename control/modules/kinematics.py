@@ -159,7 +159,7 @@ class kineSolver:
         # Extension/Retraction Geometry
         ###################################################################
         # Point that the shaft rotates around - COR of universal joint
-        self.CONT_ARC_S = 15 # mm continuum joint arc length
+        self.CONT_ARC_S = 20 # mm continuum joint arc length
         self.LEVER_BASE_Z = -30
         self.LEVER_POINT = np.array([0.5*self.SIDE_LENGTH,\
             0.5*self.SIDE_LENGTH*mt.tan(mt.pi/6),\
@@ -170,7 +170,8 @@ class kineSolver:
         # Normal of end effector / parallel mechanism plane:
         self.N_PLANE = self.N_CROSS/la.norm(self.N_CROSS)
 
-        self.SHAFT_LENGTH = 67.5 # mm
+        self.SHAFT_LENGTH = 46.5 # mm
+        self.SHAFT_LENGTH_UJ = 66.5 # mm
 
         # Set limits on shaft extension
         # self.minShaftExt = self.SHAFT_LENGTH + 1
@@ -237,7 +238,7 @@ class kineSolver:
 
         else: # Assume shaft is a UJ connected to lever point base
             baseToPoint = la.norm(P_des - self.LEVER_POINT)
-            L_Pri = abs(baseToPoint) - self.SHAFT_LENGTH
+            L_Pri = abs(baseToPoint) - self.SHAFT_LENGTH_UJ
             # Find where line between conty_glob and desired point P_des
             # intersects the entry point trangle:
             u_Cont = (P_des - self.LEVER_POINT)/baseToPoint

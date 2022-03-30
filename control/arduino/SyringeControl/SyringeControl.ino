@@ -16,7 +16,7 @@
 // Handshake variables
 bool shakeFlag = false;
 String shakeInput; // 3 bit password to assign pump name/position
-char shakeKey[5] = "LHS";
+char shakeKey[5] = "RHS";
 // TOP = 4, RHS = 7, LHS = 8
 // PRI = 9
 
@@ -117,7 +117,7 @@ unsigned long tStep2k = 1; // When tStep equals 500 us, 2 kHz pulse achieved - 6
 
 ////////////////////////////////////////////////////////
 // Messages
-char data[64]; // Char array to write stepNo, pressure and time into
+char data[50]; // Char array to write stepNo, pressure and time into
 char endByte[3] = "E";
 char disableMsg[3] = "D ";
 char limitHit[3] = "L ";
@@ -468,7 +468,7 @@ void loop() {
   else if(disconFlag == true){
     pumpState = 2;//Disconnection
   }
-  else if(pressFlag == false){//CHANGE TO TRUE TO ACTIVATE
+  else if(pressFlag == true){//CHANGE TO TRUE TO ACTIVATE
     pumpState = 3;//Calibration
   }
   else{
@@ -551,10 +551,10 @@ void loop() {
             // Notify that calibration is done
             writeSerial('P');
             stepper.hardStop(HARD);
-            // posPressFlag = true; // TRANSITION HERE TO POSITIVE PRESSURE CONTROL
+            posPressFlag = true; // TRANSITION HERE TO POSITIVE PRESSURE CONTROL
             // pressSetpoint = PRESS_FORCE_TEST;
             stateCount = 0;
-            pressFlag = false; // TRANSITION TO ACTIVE STATE (OVERRIDES POSITIVE PRESSURE FLAG)
+            // pressFlag = false; // TRANSITION TO ACTIVE STATE (OVERRIDES POSITIVE PRESSURE FLAG)
           }
         }
 

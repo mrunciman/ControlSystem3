@@ -227,18 +227,18 @@ try:
     calibP = False
     calibA = True
     # Has the mechanism been calibrated/want to run without calibration?:
-    calibrated = True
+    calibrated = False
     # Perform calibration:
     print("Zeroing hydraulic actuators...")
     while (not calibrated):
-        [realStepL, pressL, timeL] = ardIntLHS.listenZero(calibL, pressL, timeL)
-        print(realStepL, pressL)
-        [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
-        print(realStepR, pressR)
+        # [realStepL, pressL, timeL] = ardIntLHS.listenZero(calibL, pressL, timeL)
+        # print(realStepL, pressL)
+        # [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
+        # print(realStepR, pressR)
         [realStepT, pressT, timeT] = ardIntTOP.listenZero(calibT, pressT, timeT)
         print(realStepT, pressT)
-        [realStepP, pressP, timeP] = ardIntPRI.listenZero(calibP, pressP, timeP)
-        print(realStepP, calibP)
+        # [realStepP, pressP, timeP] = ardIntPRI.listenZero(calibP, pressP, timeP)
+        # print(realStepP, calibP)
         # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
         # print(pressA, calibA)
 
@@ -411,8 +411,8 @@ except TypeError as exTE:
     tb_textTE = ''.join(tb_linesTE)
     print(tb_textTE)
 
-except KeyboardInterrupt as ctrlC:
-    print(ctrlC)
+# except KeyboardInterrupt as ctrlC:
+#     print(ctrlC)
 
     # except Exception as ex:
     #     tb_lines = traceback.format_exception(ex.__class__, ex, ex.__traceback__)
@@ -425,9 +425,6 @@ finally:
     # Stop program
     # Disable pumps and set them to idle state
     try:
-        #Save optitrack data
-        opTrack.optiSave()
-        opTrack.optiClose()
 
         # Save values gathered from arduinos
         ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
@@ -437,6 +434,10 @@ finally:
         # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
         ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
         ardLogging.ardSave()
+
+        #Save optitrack data
+        opTrack.optiSave()
+        opTrack.optiClose()
 
         flagStop = True
 

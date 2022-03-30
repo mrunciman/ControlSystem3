@@ -46,7 +46,7 @@ class optiTracker:
 
         # self.trackSock.data_out = mocap_data = MoCapData.MarkerSetData() # See NatNetClient.py
         self.markerData = []#self.trackSock.data_out.marker_set_data.unlabeled_markers.marker_pos_list 
-        self.timeCode = []#self.trackSock.data_out.suffix_data.timecode
+        self.timeStamp = []#self.trackSock.data_out.suffix_data.timestamp
 
 
     def optiConnect(self):
@@ -80,10 +80,12 @@ class optiTracker:
     # and called once per mocap frame.
     def receive_new_frame(self, data_dict):
         markerDataLocal = self.trackSock.data_out.unlabeled_markers.marker_pos_list
-        self.markerData.append([item for t in markerDataLocal for item in t])
+        # Append all data into rows of a list instead of list of tuples:
+        self.markerData.append([self.trackSock.time_stamp] + [item for t in markerDataLocal for item in t])
         # print(self.markerData)
-        self.timeCode = self.trackSock.time_code
-        # print(self.timeCode)
+        self.timeStamp = self.trackSock.time_stamp
+        # self.markerData.insert(self.timeStamp)
+        # print(self.timeStamp)
 
 
 

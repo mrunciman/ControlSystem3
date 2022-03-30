@@ -22,6 +22,7 @@ class pathGenerator:
 
         # File name initialisation
         self.location = os.path.dirname(__file__)
+        # print(os.path.abspath(os.pardir))
         self.logTime = time.strftime("%Y-%m-%d %H-%M-%S")
         self.relative = "paths/genericPath" + self.logTime + str(self.sideLength) + "EqSide.csv"
         self.fileName = []
@@ -108,8 +109,8 @@ class pathGenerator:
         numRots = 5
         noSteps = 180*numRots # number of steps per 
         circRadius = 15
-        bottomSpiral = 2.5
-        topSpiral = 32.5
+        bottomSpiral = 30
+        topSpiral = 30
 
         fwdRadius = np.linspace(0, circRadius, noSteps)
         bwdRadius = np.linspace(circRadius, 0, noSteps)
@@ -118,7 +119,7 @@ class pathGenerator:
         spiralPrism = np.concatenate((fwdPrism, bwdPrism))
         spiralRad = np.concatenate((fwdRadius, bwdRadius))
 
-        self.relative = "paths/spiralZ " + self.logTime + " " + str(circRadius) + "mmRad" + str(self.sideLength) + "EqSide.csv"
+        self.relative = "../paths/spiralZ " + self.logTime + " " + str(circRadius) + "mmRad" + str(self.sideLength) + "EqSide.csv"
         self.fileName = os.path.join(self.location, self.relative)
 
         fwdRot = np.linspace(0, numRots*2*mt.pi*(1 - 1/(noSteps)), noSteps)
@@ -421,8 +422,8 @@ class pathGenerator:
     
 
 
-sideLength = 18.911 # mm, from workspace2 model
+sideLength = 30.0 # mm, from workspace2 model
 noCycles = 10
 pathGen = pathGenerator(sideLength)
-pathGen.spiralOnCyl(noCycles)
+pathGen.spiralPath2(noCycles)
 pathGen.generatePath()

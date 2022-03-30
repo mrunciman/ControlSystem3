@@ -108,7 +108,7 @@ class NatNetClient:
         self.stop_threads=False
 
         self.data_out = MoCapData.MarkerSetData()
-        self.time_code = MoCapData.FrameSuffixData()
+        self.time_stamp = MoCapData.FrameSuffixData()
 
     # Client/server message ids
     NAT_CONNECT               = 0
@@ -659,12 +659,11 @@ class NatNetClient:
         timecode = int.from_bytes( data[offset:offset+4], byteorder='little' )
         offset += 4
         frame_suffix_data.timecode = timecode
-        # self.time_code = frame_suffix_data.timecode
+        # self.time_stamp = frame_suffix_data.timecode
 
         timecode_sub = int.from_bytes( data[offset:offset+4], byteorder='little' )
         offset += 4
         frame_suffix_data.timecode_sub = timecode_sub
-        self.time_code = frame_suffix_data.timecode
 
         # Timestamp (increased to double precision in 2.7 and later)
         if ( major == 2 and minor >= 7 ) or (major > 2 ):
@@ -675,6 +674,7 @@ class NatNetClient:
             offset += 4
         trace_mf("Timestamp : %3.2f"%timestamp)
         frame_suffix_data.timestamp = timestamp
+        self.time_stamp = frame_suffix_data.timestamp
 
         # Hires Timestamp (Version 3.0 and later)
         if major >= 3 :
