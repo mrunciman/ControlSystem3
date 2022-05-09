@@ -397,8 +397,15 @@ class pathGenerator:
         self.xPath = np.concatenate((self.xPath, xListPauseD))
         self.yPath = np.concatenate((self.yPath, yListPauseD))
 
-
-
+    def pointMatrix(self, centreX, centreY, spaceX, spaceY, width, breadth):
+        """
+        Create rectangular array of points centred at (centreX, centreY),
+        going from -(width/2) to +(width/2) and -(breadth/2) to 
+        +(breadth/2), with spacings of spaceX and spaceY.
+        """
+        numPointsX = (width/spaceX) + 1
+        numPointsY = (breadth/spaceY) + 1
+        
 
     #####
     # Concentric triangles

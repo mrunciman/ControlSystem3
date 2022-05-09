@@ -147,22 +147,26 @@ class ardInterfacer:
         # Wait here for reply - source of delay
         while noBytes == 0:
             noBytes = self.ser.in_waiting
+        # stepPress = self.ser.readline()
+        # print(stepPress)
         # Read all bytes in input buffer
         # stepPress = ser.read(noBytes)
         # Check for end character
         while ord(x) != ord("E"):
             x = self.ser.read()
-            if x == b"":
-                break
-            elif x == b"E":
+            # if x == b"":
+            #     break
+            if x == b"E":
                 break
             stepPress = stepPress + x
 
+        # print(stepPress)
         stepPress = stepPress.decode('utf-8')
+        # print(stepPress)
         stepPress = stepPress.split(',')
         # print(stepPress)
-        # self.ser.reset_input_buffer()
-        # self.ser.reset_output_buffer()
+        self.ser.reset_input_buffer()
+        self.ser.reset_output_buffer()
 
         # IF STEP COUNT = L_'pumpName' STOP AND DISCONNECT ALL
         # print(stepPress)
@@ -185,8 +189,8 @@ class ardInterfacer:
 
             filtTime = filter(str.isdigit, stepPress[2])
             pumpTime = "".join(filtTime)
-            if pumpPress == "":
-                pumpPress = 0
+            if pumpTime == "":
+                pumpTime = 0
             pumpTime = int(pumpTime)
 
         else:

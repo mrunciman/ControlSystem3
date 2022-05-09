@@ -22,6 +22,7 @@ class kineSolver:
         self.SIDE_LENGTH = triangleSide
         # 'Flat' muscle length:
         self.L_0 = 50
+
         # Excess length of cable between entry point and muscle, in mm
         # self.Lx = 10
         # Total length of cable in flat/resting state
@@ -29,12 +30,16 @@ class kineSolver:
         # print(Lt)
         # Equivalent width of hydraulic muscle in mm
         self.ACT_WIDTH = 18
+        self.D_s = 12 # Flat section of actutor
+        self.D_t = 30 # Total width of actuator
+        self.D_c = (self.D_t - self.D_s)/2 # Width of each individual conic end
         # Number of length subdivisions
         self.NUM_L = 4
+        self.FACT_V = ((self.L_0**2)/self.NUM_L)*(self.D_c/3 + self.D_s/2)
         # Syringe cross sectional area, diameter = 26.5 mm
-        self.A_SYRINGE = mt.pi*(13.25**2) # m^2
+        self.A_SYRINGE = mt.pi*(13.25**2) # mm^2
         # Real volume calc: there are numLs beams of length L0/numLs
-        self.FACT_V = ((self.ACT_WIDTH/1000)*(self.L_0/1000)**2)/(2*self.NUM_L)
+        # self.FACT_V = ((self.ACT_WIDTH/1000)*(self.L_0/1000)**2)/(2*self.NUM_L)
         self.M3_to_MM3 = 1e9
         self.VOL_FACTOR = 0.85 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
         self.CAL_FACTOR = 0.01 # % of max volume still in actuator after calibration
@@ -58,7 +63,7 @@ class kineSolver:
         self.STEPS_PER_MM = (self.STEPS_PER_REV*self.MICROSTEPS)/(self.LEAD) # steps per mm
         self.STEPS_PER_MMCUBED = self.STEPS_PER_MM/self.A_SYRINGE # Steps per mm^3
         self.MAX_STEPS = self.STEPS_PER_MMCUBED*self.MAX_VOL # number of steps needed to fill pouch
-        self.MIN_STEPS = 500
+        self.MIN_STEPS = 50
         # print(maxSteps)
         self.TIMESTEP = 6/125 # Inverse of sampling frequency on arduinos
         self.CABLE_SPEED_LIM = 100 # mm/s SET HIGH TO REMOVE FROM SYSTEM FOR NOW
@@ -340,13 +345,13 @@ class kineSolver:
         # Use Taylor approximation of theta and sub into 
         # theta-dependent part of volume equation:
         thetaApprox = abs(mt.sqrt(6*(self.L_c/1000)/(self.L_0/1000)))
-        normV = thetaApprox*(thetaApprox**4 - 18*thetaApprox**2 + 96)/12
+        normV = thetaApprox*(thetaApprox**4 - 18*thetaApprox**2 + 96)/144
         # Multiply theta-dependent part with geometry-dependent part:
-        volume = normV*self.FACT_V*self.M3_to_MM3
+        volume = normV*self.FACT_V
         volComp = volume*self.VOL_FACTOR + self.DEAD_VOL
 
         # Find distance syringe pump has to move to reach desired volume
-        lengthSyringe = volume/self.A_SYRINGE
+        lengthSyringe = volume/self.A_SYRINGE # A_sYRINGE is in mm^2
         lenComp = volComp/self.A_SYRINGE
 
         # Find desired position of stepper:

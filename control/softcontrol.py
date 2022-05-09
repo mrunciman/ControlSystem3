@@ -73,7 +73,7 @@ else:
 xPath[0], yPath[0], zPath[0] = 15, 8.66, 20
 xMap, yMap, zMap = xPath[0], yPath[0], zPath[0]
 XYZPathCoords = [xMap, yMap, zMap]
-print(XYZPathCoords)
+print("Start point: ", XYZPathCoords)
 
 # Do you want to use mouse as primary?
 # useMouse = False
@@ -231,14 +231,14 @@ try:
     # Perform calibration:
     print("Zeroing hydraulic actuators...")
     while (not calibrated):
-        # [realStepL, pressL, timeL] = ardIntLHS.listenZero(calibL, pressL, timeL)
-        # print(realStepL, pressL)
-        # [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
-        # print(realStepR, pressR)
+        [realStepL, pressL, timeL] = ardIntLHS.listenZero(calibL, pressL, timeL)
+        print(realStepL, pressL)
+        [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
+        print(realStepR, pressR)
         [realStepT, pressT, timeT] = ardIntTOP.listenZero(calibT, pressT, timeT)
         print(realStepT, pressT)
-        # [realStepP, pressP, timeP] = ardIntPRI.listenZero(calibP, pressP, timeP)
-        # print(realStepP, calibP)
+        [realStepP, pressP, timeP] = ardIntPRI.listenZero(calibP, pressP, timeP)
+        print(realStepP, calibP)
         # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
         # print(pressA, calibA)
 
@@ -248,7 +248,7 @@ try:
             calibR = True
         if (realStepT == "0000TOP"):
             calibT = False
-        if (realStepP == "0200PRI"):
+        if (realStepP == "0800PRI"):
             calibP = True
         # if (pressA >= pneuPress):
         #     calibA = True
@@ -335,6 +335,8 @@ try:
         StepNoR += RStep 
         StepNoT += TStep
         StepNoP += PStep
+
+        print(StepNoL, StepNoR, StepNoT, StepNoP)
 
         # Reduce speed when making first move after calibration.
         if firstMoveDelay < firstMoveDivider:

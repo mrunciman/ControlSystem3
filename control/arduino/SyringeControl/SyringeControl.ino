@@ -16,9 +16,9 @@
 // Handshake variables
 bool shakeFlag = false;
 String shakeInput; // 3 bit password to assign pump name/position
-char shakeKey[5] = "RHS";
-// TOP = 4, RHS = 7, LHS = 8
-// PRI = 9
+char shakeKey[5] = "LHS";
+// TOP = 4, RHS = 8, LHS = 7
+// PRI = 5
 
 
 ////////////////////////////////////////////////////////
@@ -144,7 +144,7 @@ void setup() {
   sensor.begin();
   delay(1000);
 
-  pressureAbs = sensor.getPressure(ADC_4096);
+  pressureAbs = sensor.getPressure(ADC_2048);
   //Serial configuration
   Serial.begin(115200);
   // Wait here until serial port is opened
@@ -266,17 +266,17 @@ void pressInitZeroVol() {
   }
 
   // If close to target pressure, use finer movements
-  if (motorState == 1 || motorState == 2){
-    // if within 50 mbar of target pressure go slower
-    if (abs(pressureError) < PRESS_FINE){ 
-      pressSteps = 10;
-      // stepper.setMaxVelocity(SPEEDP_LOW);
-    }
-    else{
-      pressSteps = 50;
-      // stepper.setMaxVelocity(SPEEDP_HIGH);
-    }
+  // if (motorState == 1 || motorState == 2){
+  // if within 50 mbar of target pressure go slower
+  if (abs(pressureError) < PRESS_FINE){ 
+    pressSteps = 10;
+    // stepper.setMaxVelocity(SPEEDP_LOW);
   }
+  else{
+    pressSteps = 50;
+    // stepper.setMaxVelocity(SPEEDP_HIGH);
+  }
+  // }
 
   switch (motorState) {
     case 0:
@@ -343,17 +343,17 @@ void pressControl() {
   }
 
   // If close to target pressure, use finer movements
-  if (motorState == 1 || motorState == 2){
-    // if within 50 mbar of target pressure go slower
-    if (abs(pressureError) < PRESS_FINE){ 
-      pressSteps = 10;
-      // stepper.setMaxVelocity(SPEEDP_LOW);
-    }
-    else{
-      pressSteps = 50;
-      // stepper.setMaxVelocity(SPEEDP_HIGH);
-    }
+  // if (motorState == 1 || motorState == 2){
+  // if within 50 mbar of target pressure go slower
+  if (abs(pressureError) < PRESS_FINE){ 
+    pressSteps = 10;
+    // stepper.setMaxVelocity(SPEEDP_LOW);
   }
+  else{
+    pressSteps = 50;
+    // stepper.setMaxVelocity(SPEEDP_HIGH);
+  }
+  // }
 
   switch (motorState) {
     case 0:
@@ -417,7 +417,7 @@ void readSerial() {
       disconFlag = true;
       writeSerial('D'); //Send disable message
       stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
-      stepper.disableMotor();   
+      // stepper.disableMotor();   
     }
     else{
       stepIn = stepRecv.toInt();
@@ -438,7 +438,7 @@ void readSerial() {
 void writeSerial(char msg){
   writeTime = millis();
   pressureX10 = int(pressureAbs*10);
-
+  
   if (msg == 'S'){ // Normal operation, send stepCount etc
     sprintf(data, "%06d,%d,%lu%s", stepCount, pressureX10, writeTime, endByte);
   }
@@ -448,7 +448,7 @@ void writeSerial(char msg){
   else if (msg == 'L'){ // Limit switch hit, advise Python
     sprintf(data, "%s%s,%d,%lu%s", limitHit, shakeKey, pressureX10, writeTime, endByte);
   }
-  else if (msg == 'p'){ // Calibrating
+  else if (msg == 'C'){ // Calibrating
     sprintf(data, "%04d%s,%d,%lu%s", STABLE_TIME-stateCount, shakeKey, pressureX10, writeTime, endByte);
   }
   else if(msg = 'P'){ // Calibration finished
@@ -551,10 +551,13 @@ void loop() {
             // Notify that calibration is done
             writeSerial('P');
             stepper.hardStop(HARD);
-            posPressFlag = true; // TRANSITION HERE TO POSITIVE PRESSURE CONTROL
+            // posPressFlag = true; // TRANSITION HERE TO POSITIVE PRESSURE CONTROL
             // pressSetpoint = PRESS_FORCE_TEST;
             stateCount = 0;
-            // pressFlag = false; // TRANSITION TO ACTIVE STATE (OVERRIDES POSITIVE PRESSURE FLAG)
+            pressFlag = false; // TRANSITION TO ACTIVE STATE (OVERRIDES POSITIVE PRESSURE FLAG)
+          }
+          else{
+            writeSerial('C');
           }
         }
 
@@ -573,9 +576,9 @@ void loop() {
           }
         }
         // If no reply, say calibration in progress
-        else{
-          writeSerial('p');
-        }
+        // else{
+        //   writeSerial('p');
+        // }
         
       }
       break;

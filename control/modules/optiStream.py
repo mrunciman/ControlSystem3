@@ -29,16 +29,16 @@ class optiTracker:
         self.trackSock.set_server_address(optionsDict["serverAddress"])
         self.trackSock.set_use_multicast(optionsDict["use_multicast"])
         self.pluggedIn = False
-        if self.trackSock.connected() is False:
-            print("ERROR: Could not connect properly.  Check that Motive streaming is on.")
-            try:
-                sys.exit(2)
-            except SystemExit:
-                print("...")
-            finally:
-                print("exiting")
-        else:
-            self.pluggedIn = True
+        # if self.trackSock.connected() is False:
+        #     print("ERROR: Could not connect properly.  Check that Motive streaming is on.")
+        #     try:
+        #         sys.exit(2)
+        #     except SystemExit:
+        #         print("...")
+        #     finally:
+        #         print("exiting")
+        # else:
+        #     self.pluggedIn = True
         self.pluggedIn = True
 
         self.trackSock.new_frame_listener = self.receive_new_frame
