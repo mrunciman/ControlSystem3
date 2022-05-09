@@ -11,7 +11,9 @@ parent = os.path.dirname(location)
 logTime = time.strftime("%Y-%m-%d %H-%M-%S")
 relative = "logs/opti/optiTrack " + logTime + ".csv"
 fileName = os.path.join(parent, relative)
-
+with open(fileName, mode ='w', newline='') as optiLog0: 
+    optiLog1 = csv.writer(optiLog0)
+    optiLog1.writerow([time.time(), 'X', 'Y', 'Z'])
 
 class optiTracker:
 
@@ -28,7 +30,7 @@ class optiTracker:
         self.trackSock.set_client_address(optionsDict["clientAddress"])
         self.trackSock.set_server_address(optionsDict["serverAddress"])
         self.trackSock.set_use_multicast(optionsDict["use_multicast"])
-        self.pluggedIn = False
+        # self.pluggedIn = False
         # if self.trackSock.connected() is False:
         #     print("ERROR: Could not connect properly.  Check that Motive streaming is on.")
         #     try:
@@ -46,7 +48,7 @@ class optiTracker:
 
         # self.trackSock.data_out = mocap_data = MoCapData.MarkerSetData() # See NatNetClient.py
         self.markerData = []#self.trackSock.data_out.marker_set_data.unlabeled_markers.marker_pos_list 
-        self.timeStamp = []#self.trackSock.data_out.suffix_data.timestamp
+        self.timeStamp = 0#self.trackSock.data_out.suffix_data.timestamp
 
 
     def optiConnect(self):
@@ -63,10 +65,10 @@ class optiTracker:
 
 
     def optiSave(self):
-        with open(fileName, 'a', newline='') as optiLog:
-            optiLog2 = csv.writer(optiLog)
+        with open(fileName, 'a', newline='') as optiLog2:
+            optiLog3 = csv.writer(optiLog2)
             for i in range(len( self.markerData)):
-                optiLog2.writerow( self.markerData[i])
+                optiLog3.writerow( self.markerData[i])
         return
 
 
@@ -80,10 +82,11 @@ class optiTracker:
     # and called once per mocap frame.
     def receive_new_frame(self, data_dict):
         markerDataLocal = self.trackSock.data_out.unlabeled_markers.marker_pos_list
+        self.timeStamp += 1/120
         # Append all data into rows of a list instead of list of tuples:
-        self.markerData.append([self.trackSock.time_stamp] + [item for t in markerDataLocal for item in t])
+        self.markerData.append([self.timeStamp] + [item for t in markerDataLocal for item in t])
         # print(self.markerData)
-        self.timeStamp = self.trackSock.time_stamp
+        # self.timeStamp = self.trackSock.time_stamp
         # self.markerData.insert(self.timeStamp)
         # print(self.timeStamp)
 

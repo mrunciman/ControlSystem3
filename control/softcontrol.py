@@ -58,7 +58,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/spiralOnCyl 2021-04-09 13-01-04 10mmRad18.911EqSide.csv', newline = '') as csvPath:
+    with open('control/paths/spiralZ 2022-03-28 22-22-38 15mmRad30.0EqSide.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -70,7 +70,7 @@ else:
     phntmOmni.getOmniCoords()
     [xMap, yMap, zMap] = phntmOmni.omniMap()
 
-xPath[0], yPath[0], zPath[0] = 15, 8.66, 20
+# xPath[0], yPath[0], zPath[0] = 15, 8.66, 20
 xMap, yMap, zMap = xPath[0], yPath[0], zPath[0]
 XYZPathCoords = [xMap, yMap, zMap]
 print("Start point: ", XYZPathCoords)
@@ -227,7 +227,7 @@ try:
     calibP = False
     calibA = True
     # Has the mechanism been calibrated/want to run without calibration?:
-    calibrated = False
+    calibrated = True
     # Perform calibration:
     print("Zeroing hydraulic actuators...")
     while (not calibrated):
@@ -273,16 +273,16 @@ try:
     while(flagStop == False):
 
         # Stay at first coord for number of cycles
-        if delayCount < delayLim:
+        if delayCount < delayLim/2:
             delayCount += 1
             pathCounter = 0
 
         if not omni_connected:
         # Go sequentially through path coordinates
             # XYPathCoords = [xPath[pathCounter], yPath[pathCounter]]
-            XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
+            XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]+10]
             # print(XYZPathCoords)
-            XYZPathCoords = [15, 8.66, 20]
+            # XYZPathCoords = [15, 8.66, 20]
         else:
             phntmOmni.getOmniCoords()
             [xMap, yMap, zMap] = phntmOmni.omniMap()

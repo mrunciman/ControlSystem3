@@ -213,14 +213,14 @@ class kineSolver:
             # Use theta polynomial from Taylor approximations of sin, cos, & tan:
             theta_poly = [x_bend_plane/3, -(self.CONT_ARC_S/2 - y_bend_plane), -x_bend_plane]
             root_theta = np.roots(theta_poly)
-            theta_approx = root_theta(root_theta > 0)
+            theta_approx = root_theta[root_theta > 0]
 
             # Continuum joint radius
             cont_rad = self.CONT_ARC_S/theta_approx
 
             # Continuum joint tip in bending plane (2D) frame of reference:
-            shaft_start_xL = cont_rad*(1 - mt.cos(theta_approx))
-            shaft_start_yL = cont_rad*(mt.sin(theta_approx))
+            shaft_start_xL = float(cont_rad*(1 - mt.cos(theta_approx)))
+            shaft_start_yL = float(cont_rad*(mt.sin(theta_approx)))
 
             # Transform from bending plane to 3D workspace
             conty = np.array([shaft_start_xL, 0, shaft_start_yL])
@@ -231,7 +231,10 @@ class kineSolver:
                     [0,                0,               1]])
 
             # This is tip of continuum joint
-            conty_glob = np.transpose(cont_Rz*conty) + self.LEVER_POINT
+            conty_glob_0 = cont_Rz*np.transpose(conty)
+            conty_glob = conty_glob_0 + self.LEVER_POINT
+            print("Zero ", conty_glob_0)
+            print("Glob: ", conty_glob) # SHOULD BE 3 X 1
 
             # Now find distance between this point and desired point,
             # subtract fixed shaft length to find prismatic length.
@@ -248,8 +251,10 @@ class kineSolver:
             # intersects the entry point trangle:
             u_Cont = (P_des - self.LEVER_POINT)/baseToPoint
 
+        print(u_Cont)
         # How far along u_Cont the POI lies, starting from desired point P_des
         dist_to_POI = np.dot((self.ENTRY_POINTS[:, 0] - P_des), self.N_PLANE)/np.dot(u_Cont, self.N_PLANE)
+        print(dist_to_POI)
         POI_Cont = P_des + dist_to_POI*u_Cont
 
         # Impose contraction range

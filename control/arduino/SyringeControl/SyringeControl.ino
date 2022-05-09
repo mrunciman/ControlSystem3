@@ -7,31 +7,37 @@
 #include <Wire.h>
 //Sensor library - https://github.com/sparkfun/MS5803-14BA_Breakout/
 #include <SparkFun_MS5803_I2C.h>
-#include <uStepperSLite.h>
+// #include <uStepperSLite.h>
 // #include <digitalWriteFast.h>
 #define PI 3.1415926535897932384626433832795
 
+#define directionPin 6
+#define stepPin 5
+#define enablePin 4
+#define M0 9
+#define M1 7
+#define M2 8
 
 ////////////////////////////////////////////////////////
 // Handshake variables
 bool shakeFlag = false;
 String shakeInput; // 3 bit password to assign pump name/position
-char shakeKey[5] = "LHS";
-// TOP = 4, RHS = 8, LHS = 7
-// PRI = 5
+char shakeKey[5] = "TOP";
+// TOP = 3, RHS = 6, LHS = 5
+// PRI = 13
 
 
 ////////////////////////////////////////////////////////
 //uStepper S Lite Setup
-#define MAXACCELERATION 10000       //Max acceleration in steps/s^2 (2000 = 5 mm/s^2)
-#define MAXVELOCITY 3000           //Max velocity in steps/s (2000 is 5 mm/s)
-float SPEEDP_HIGH = 1000.0;
-float SPEEDP_LOW = 500.0;
-float STEPS_PER_REV = 3200.0;
-float DEG_PER_REV = 360.0;
-float angPos = 0.0; //DEG_PER_REV * stepIn/STEPS_PER_REV = 360 * stepIn/STEPS_PER_REV;
-float angMeas = 0.0; // stepCount = angMeas*STEPS_PER_REV/DEG_PER_REV
-uStepperSLite stepper(MAXACCELERATION, MAXVELOCITY);
+// #define MAXACCELERATION 10000       //Max acceleration in steps/s^2 (2000 = 5 mm/s^2)
+// #define MAXVELOCITY 3000           //Max velocity in steps/s (2000 is 5 mm/s)
+// float SPEEDP_HIGH = 1000.0;
+// float SPEEDP_LOW = 500.0;
+// float STEPS_PER_REV = 3200.0;
+// float DEG_PER_REV = 360.0;
+// float angPos = 0.0; //DEG_PER_REV * stepIn/STEPS_PER_REV = 360 * stepIn/STEPS_PER_REV;
+// float angMeas = 0.0; // stepCount = angMeas*STEPS_PER_REV/DEG_PER_REV
+// uStepperSLite stepper(MAXACCELERATION, MAXVELOCITY);
 
 // USEFUL FUNCTIONS:
 // stepper.isStalled()
@@ -60,6 +66,13 @@ volatile bool serFlag = false;
 char firstDigit = 0;  // For checking incoming communications
 String flushInputBuffer;
 
+///////////////////////////////////////////////////////
+//Set external interrupt pin numbers
+//Possible interrupt pins on Uno: 2, 3 - 18, 19 on Mega
+const byte fwdIntrrptPin = 2;
+const byte bwdIntrrptPin = 3;
+volatile bool extInterrupt = false;
+
 ////////////////////////////////////////////////////////
 // Pressure sensor variables
 MS5803 sensor(ADDRESS_LOW);//CSB pin pulled low, so address low
@@ -73,11 +86,12 @@ double PRESS_LOW = 1000.00;
 double pressSetpoint = 850.00;//mbar
 bool pressFlag = true;
 int pressureError;
-int pressSteps = 64; // Num steps to move when calibrating
+int pressSteps = 50; // Num steps to move when calibrating
 int SAMP_DIV = 6; // Factor to divide Timer2 frequency by
 volatile int sampCount = 0;
 volatile bool sampFlag = false;
-// int OCR_2p5mmps = 7999;
+int OCR_2p5mmps = 1999;
+int OCR_1p25mmps = 3999;
 // Calibration
 int stateCount = 0;
 int startTime;
@@ -113,7 +127,7 @@ unsigned long timeSinceStep = 0;
 unsigned long timeNow;
 unsigned long timeAtStep;
 unsigned long writeTime;
-unsigned long tStep2k = 1; // When tStep equals 500 us, 2 kHz pulse achieved - 666 us for 1500 Hz maximum - 
+unsigned long tStep2k = 500; // When tStep equals 500 us, 2 kHz pulse achieved - 666 us for 1500 Hz maximum - 
 
 ////////////////////////////////////////////////////////
 // Messages
@@ -155,6 +169,41 @@ void setup() {
   // Disable all interrupts
   noInterrupts();
   
+  // External interrupt config.
+  // 3k3 Pull-up resistors used, switch connects pin to gnd, so falling edge or LOW trigger.
+  pinMode(fwdIntrrptPin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(fwdIntrrptPin), forwardInterrupt, LOW);
+  pinMode(bwdIntrrptPin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(bwdIntrrptPin), backwardInterrupt, LOW);
+
+  // Configuration of DRV8825 driver pins
+  pinMode(directionPin, OUTPUT);
+  pinMode(stepPin, OUTPUT);
+  pinMode(enablePin, OUTPUT);
+  pinMode(M0, OUTPUT);
+  pinMode(M1, OUTPUT);
+  pinMode(M2, OUTPUT);
+  //Set all microstepping pins (M0 - M2) high for 32 microsteps
+  //M2M1M0 = 111 = 32, 100 = 16, 011 = 8, 010 = 4, 001 = 2, 000 = 1
+  digitalWrite(M0, LOW);
+  digitalWrite(M1, LOW);
+  digitalWrite(M2, HIGH);
+  //pinMode(testPin, OUTPUT);
+  // Start with motor diasbled
+  digitalWrite(enablePin, HIGH);
+
+  // Set up Timer1 for volume calibration procedure.
+  TCCR1A = 0;
+  TCCR1B = 0;
+  TCCR1C = 0;
+  TCNT1 = 0;
+  TIMSK1 = 0;
+  TCCR1B |= (1 << WGM12);  //Set CTC mode
+  TIMSK1 |= (1 << OCIE1A);  //enable timer compare interrupt
+  TCCR1B &= (0 << CS10); // Turn off clock source
+  TCCR1B &= (0 << CS11); 
+  TCCR1B &= (0 << CS12);
+
   //Initialise timer 2 - prescaler = 1024 gives ~61 - 15625 Hz range
   TCCR2A = 0;
   TCCR2B = 0;
@@ -175,10 +224,16 @@ void setup() {
   // uStepper S Lite setup - 
   //http://ustepper.com/docs/ustepperslite/html/classuStepperSLite.html#a9522d6afb14f71c6034ece6537180e00
   // stepper.setup();
-  stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
-  stepper.softStop(SOFT);
+  // stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
+  // stepper.softStop(SOFT);
 }
 
+// ISR Timer1 used for calibration phase
+ISR(TIMER1_COMPA_vect){
+  interrupts();
+  digitalWrite(stepPin, HIGH);
+  digitalWrite(stepPin, LOW);
+}
 
 // Internal interrupt service routine, timer 2 overflow
 ISR(TIMER2_COMPA_vect){
@@ -196,14 +251,14 @@ ISR(TIMER2_COMPA_vect){
 
 
 void pressureRead() {
-  pressureAbs = sensor.getPressure(ADC_4096);
+  pressureAbs = sensor.getPressure(ADC_2048);
   // Filter out false readings
   // Stop motor and wait if pressure exceeds maximum
-  if (pressureAbs > PRESS_MAX){
+  // if (pressureAbs > PRESS_MAX){
     // extInterrupt = true;
-    stepper.softStop(HARD); // Stop motor
-  }
-  else if (pressureAbs < 0){
+    // stepper.softStop(HARD); // Stop motor
+  // }
+  if (pressureAbs < 0){
     pressureAbs = 0.00;
   }
 }
@@ -269,11 +324,13 @@ void pressInitZeroVol() {
   // if (motorState == 1 || motorState == 2){
   // if within 50 mbar of target pressure go slower
   if (abs(pressureError) < PRESS_FINE){ 
-    pressSteps = 10;
+    // pressSteps = 10;
+    OCR1A = OCR_1p25mmps;
     // stepper.setMaxVelocity(SPEEDP_LOW);
   }
   else{
-    pressSteps = 50;
+    // pressSteps = 50;
+    OCR1A = OCR_2p5mmps;
     // stepper.setMaxVelocity(SPEEDP_HIGH);
   }
   // }
@@ -282,28 +339,28 @@ void pressInitZeroVol() {
     case 0:
       // Stop motor
       // Serial.println("Stop");
-      stepper.softStop(HARD);
+      TCCR1B &= (0 << CS11); // Turn off pulse stream
       break;
     case 1:
       //Move motor forwards
-      // if not moving or it is moving clockwise:
-      // if (!stepper.getMotorState() || !stepper.getCurrentDirection()){ 
-      stepper.moveSteps(pressSteps, CW, HARD);
-      // }
+      TCNT1 = 0;
+      // OCR1A = OCR_2p5mmps;
+      digitalWrite(directionPin, HIGH);
+      TCCR1B |= (1 << CS11);  // Turn on motor
       //Serial.println("INCREASE PRESSURE");
       break;
     case 2:
-      //Move motor backwards
-      // if not moving or it is moving anticlockwise
-      // if (!stepper.getMotorState() || stepper.getCurrentDirection() ){ 
-      stepper.moveSteps(pressSteps, CCW, HARD);
-      // }
+      //Move motor back
+      TCNT1 = 0;
+      // OCR1A = OCR_2p5mmps;
+      digitalWrite(directionPin, LOW);
+      TCCR1B |= (1 << CS11);  // Turn on motor
       //Serial.println("DECREASE PRESSURE");
       break;
     default:
       //Just in case nothing matches, stop motor
       // Serial.println("Default");
-      stepper.softStop(HARD);
+      TCCR1B &= (0 << CS11); // Turn off pulse stream
       break;
   }
 }
@@ -346,11 +403,13 @@ void pressControl() {
   // if (motorState == 1 || motorState == 2){
   // if within 50 mbar of target pressure go slower
   if (abs(pressureError) < PRESS_FINE){ 
-    pressSteps = 10;
+    // pressSteps = 10;
+    OCR1A = OCR_1p25mmps;
     // stepper.setMaxVelocity(SPEEDP_LOW);
   }
   else{
-    pressSteps = 50;
+    // pressSteps = 50;
+    OCR1A = OCR_2p5mmps;
     // stepper.setMaxVelocity(SPEEDP_HIGH);
   }
   // }
@@ -358,20 +417,72 @@ void pressControl() {
   switch (motorState) {
     case 0:
       // Stop
-      stepper.softStop(HARD);
+      TCCR1B &= (0 << CS11); // Turn off pulse stream
       break;
     case 1:
       //Move motor forwards
-      stepper.moveSteps(pressSteps, CW, HARD);
+      TCNT1 = 0;
+      // OCR1A = OCR_2p5mmps;
+      digitalWrite(directionPin, HIGH);
+      TCCR1B |= (1 << CS11);  // Turn on motor
       break;
     case 2:
       //Move motor back
-      stepper.moveSteps(pressSteps, CCW, HARD);
+      TCNT1 = 0;
+      // OCR1A = OCR_2p5mmps;
+      digitalWrite(directionPin, LOW);
+      TCCR1B |= (1 << CS11);  // Turn on motor
       break;
     default:
       //Stop just in case nothing matches
-      stepper.softStop(HARD);
+      TCCR1B &= (0 << CS11); // Turn off pulse stream
       break;
+  }
+}
+
+//External interrupt service function
+//Set both step number and the counter used in for loop of stepping function to zero.
+void forwardInterrupt() {
+  TCCR1B &= (0 << CS11); // Turn off pulse stream
+  //Stop other interrupts
+  noInterrupts();
+  extInterrupt = true;
+  //Change setpoint to currrent pressure to prevent motion
+  // pressSetpoint = pressureAbs;
+  stepCount -= limitSteps; //Keep track of volume change after moveMotor() call
+  digitalWrite(directionPin, LOW);
+  moveMotor();
+  // Disable motor drivers
+  digitalWrite(enablePin, HIGH);
+  interrupts();
+}
+
+
+//External interrupt service Call function
+//Set both step number, counter used for loop of stepping function to zero.
+//External interrupt service Call function
+//Set both step number, counter used for loop of stepping function to zero.
+void backwardInterrupt() {
+  TCCR1B &= (0 << CS11); // Turn off pulse stream
+  //Stop other interrupts
+  noInterrupts();
+  extInterrupt = true;
+  //Change setpoint to currrent pressure to prevent motion
+  pressSetpoint = pressureAbs;
+  stepCount += limitSteps; //Keep track of volume change after moveMotor() call
+  digitalWrite(directionPin, HIGH);
+  moveMotor();
+  // Disable motor drivers
+  digitalWrite(enablePin, HIGH);
+  interrupts();
+}
+
+void moveMotor() {
+  for (volatile unsigned long moveBackB = 0; moveBackB < limitSteps; moveBackB++) {
+    //A step is executed when a rising edge is detected on Step motor input
+    digitalWrite(stepPin, HIGH);
+    digitalWrite(stepPin, LOW);
+    delayMicroseconds(500);
   }
 }
 
@@ -392,11 +503,14 @@ void handShake() {
         shakeFlag = true;
 
         // Enable the motor after handshaking
-        stepper.enableMotor();
+        digitalWrite(enablePin, LOW);
         shakeInput = "";
 
         // Start timer for pressure readings
         TCCR2B |= (1 << CS22) | (1 << CS21) | (1 << CS20);
+
+        // Initialise the time variables
+        timeAtStep = micros();
 
         flushInputBuffer = Serial.readStringUntil('\n');
       }
@@ -416,7 +530,8 @@ void readSerial() {
       // Disable the motor
       disconFlag = true;
       writeSerial('D'); //Send disable message
-      stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
+      digitalWrite(enablePin, HIGH);
+      // stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
       // stepper.disableMotor();   
     }
     else{
@@ -431,6 +546,35 @@ void readSerial() {
   }
   else {
     flushInputBuffer = Serial.readStringUntil('\n');
+  }
+}
+
+void stepAftertStep(){
+  // Step the motor if enough time has passed.
+  timeNow = micros();
+  timeSinceStep = timeNow - timeAtStep;
+  if (tStep == oneHour){
+    ; // Do nothing
+  }
+  else if (timeSinceStep >= tStep){
+    if (stepError > 0){
+      if (stepCount < maxSteps){
+        digitalWrite(directionPin, HIGH);
+        digitalWrite(stepPin, HIGH);
+        digitalWrite(stepPin, LOW);
+        stepCount += 1;
+      }
+    }
+    else if (stepError < 0){
+      if (stepCount > 0){
+        digitalWrite(directionPin, LOW);
+        digitalWrite(stepPin, HIGH);
+        digitalWrite(stepPin, LOW);
+        stepCount -= 1;
+      }
+    }
+    timeAtStep = micros();
+    stepError = stepIn - stepCount;
   }
 }
 
@@ -468,7 +612,7 @@ void loop() {
   else if(disconFlag == true){
     pumpState = 2;//Disconnection
   }
-  else if(pressFlag == true){//CHANGE TO TRUE TO ACTIVATE
+  else if(pressFlag == false){//CHANGE TO TRUE TO ACTIVATE
     pumpState = 3;//Calibration
   }
   else{
@@ -479,21 +623,18 @@ void loop() {
     //////////////////////////////////////////////////////////////////////////////////////////
     //Limits hit
     case 0:
-      stepper.softStop(SOFT);
       //Make sure motor is disabled 
-      stepper.disableMotor(); // digitalWrite(enablePin, HIGH);
+      digitalWrite(enablePin, HIGH);
+      // Turn off calibration pulse stream
+      TCCR1B &= (0 << CS11);  
       // Turn off timers for interrupts
       // TCCR2B = 0; 
       stateCount = 0;
       startTime = millis();
-      if (sampFlag == true) {
-        pressureRead();
-        sampFlag = false;
-      }
+      pressureRead();
       flushInputBuffer = Serial.readStringUntil('\n');
       // Notify that limit hit
       writeSerial('L');
-      stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
       break;
 
     //////////////////////////////////////////////////////////////////////////////////////////
@@ -506,9 +647,11 @@ void loop() {
     //Disconnection
     case 2:
       // Stop motor
-      stepper.softStop(SOFT);
+      digitalWrite(enablePin, HIGH);
       // Turn off timer for interrupts
       TCCR2B = 0;
+      // Turn off calibration pulse stream
+      TCCR1B &= (0 << CS11);
       // Move back into handshaking mode
       disconFlag = false;
       shakeFlag = false;
@@ -536,8 +679,6 @@ void loop() {
               pressSetpoint = PRESS_FORCE_TEST;
             }
           }
-          angMeas = stepper.encoder.getAngleMoved();
-          stepCount = int(angMeas*STEPS_PER_REV/DEG_PER_REV);
           writeSerial('S');
         }
         else{
@@ -545,18 +686,20 @@ void loop() {
           pressInitZeroVol();
           // If enough time has passed, say volume is 0, tell python and move on
           if (stateCount >= STABLE_TIME){
+            TCCR1B &= (0 << CS11); // Turn off pulse stream
             // Step count should now be zero - muscle empty.
             stepCount = 0;
-            stepper.encoder.setHome();
+
             // Notify that calibration is done
             writeSerial('P');
-            stepper.hardStop(HARD);
+
             // posPressFlag = true; // TRANSITION HERE TO POSITIVE PRESSURE CONTROL
             // pressSetpoint = PRESS_FORCE_TEST;
             stateCount = 0;
             pressFlag = false; // TRANSITION TO ACTIVE STATE (OVERRIDES POSITIVE PRESSURE FLAG)
           }
           else{
+            // Notify that calibration is in progress
             writeSerial('C');
           }
         }
@@ -568,10 +711,7 @@ void loop() {
             stepRecv = Serial.readStringUntil('\n');
             if (stepRecv == "Closed"){
               disconFlag = true;
-              writeSerial('D');
-              // Reset using the setup function
-              stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
-              
+              writeSerial('D');             
             }
           }
         }
@@ -593,33 +733,44 @@ void loop() {
       }
 
       if (serFlag == true) { //Changed from serFlag to see if I can make things faster   if (Serial.available() > 0) 
+        serFlag = false;
         if (Serial.available() > 0){ 
           readSerial(); // Read stepIn
-          angPos = DEG_PER_REV*(float(stepIn)/STEPS_PER_REV);
-          angMeas = stepper.encoder.getAngleMoved();
-          stepCount = int(angMeas*STEPS_PER_REV/DEG_PER_REV);
+          stepError = stepIn - stepCount;
           //Send stepCount
           writeSerial('S');
-          serFlag = false;
+          if (abs(stepError) > 0){
+            // If piston not at desired position,
+            // work out timeStep so that piston reaches after 1/fSamp seconds
+            tStep = floor(tSampu/abs(stepError));
+            if (tStep < tStep2k){
+              tStep = tStep2k; // Limit fStep to 2 kHz
+            }
+          }
+          else{
+            // Set tStep to large value so no steps are made.
+            tStep = oneHour;
+          }
         }
       }
       else if (!Serial) { //if serial disconnected, go to disconected state
         disconFlag = true;
         writeSerial('D');
-        stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
       }
-      // Move to the desired position
-      stepper.moveToAngle(angPos, HARD);
+
+      // Step the motor if enough time has passed.
+      stepAftertStep();
       break;
 
     //////////////////////////////////////////////////////////////////////////////////////////
     // Unrecognised state, act as if limit hit
     default:
-      stepper.softStop(SOFT);
       //Make sure motor is disabled 
-      stepper.disableMotor(); // digitalWrite(enablePin, HIGH);
+      digitalWrite(enablePin, HIGH);
       // Turn off timers for interrupts
       TCCR2B = 0;
+      // Turn off calibration pulse stream
+      TCCR1B &= (0 << CS11); 
       stateCount = 0;
       startTime = millis();
       pressureRead();
