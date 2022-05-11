@@ -154,8 +154,8 @@ class ardInterfacer:
         # Check for end character
         while ord(x) != ord("E"):
             x = self.ser.read()
-            # if x == b"":
-            #     break
+            if x == b"":
+                break
             if x == b"E":
                 break
             stepPress = stepPress + x

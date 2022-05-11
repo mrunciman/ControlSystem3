@@ -2,7 +2,7 @@
 /*Pressure control sketch for syringe pump.
 
 */
-
+#include <Arduino.h>
 #include <math.h>
 #include <Wire.h>
 //Sensor library - https://github.com/sparkfun/MS5803-14BA_Breakout/
@@ -22,7 +22,7 @@
 // Handshake variables
 bool shakeFlag = false;
 String shakeInput; // 3 bit password to assign pump name/position
-char shakeKey[5] = "TOP";
+char shakeKey[5] = "LHS";
 // TOP = 3, RHS = 6, LHS = 5
 // PRI = 13
 
@@ -612,7 +612,7 @@ void loop() {
   else if(disconFlag == true){
     pumpState = 2;//Disconnection
   }
-  else if(pressFlag == false){//CHANGE TO TRUE TO ACTIVATE
+  else if(pressFlag == true){//CHANGE TO TRUE TO ACTIVATE
     pumpState = 3;//Calibration
   }
   else{

@@ -41,7 +41,7 @@ class kineSolver:
         # Real volume calc: there are numLs beams of length L0/numLs
         # self.FACT_V = ((self.ACT_WIDTH/1000)*(self.L_0/1000)**2)/(2*self.NUM_L)
         self.M3_to_MM3 = 1e9
-        self.VOL_FACTOR = 0.85 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
+        self.VOL_FACTOR = 0.86 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
         self.CAL_FACTOR = 0.01 # % of max volume still in actuator after calibration
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
@@ -59,14 +59,16 @@ class kineSolver:
         # For speed: pulses/mm * mm/s = pulses/s
         self.STEPS_PER_REV = 200
         self.MICROSTEPS = 16
+        self.MICROSTEPS_PRI = 4
         self.LEAD = 8
         self.STEPS_PER_MM = (self.STEPS_PER_REV*self.MICROSTEPS)/(self.LEAD) # steps per mm
+        self.STEPS_PER_MM_PRI = (self.STEPS_PER_REV*self.MICROSTEPS_PRI)/(self.LEAD) # steps per mm
         self.STEPS_PER_MMCUBED = self.STEPS_PER_MM/self.A_SYRINGE # Steps per mm^3
         self.MAX_STEPS = self.STEPS_PER_MMCUBED*self.MAX_VOL # number of steps needed to fill pouch
         self.MIN_STEPS = 50
         # print(maxSteps)
         self.TIMESTEP = 6/125 # Inverse of sampling frequency on arduinos
-        self.CABLE_SPEED_LIM = 100 # mm/s SET HIGH TO REMOVE FROM SYSTEM FOR NOW
+        self.CABLE_SPEED_LIM = 5 # mm/s SET HIGH TO REMOVE FROM SYSTEM FOR NOW
 
 
         ###################################################################
@@ -79,7 +81,7 @@ class kineSolver:
         # numBits = 16
         # OCR = np.linspace(0, 2**numBits, (2**numBits)+1)
         # f8 = CLOCK_FREQ/(PRESCALER*(OCR+1))
-        self.MAX_FREQ = 1500
+        self.MAX_FREQ = 2000
         self.TWO2_16 = 2**16
 
 
@@ -187,13 +189,14 @@ class kineSolver:
         self.MIN_CONT_RAD = 0.1 # mm 
 
 
-    def intersect(self, tDesX, tDesY, tDesZ):
+    def intersect(self, tDesX, tDesY, tExt):
         # CONTINUUM JOINT
         # Transform coords to reference base of continuum joint, not parallel mech centre
-        # path FILES GIVE Z COORD AS THE AMOUNT OF EXTENSION
-        tDesZ = tDesZ + self.LEVER_BASE_Z + self.SHAFT_LENGTH
+        # PATH FILES GIVE Z COORD AS THE AMOUNT OF EXTENSION
+        tDesZ = tExt + self.LEVER_BASE_Z + self.SHAFT_LENGTH
         #Desired point P_des
         P_des = np.array([tDesX, tDesY, tDesZ])
+        # print("P_des: ", P_des)
 
         # Project desired point onto plane coincidnet with lever base point and 
         # parallel to entry point plane
@@ -207,13 +210,15 @@ class kineSolver:
             x_bend_plane = proj_rad
             y_bend_plane = tDesZ
             # angle between x axis at base point and projected point
-            ang_around_shaft = mt.atan2(tDesY - self.LEVER_POINT[0], tDesX - self.LEVER_POINT[1])
+            ang_around_shaft = mt.atan2(tDesY - self.LEVER_POINT[1], tDesX - self.LEVER_POINT[0])
 
             # Find angle of continuum joint
             # Use theta polynomial from Taylor approximations of sin, cos, & tan:
             theta_poly = [x_bend_plane/3, -(self.CONT_ARC_S/2 - y_bend_plane), -x_bend_plane]
             root_theta = np.roots(theta_poly)
-            theta_approx = root_theta[root_theta > 0]
+            # print("root_theta: ", root_theta)
+            theta_approx = float(root_theta[root_theta > 0])
+            # print("theta_approx: ", theta_approx)
 
             # Continuum joint radius
             cont_rad = self.CONT_ARC_S/theta_approx
@@ -224,17 +229,19 @@ class kineSolver:
 
             # Transform from bending plane to 3D workspace
             conty = np.array([shaft_start_xL, 0, shaft_start_yL])
+            # print("conty: ", conty)
 
             # Rotate around z axis:
             cont_Rz = np.array([[mt.cos(ang_around_shaft), -mt.sin(ang_around_shaft), 0],\
                     [mt.sin(ang_around_shaft),  mt.cos(ang_around_shaft), 0],\
                     [0,                0,               1]])
 
+            # print("Rz: ", cont_Rz)
             # This is tip of continuum joint
-            conty_glob_0 = cont_Rz*np.transpose(conty)
-            conty_glob = conty_glob_0 + self.LEVER_POINT
-            print("Zero ", conty_glob_0)
-            print("Glob: ", conty_glob) # SHOULD BE 3 X 1
+            conty_glob_0 = np.matmul(cont_Rz, conty)
+            # print("Zero ", conty_glob_0)
+            conty_glob = np.transpose(conty_glob_0) + self.LEVER_POINT
+            # print("Glob: ", conty_glob) # SHOULD BE 3 X 1
 
             # Now find distance between this point and desired point,
             # subtract fixed shaft length to find prismatic length.
@@ -251,11 +258,13 @@ class kineSolver:
             # intersects the entry point trangle:
             u_Cont = (P_des - self.LEVER_POINT)/baseToPoint
 
-        print(u_Cont)
+        # print("u_cont: ", u_Cont)
         # How far along u_Cont the POI lies, starting from desired point P_des
         dist_to_POI = np.dot((self.ENTRY_POINTS[:, 0] - P_des), self.N_PLANE)/np.dot(u_Cont, self.N_PLANE)
-        print(dist_to_POI)
+        # print("dist_to_POI: ", dist_to_POI)
         POI_Cont = P_des + dist_to_POI*u_Cont
+
+        # print("POI and Pri: ", POI_Cont[0], POI_Cont[1], L_Pri)
 
         # Impose contraction range
         if (L_Pri < self.MIN_EXTEND):
@@ -302,7 +311,7 @@ class kineSolver:
         # Compute the structure matrix A from cable unit vectors and cable attachment points 
         # in global frame, currPos_GI
         # Find cable unit vectors
-        uLhs = cL[:,0]/cLhsCable    ### FILTER OUT ZERO LENGTH ERRORS
+        uLhs = cL[:,0]/cLhsCable    ### FILTER OUT ZERO LENGTH ERRORS?
         uRhs = cL[:,1]/cRhsCable
         uTop = cL[:,2]/cTopCable
         self.uCables = np.array([uLhs, uRhs, uTop])
@@ -353,7 +362,7 @@ class kineSolver:
         normV = thetaApprox*(thetaApprox**4 - 18*thetaApprox**2 + 96)/144
         # Multiply theta-dependent part with geometry-dependent part:
         volume = normV*self.FACT_V
-        volComp = volume*self.VOL_FACTOR + self.DEAD_VOL
+        volComp = volume*self.VOL_FACTOR - self.DEAD_VOL
 
         # Find distance syringe pump has to move to reach desired volume
         lengthSyringe = volume/self.A_SYRINGE # A_sYRINGE is in mm^2

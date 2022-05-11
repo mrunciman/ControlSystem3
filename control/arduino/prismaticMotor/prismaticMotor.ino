@@ -87,7 +87,7 @@ bool lowFlag = false;
 
 ////////////////////////////////////////////////////////
 // Stepper variables
-int stepsPMM = 400; // number of pulses for 1 mm
+int stepsPMM = 100; // number of pulses for 1 mm
 int limitSteps = stepsPMM*2; //Move 2 mm
 int prevMotorState = 0;
 int motorState = 3;
@@ -245,6 +245,7 @@ void pressInitZeroVol() {
   else{
     motorState = 0;
   }
+  OCR1A = OCR_2p5mmps;
 
   switch (motorState) {
     case 0:
@@ -253,7 +254,7 @@ void pressInitZeroVol() {
     case 1:
       //Move motor forwards at 2.5 mm/s
       TCNT1 = 0;
-      OCR1A = OCR_2p5mmps;
+      // OCR1A = OCR_2p5mmps;
       digitalWrite(directionPin, HIGH);
       TCCR1B |= (1 << CS11);  // Turn on motor
       //Serial.println("INCREASE PRESSURE");
@@ -261,7 +262,7 @@ void pressInitZeroVol() {
     case 2:
       //Move motor back at 2.5 mm/s
       TCNT1 = 0;
-      OCR1A = OCR_2p5mmps;
+      // OCR1A = OCR_2p5mmps;
       digitalWrite(directionPin, LOW);
       TCCR1B |= (1 << CS11);  // Turn on motor
       //Serial.println("DECREASE PRESSURE");
@@ -518,6 +519,8 @@ void loop() {
           digitalWrite(M0, LOW);
           digitalWrite(M1, LOW);
           digitalWrite(M2, HIGH);
+          stepsPMM = 400; // number of pulses for 1 mm
+          limitSteps = stepsPMM*2; //Move 2 mm
         }
         else{
           // Check for disconnection
@@ -547,9 +550,9 @@ void loop() {
       //   pressureProtect();
       //   sampFlag = false;
       // }
-      if (Serial.available() > 0) { //Changed from serFlag to see if I can make things faster
-        readWriteSerial(); // Read stepIn, send stepCount and pressure
+      if (Serial.available() > 0)  { //Changed from serFlag to see if I can make things faster
         serFlag = false;
+        readWriteSerial(); // Read stepIn, send stepCount and pressure
       }
       // Step the motor if enough time has passed.
       stepAftertStep();
