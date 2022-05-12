@@ -341,29 +341,27 @@ try:
 
         # print(StepNoL, StepNoR, StepNoT, StepNoP)
 
+        if pumpsConnected:
         # Reduce speed when making first move after calibration.
-        if firstMoveDelay < firstMoveDivider:
-            firstMoveDelay += 1
-            # RStep = dStepR scaled for speed (w rounding differences)
-            initStepNoL = int(StepNoL*(firstMoveDelay/firstMoveDivider))
-            initStepNoR = int(StepNoR*(firstMoveDelay/firstMoveDivider))
-            initStepNoT = int(StepNoT*(firstMoveDelay/firstMoveDivider))
-            initStepNoP = int(StepNoP*(firstMoveDelay/firstMoveDivider))
-            if pumpsConnected:
+            if firstMoveDelay < firstMoveDivider:
+                firstMoveDelay += 1
+                # RStep = dStepR scaled for speed (w rounding differences)
+                initStepNoL = int(StepNoL*(firstMoveDelay/firstMoveDivider))
+                initStepNoR = int(StepNoR*(firstMoveDelay/firstMoveDivider))
+                initStepNoT = int(StepNoT*(firstMoveDelay/firstMoveDivider))
+                initStepNoP = int(StepNoP*(firstMoveDelay/firstMoveDivider))
                 # Send scaled step number to arduinos:
                 ardIntLHS.sendStep(initStepNoL)
                 ardIntRHS.sendStep(initStepNoR)
                 ardIntTOP.sendStep(initStepNoT)
                 ardIntPRI.sendStep(StepNoP)
-        else:
-            if pumpsConnected:
+            else:
                 # Send step number to arduinos:
                 ardIntLHS.sendStep(StepNoL)
                 ardIntRHS.sendStep(StepNoR)
                 ardIntTOP.sendStep(StepNoT)
                 ardIntPRI.sendStep(StepNoP)
 
-        if pumpsConnected:
             # Calculate median pressure over 10 samples:
             pressLMed = ardIntLHS.newPressMed(pressL)
             pressRMed = ardIntRHS.newPressMed(pressR)
@@ -373,6 +371,21 @@ try:
             [conRHS, dRHS] =  ardIntRHS.derivPress(timeR, prevTimeR)
             [conTOP, dTOP] = ardIntTOP.derivPress(timeT, prevTimeT)
             collisionAngle = kineSolve.collisionAngle(dLHS, dRHS, dTOP, conLHS, conRHS, conTOP)
+
+            # Log values from arduinos
+            ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
+            ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
+            ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
+            ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
+            # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
+            ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
+
+            # Get current pump position, pressure and times from arduinos
+            [realStepL, pressL, timeL] = ardIntLHS.listenReply()
+            [realStepR, pressR, timeR] = ardIntRHS.listenReply()
+            [realStepT, pressT, timeT] = ardIntTOP.listenReply()
+            [realStepP, pressP, timeP] = ardIntPRI.listenReply()
+            # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
 
         # Update current position, cable lengths, and volumes as previous targets
         currentX = actualX
@@ -394,22 +407,6 @@ try:
         prevTimeL = timeL
         prevTimeR = timeR
         prevTimeT = timeT
-
-        if pumpsConnected:
-            # Log values from arduinos
-            ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
-            ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
-            ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
-            ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
-            # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
-            ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
-
-            # Get current pump position, pressure and times from arduinos
-            [realStepL, pressL, timeL] = ardIntLHS.listenReply()
-            [realStepR, pressR, timeR] = ardIntRHS.listenReply()
-            [realStepT, pressT, timeT] = ardIntTOP.listenReply()
-            [realStepP, pressP, timeP] = ardIntPRI.listenReply()
-            # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
 
         # Close GUI if Esc hit
         # flagStop = False # Will close immediately 
