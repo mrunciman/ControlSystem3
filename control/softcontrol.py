@@ -41,6 +41,8 @@ phntmOmni = omniStream.omniStreamer()
 
 ############################################################
 pathCounter = 0
+prevPathCounter = 0
+keyboardIn = 0
 cycleCounter = 0
 
 # Count number of reps 
@@ -58,7 +60,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/spiralZ 2022-03-28 22-22-38 15mmRad30.0EqSide.csv', newline = '') as csvPath:
+    with open('control/paths/gridPath 2022-05-12 11-04-35 10x10grid 1x1spacing.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -282,7 +284,7 @@ try:
 
         if not omni_connected:
         # Go sequentially through path coordinates
-            XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]+10]
+            XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
             # print(XYZPathCoords)
             # XYZPathCoords = [15, 8.66025, 20]
         else:
@@ -407,6 +409,7 @@ try:
         prevTimeL = timeL
         prevTimeR = timeR
         prevTimeT = timeT
+        prevPathCounter = pathCounter
 
         # Close GUI if Esc hit
         # flagStop = False # Will close immediately 

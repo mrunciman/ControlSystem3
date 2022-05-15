@@ -529,3 +529,24 @@ class kineSolver:
             collAngle = (180/np.pi)*np.arctan2(resDirY, resDirX)
 
         return collAngle
+
+
+
+    def cableErrpr (self, currentX, currentY, targetL, targetR, targetT, targetP, realX, realY, realZ):
+        # errX = realX - desX
+        # errY = realY - desY
+        # errZ = realZ - desZ
+
+        # Based on estimated tip position in 3D space, find point of intersection (POI)
+        # of shaft with parallel mech plane
+        [estPOIX, estPOIY, estP] = self.intersect(realX, realY, realZ)
+
+        # Estimate the true cable lengths based on vision system
+        [estL, estR, estT, cJaco, cJpinv] = self.cableLengths(currentX, currentY, estPOIX, estPOIY)
+       
+        errCableL = estL - targetL
+        errCableR = estR - targetR
+        errCableT = estT - targetT
+        errPrism = estP - targetP
+
+        return errCableL, errCableR, errCableT, errPrism
