@@ -41,6 +41,8 @@ phntmOmni = omniStream.omniStreamer()
 
 ############################################################
 pathCounter = 0
+prevPathCounter = 0
+keyboardIn = 0
 cycleCounter = 0
 
 # Count number of reps 
@@ -282,7 +284,7 @@ try:
 
         if not omni_connected:
         # Go sequentially through path coordinates
-            XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]+10]
+            XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
             # print(XYZPathCoords)
             # XYZPathCoords = [15, 8.66025, 20]
         else:
@@ -407,6 +409,7 @@ try:
         prevTimeL = timeL
         prevTimeR = timeR
         prevTimeT = timeT
+        prevPathCounter = pathCounter
 
         # Close GUI if Esc hit
         # flagStop = False # Will close immediately 
