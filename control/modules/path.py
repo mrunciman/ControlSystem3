@@ -403,7 +403,8 @@ class pathGenerator:
         going from -(width/2) to +(width/2) and -(breadth/2) to 
         +(breadth/2), with spacings of spaceX and spaceY.
         """
-        self.relative = "../paths/gridPath " + self.logTime + " " + str(width) + "x" + str(height) + "grid " + str(spaceX) + "x" + str(spaceY) + "spacing.csv"
+        self.relative = "../paths/gridPath " + self.logTime + " centre " + str(centreX) + "-" + str(centreY)\
+            + " " + str(width) + "x" + str(height) + "grid " + str(spaceX) + "x" + str(spaceY) + "spacing.csv"
         self.fileName = os.path.join(self.location, self.relative)
         numPointsX = int((width/spaceX) + 1)
         numPointsY = int((height/spaceY) + 1)
@@ -454,6 +455,6 @@ class pathGenerator:
 sideLength = 30.0 # mm, from workspace2 model
 noCycles = 10
 pathGen = pathGenerator(sideLength)
-pathGen.pointMatrix(0, 0, 1, 1, 10, 10)
+pathGen.pointMatrix(15, 8.66025, 1, 1, 10, 10)
 # pathGen.spiralPath2(noCycles)
 pathGen.generatePath()
