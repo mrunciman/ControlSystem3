@@ -196,7 +196,7 @@ class RigidBodyMarker:
 
         out_str += "%sPosition: [%3.2f %3.2f %3.2f]\n"%( out_tab_str, self.pos[0], self.pos[1], self.pos[2] )
         out_str += "%sID      : %3.1d\n"%(out_tab_str, self.id_num)
-        out_str += "%sSize    : %3.1d\n"%(out_tab_str, self.size)
+        out_str += "%sSize    : %3.1d\n"%(out_tab_str, self.size[0])
         return out_str
 
 

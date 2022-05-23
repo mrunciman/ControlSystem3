@@ -60,7 +60,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/gridPath 2022-05-13 13-36-03 centre 15-8.6602510x10grid 1x1spacing.csv', newline = '') as csvPath:
+    with open('control/paths/gridPath 2022-05-17 17-40-11 centre 15-8.66025 50x50grid 5x5spacing.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -83,7 +83,7 @@ print("Start point: ", XYZPathCoords)
 # if not useMouse:
 #     mouseTrack.xCoord = xPath[0]
 #     mouseTrack.yCoord = yPath[0]
-#     mouseTrack.zCoord = zPath[0]c
+#     mouseTrack.zCoord = zPath[0]
 #     #Down-sample path here for display
 #     mouseTrack.xPathCoords = xPath[0: int(len(xPath)/noCycles)]  
 #     mouseTrack.yPathCoords = yPath[0: int(len(yPath)/noCycles)]
@@ -91,6 +91,7 @@ print("Start point: ", XYZPathCoords)
 
 ############################################################################
 # Optitrack connection
+useRigidBodies = True
 if opTrack.pluggedIn:
     opTrack.optiConnect()
 
@@ -111,6 +112,7 @@ targetZ = XYZPathCoords[2]
 # Create delay at start of any test
 delayCount = 0
 delayLim = 200
+delayEveryStep = 1
 firstMoveDelay = 0
 firstMoveDivider = 100
 initialXFlag = False
@@ -277,13 +279,11 @@ try:
     # Begin main loop
     while(flagStop == False):
 
-        # Stay at first coord for number of cycles
-        if delayCount < delayLim:
-            delayCount += 1
-            pathCounter = 0
-
         if not omni_connected:
         # Go sequentially through path coordinates
+            # End test when last coords reached
+            if pathCounter >= len(xPath):
+                break
             XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
             # print(XYZPathCoords)
             # XYZPathCoords = [15, 8.66025, 20]
@@ -291,11 +291,14 @@ try:
             phntmOmni.getOmniCoords()
             [xMap, yMap, zMap] = phntmOmni.omniMap()
             XYZPathCoords = [xMap, yMap, zMap]
-        pathCounter += 1
 
-        # End test when last coords reached
-        if pathCounter >= len(xPath):
-            break
+        # Stay at given coord for number of cycles
+        if delayCount < delayLim:
+            delayCount += 1
+        else:
+            pathCounter += 1
+            if delayEveryStep:
+                delayCount = delayLim - int(delayLim/8)
 
         # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
         # XYZPathCoords are desired coords in 3D.
@@ -326,7 +329,7 @@ try:
         [tVolL, vDotL, dDotL, fStepL, tStepL, tSpeedL, LcRealL, angleL] = kineSolve.volRate(cVolL, cableL, scaleTargL)
         [tVolR, vDotR, dDotR, fStepR, tStepR, tSpeedR, LcRealR, angleR] = kineSolve.volRate(cVolR, cableR, scaleTargR)
         [tVolT, vDotT, dDotT, fStepT, tStepT, tSpeedT, LcRealT, angleT] = kineSolve.volRate(cVolT, cableT, scaleTargT)
-        print(LcRealL, LcRealR, LcRealT, LcRealP)
+        # print(LcRealL, LcRealR, LcRealT, LcRealP)
 
         # CALCULATE FREQS FROM VALID STEP NUMBER
         # tStepL is target pump position, cStepL is current, speed controlled position.
@@ -421,9 +424,6 @@ except TypeError as exTE:
     tb_textTE = ''.join(tb_linesTE)
     print(tb_textTE)
 
-# except KeyboardInterrupt as ctrlC:
-#     print(ctrlC)
-
     # except Exception as ex:
     #     tb_lines = traceback.format_exception(ex.__class__, ex, ex.__traceback__)
     #     tb_text = ''.join(tb_lines)
@@ -446,7 +446,10 @@ finally:
             ardLogging.ardSave()
 
         #Save optitrack data
-        opTrack.optiSave()
+        if useRigidBodies:
+            opTrack.optiSave(opTrack.rigidData)
+        else:
+            opTrack.optiSave(opTrack.markerData)
         opTrack.optiClose()
 
         flagStop = True
@@ -491,26 +494,10 @@ finally:
             ardIntPRI.ser.close()
             # ardIntPNEU.ser.close()
 
-    # except NameError:
-    #     reply = ardIntLHS.connect()
-    #     print(reply)
-    #     reply = ardIntRHS.connect()
-    #     print(reply)
-    #     reply = ardIntTOP.connect()
-    #     print(reply)
-    #     reply = ardIntPRI.connect()
-    #     print(reply)
-        # reply = ardIntPNEU.connect()
-        # print(reply)
-
     except TypeError as exTE:
         tb_linesTE = traceback.format_exception(exTE.__class__, exTE, exTE.__traceback__)
         tb_textTE = ''.join(tb_linesTE)
         # print(tb_textTE)
-
-
-
-
 
 # if __name__ == '__main__':
 #     pass

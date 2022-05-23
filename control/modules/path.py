@@ -409,7 +409,7 @@ class pathGenerator:
         numPointsX = int((width/spaceX) + 1)
         numPointsY = int((height/spaceY) + 1)
 
-        zCoord = 50
+        zCoord = 120
 
         rowNum = 0
         # colNum = 0
@@ -455,6 +455,6 @@ class pathGenerator:
 sideLength = 30.0 # mm, from workspace2 model
 noCycles = 10
 pathGen = pathGenerator(sideLength)
-pathGen.pointMatrix(15, 8.66025, 1, 1, 10, 10)
+pathGen.pointMatrix(15, 8.66025, 5, 5, 50, 50)
 # pathGen.spiralPath2(noCycles)
 pathGen.generatePath()

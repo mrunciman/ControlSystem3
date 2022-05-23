@@ -108,6 +108,7 @@ class NatNetClient:
         self.stop_threads=False
 
         self.data_out = MoCapData.MarkerSetData()
+        self.rigid_body_data_out = MoCapData.RigidBodyData()
         self.time_stamp = MoCapData.FrameSuffixData()
 
     # Client/server message ids
@@ -341,8 +342,8 @@ class NatNetClient:
         rigid_body = MoCapData.RigidBody(new_id, pos, rot)
 
         # Send information to any listener.
-        if self.rigid_body_listener is not None:
-            self.rigid_body_listener( new_id, pos, rot )
+        # if self.rigid_body_listener is not None:
+        #     self.rigid_body_listener( new_id, pos, rot )
 
         # RB Marker Data ( Before version 3.0.  After Version 3.0 Marker data is in description )
         if( major < 3  and major != 0) :
@@ -480,11 +481,15 @@ class NatNetClient:
         rigid_body_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
         offset += 4
         trace_mf( "Rigid Body Count:", rigid_body_count )
-
+        output = []
         for i in range( 0, rigid_body_count ):
             offset_tmp, rigid_body = self.__unpack_rigid_body( data[offset:], major, minor, i )
+            output += [[rigid_body.id_num, rigid_body.pos, rigid_body.rot]]
             offset += offset_tmp
             rigid_body_data.add_rigid_body(rigid_body)
+
+        if self.rigid_body_listener is not None:
+            self.rigid_body_listener(output)
 
         return offset, rigid_body_data
 
@@ -1279,6 +1284,7 @@ class NatNetClient:
             offset_tmp, mocap_data = self.__unpack_mocap_data( data[offset:], packet_size, major, minor )
             offset += offset_tmp
             self.data_out = mocap_data.marker_set_data
+            self.rigid_body_data_out = mocap_data.rigid_body_data
             # print("MoCap Frame: %d\n"%(mocap_data.prefix_data.frame_number))
 
             # get a string version of the data for output

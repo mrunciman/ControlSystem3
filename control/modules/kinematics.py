@@ -166,7 +166,7 @@ class kineSolver:
         # Extension/Retraction Geometry
         ###################################################################
         # Point that the shaft rotates around - COR of universal joint
-        self.CONT_ARC_S = 20 # mm continuum joint arc length
+        self.CONT_ARC_S = 14 # mm continuum joint arc length
         self.LEVER_BASE_Z = -30
         self.LEVER_POINT = np.array([0.5*self.SIDE_LENGTH,\
             0.5*self.SIDE_LENGTH*mt.tan(mt.pi/6),\
@@ -177,13 +177,13 @@ class kineSolver:
         # Normal of end effector / parallel mechanism plane:
         self.N_PLANE = self.N_CROSS/la.norm(self.N_CROSS)
 
-        self.SHAFT_LENGTH = 46.5 # mm
-        self.SHAFT_LENGTH_UJ = 66.5 # mm
+        self.SHAFT_LENGTH_UJ = 111 # mm
+        self.SHAFT_LENGTH = self.SHAFT_LENGTH_UJ - self.CONT_ARC_S # mm     SHAFT_LENGTH_UJ - CONT_ARC
 
         # Set limits on shaft extension
         # self.minShaftExt = self.SHAFT_LENGTH + 1
         self.MIN_EXTEND = 0.5 # mm
-        self.MAX_EXTEND = 38.5 # mm
+        self.MAX_EXTEND = 50 # mm
 
         # Set limit when curvature of continuum joint is assumed zero
         self.MIN_CONT_RAD = 0.1 # mm 
@@ -193,7 +193,7 @@ class kineSolver:
         # CONTINUUM JOINT
         # Transform coords to reference base of continuum joint, not parallel mech centre
         # PATH FILES GIVE Z COORD AS THE AMOUNT OF EXTENSION
-        tDesZ = tExt + self.LEVER_BASE_Z + self.SHAFT_LENGTH
+        tDesZ = tExt + self.LEVER_BASE_Z
         #Desired point P_des
         P_des = np.array([tDesX, tDesY, tDesZ])
         # print("P_des: ", P_des)
