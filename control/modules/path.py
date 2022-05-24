@@ -109,8 +109,8 @@ class pathGenerator:
         numRots = 5
         noSteps = 180*numRots # number of steps per 
         circRadius = 15
-        bottomSpiral = 30
-        topSpiral = 30
+        bottomSpiral = 110
+        topSpiral = 110
 
         fwdRadius = np.linspace(0, circRadius, noSteps)
         bwdRadius = np.linspace(circRadius, 0, noSteps)
@@ -409,7 +409,7 @@ class pathGenerator:
         numPointsX = int((width/spaceX) + 1)
         numPointsY = int((height/spaceY) + 1)
 
-        zCoord = 120
+        zCoord = 110
 
         rowNum = 0
         # colNum = 0
@@ -453,8 +453,8 @@ class pathGenerator:
 
 
 sideLength = 30.0 # mm, from workspace2 model
-noCycles = 10
+noCycles = 1
 pathGen = pathGenerator(sideLength)
-pathGen.pointMatrix(15, 8.66025, 5, 5, 50, 50)
-# pathGen.spiralPath2(noCycles)
+# pathGen.pointMatrix(15, 8.66025, 2, 2, 20, 20)
+pathGen.spiralPath2(noCycles)
 pathGen.generatePath()

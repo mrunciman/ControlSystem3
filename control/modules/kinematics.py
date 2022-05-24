@@ -167,7 +167,7 @@ class kineSolver:
         ###################################################################
         # Point that the shaft rotates around - COR of universal joint
         self.CONT_ARC_S = 14 # mm continuum joint arc length
-        self.LEVER_BASE_Z = -30
+        self.LEVER_BASE_Z = -37.75
         self.LEVER_POINT = np.array([0.5*self.SIDE_LENGTH,\
             0.5*self.SIDE_LENGTH*mt.tan(mt.pi/6),\
             self.LEVER_BASE_Z])
@@ -177,7 +177,7 @@ class kineSolver:
         # Normal of end effector / parallel mechanism plane:
         self.N_PLANE = self.N_CROSS/la.norm(self.N_CROSS)
 
-        self.SHAFT_LENGTH_UJ = 111 # mm
+        self.SHAFT_LENGTH_UJ = 72 # mm
         self.SHAFT_LENGTH = self.SHAFT_LENGTH_UJ - self.CONT_ARC_S # mm     SHAFT_LENGTH_UJ - CONT_ARC
 
         # Set limits on shaft extension
@@ -192,7 +192,6 @@ class kineSolver:
     def intersect(self, tDesX, tDesY, tExt):
         # CONTINUUM JOINT
         # Transform coords to reference base of continuum joint, not parallel mech centre
-        # PATH FILES GIVE Z COORD AS THE AMOUNT OF EXTENSION
         tDesZ = tExt + self.LEVER_BASE_Z
         #Desired point P_des
         P_des = np.array([tDesX, tDesY, tDesZ])

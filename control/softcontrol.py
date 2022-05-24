@@ -60,7 +60,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/gridPath 2022-05-17 17-40-11 centre 15-8.66025 50x50grid 5x5spacing.csv', newline = '') as csvPath:
+    with open('control/paths/spiralZ 2022-05-24 15-13-38 15mmRad30.0EqSide.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -112,7 +112,7 @@ targetZ = XYZPathCoords[2]
 # Create delay at start of any test
 delayCount = 0
 delayLim = 200
-delayEveryStep = 1
+delayEveryStep = 0
 firstMoveDelay = 0
 firstMoveDivider = 100
 initialXFlag = False
@@ -319,7 +319,7 @@ try:
         elif tStepP == cStepP:
             targDir = cDir
 
-        # print(targetL, targetR, targetT, LcRealP)
+        print(targetL, targetR, targetT, LcRealP)
         # Get cable speeds using Jacobian at current point and calculation of input speed
         [lhsV, rhsV, topV, actualX, actualY] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
         # print(lhsV, rhsV, topV, actualX, actualY)

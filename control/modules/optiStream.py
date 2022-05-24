@@ -14,7 +14,8 @@ relative = "logs/opti/optiTrack " + logTime + ".csv"
 fileName = os.path.join(parent, relative)
 with open(fileName, mode ='w', newline='') as optiLog0: 
     optiLog1 = csv.writer(optiLog0)
-    optiLog1.writerow(['time stamp', 'cumulative time', 'ID', 'X', 'Y', 'Z', 'Y angle', 'Z angle', 'X angle'])
+    optiLog1.writerow(['time stamp', 'cumulative time', 'ID', 'X', 'Y', 'Z', 'Y angle', 'Z angle', 'X angle', 'w', 'i', 'j', 'k',\
+        'ID', 'X', 'Y', 'Z', 'Y angle', 'Z angle', 'X angle', 'w', 'i', 'j', 'k'])
 
 class optiTracker:
 
@@ -102,7 +103,7 @@ class optiTracker:
         for i in range (0, len(rigid_body_list)):
             [id, pos, rot] = rigid_body_list[i]
             [alpha, beta, gamma] = self.quat_to_euler(rot[0], rot[1], rot[2], rot[3])
-            rowData += [id, pos[0], pos[1], pos[2], alpha, beta, gamma]
+            rowData += [id, pos[0], pos[1], pos[2], alpha, beta, gamma, rot[0], rot[1], rot[2], rot[3]]
         # [alpha, beta, gamma] = self.quat_to_euler(rotation[0], rotation[1], rotation[2], rotation[3])
         self.rigidData.append([self.timeStamp] + [self.timeRunning] + rowData)
 
