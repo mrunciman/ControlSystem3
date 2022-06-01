@@ -89,11 +89,6 @@ print("Start point: ", XYZPathCoords)
 #     mouseTrack.yPathCoords = yPath[0: int(len(yPath)/noCycles)]
 #     mouseTrack.zPathCoords = zPath[0: int(len(zPath)/noCycles)]
 
-############################################################################
-# Optitrack connection
-useRigidBodies = True
-if opTrack.pluggedIn:
-    opTrack.optiConnect()
 
 ############################################################################
 # Initialise variables 
@@ -274,6 +269,12 @@ try:
 
     print("Calibration done.")
     print("Beginning path following task.")
+    
+    ############################################################################
+    # Optitrack connection
+    useRigidBodies = False
+    if opTrack.pluggedIn:
+        opTrack.optiConnect()
 
     ################################################################
     # Begin main loop

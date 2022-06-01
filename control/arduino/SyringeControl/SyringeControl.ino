@@ -7,8 +7,6 @@
 #include <Wire.h>
 //Sensor library - https://github.com/sparkfun/MS5803-14BA_Breakout/
 #include <SparkFun_MS5803_I2C.h>
-// #include <uStepperSLite.h>
-// #include <digitalWriteFast.h>
 #define PI 3.1415926535897932384626433832795
 
 #define directionPin 6
