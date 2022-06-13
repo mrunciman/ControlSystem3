@@ -20,7 +20,7 @@
 // Handshake variables
 bool shakeFlag = false;
 String shakeInput; // 3 bit password to assign pump name/position
-char shakeKey[5] = "LHS";
+char shakeKey[5] = "TOP";
 // TOP = 3, RHS = 6, LHS = 5
 // PRI = 13
 
@@ -112,6 +112,7 @@ int limitSteps = STEPS_PER_MM*2; // number of pulses for 2 mm
 int prevMotorState = 0;
 int motorState = 3;
 volatile int stepCount = 0;
+volatile int dirFlag = 0;
 String stepRecv;
 int stepIn;
 int stepError = 0;
@@ -231,6 +232,7 @@ ISR(TIMER1_COMPA_vect){
   interrupts();
   digitalWrite(stepPin, HIGH);
   digitalWrite(stepPin, LOW);
+  stepCount = stepCount + dirFlag*1;
 }
 
 // Internal interrupt service routine, timer 2 overflow
@@ -337,12 +339,14 @@ void pressInitZeroVol() {
     case 0:
       // Stop motor
       // Serial.println("Stop");
+      dirFlag = 0;
       TCCR1B &= (0 << CS11); // Turn off pulse stream
       break;
     case 1:
       //Move motor forwards
       TCNT1 = 0;
       // OCR1A = OCR_2p5mmps;
+      dirFlag = 1;
       digitalWrite(directionPin, HIGH);
       TCCR1B |= (1 << CS11);  // Turn on motor
       //Serial.println("INCREASE PRESSURE");
@@ -351,6 +355,7 @@ void pressInitZeroVol() {
       //Move motor back
       TCNT1 = 0;
       // OCR1A = OCR_2p5mmps;
+      dirFlag = -1;
       digitalWrite(directionPin, LOW);
       TCCR1B |= (1 << CS11);  // Turn on motor
       //Serial.println("DECREASE PRESSURE");
@@ -415,12 +420,14 @@ void pressControl() {
   switch (motorState) {
     case 0:
       // Stop
+      dirFlag = 0;
       TCCR1B &= (0 << CS11); // Turn off pulse stream
       break;
     case 1:
       //Move motor forwards
       TCNT1 = 0;
       // OCR1A = OCR_2p5mmps;
+      dirFlag = 1;
       digitalWrite(directionPin, HIGH);
       TCCR1B |= (1 << CS11);  // Turn on motor
       break;
@@ -428,6 +435,7 @@ void pressControl() {
       //Move motor back
       TCNT1 = 0;
       // OCR1A = OCR_2p5mmps;
+      dirFlag = -1;
       digitalWrite(directionPin, LOW);
       TCCR1B |= (1 << CS11);  // Turn on motor
       break;

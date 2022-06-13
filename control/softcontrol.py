@@ -171,6 +171,12 @@ initStepNoL, initStepNoR, initStepNoT = 0, 0, 0
 realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA = 0, 0, 0, 0, 0, 0, 0
 pneuPress = 2000
 
+############################################################################
+# Optitrack connection
+useRigidBodies = False
+if opTrack.pluggedIn:
+    opTrack.optiConnect()
+
 ###############################################################
 # Connect to Arduinos
 
@@ -223,10 +229,10 @@ try:
 
         #############################################################
         # Calibrate arduinos for zero volume - maintain negative pressure for 4 seconds
-        calibL = False
-        calibR = False
+        calibL = True
+        calibR = True
         calibT = False
-        calibP = False
+        calibP = True
 
         # Has the mechanism been calibrated/want to run without calibration?:
         calibrated = False
@@ -234,13 +240,13 @@ try:
         print("Zeroing hydraulic actuators...")
         while (not calibrated):
             [realStepL, pressL, timeL] = ardIntLHS.listenZero(calibL, pressL, timeL)
-            print(realStepL, pressL)
+            # print(realStepL, pressL)
             [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
-            print(realStepR, pressR)
+            # print(realStepR, pressR)
             [realStepT, pressT, timeT] = ardIntTOP.listenZero(calibT, pressT, timeT)
             print(realStepT, pressT)
             [realStepP, pressP, timeP] = ardIntPRI.listenZero(calibP, pressP, timeP)
-            print(realStepP, calibP)
+            # print(realStepP, calibP)
 
             if (realStepL == "000000LHS"):
                 calibL = True
@@ -270,11 +276,7 @@ try:
     print("Calibration done.")
     print("Beginning path following task.")
     
-    ############################################################################
-    # Optitrack connection
-    useRigidBodies = False
-    if opTrack.pluggedIn:
-        opTrack.optiConnect()
+
 
     ################################################################
     # Begin main loop
@@ -284,6 +286,7 @@ try:
         # Go sequentially through path coordinates
             # End test when last coords reached
             if pathCounter >= len(xPath):
+                # pathCounter = 0
                 break
             XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
             # print(XYZPathCoords)
@@ -320,7 +323,7 @@ try:
         elif tStepP == cStepP:
             targDir = cDir
 
-        print(targetL, targetR, targetT, LcRealP)
+        # print(targetL, targetR, targetT, LcRealP)
         # Get cable speeds using Jacobian at current point and calculation of input speed
         [lhsV, rhsV, topV, actualX, actualY] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
         # print(lhsV, rhsV, topV, actualX, actualY)
