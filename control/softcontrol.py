@@ -25,6 +25,7 @@ from modules import arduinoInterface
 from modules import kinematics
 # from modules import mouseGUI
 from modules import pumpLog
+from modules import positionInput
 from modules import optiStream
 from modules import omniStream
 
@@ -36,6 +37,8 @@ sideLength = 30 # mm, from workspace2 model
 kineSolve = kinematics.kineSolver(sideLength)
 # mouseTrack = mouseGUI.mouseTracker(sideLength)
 ardLogging = pumpLog.ardLogger()
+posLogging = positionInput.posLogger()
+print(posLogging.poseData)
 opTrack = optiStream.optiTracker()
 phntmOmni = omniStream.omniStreamer()
 
@@ -60,7 +63,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/spiralZ 2022-05-24 15-13-38 15mmRad30.0EqSide.csv', newline = '') as csvPath:
+    with open('control/paths/gridPath 2022-05-17 17-40-11 centre 15-8.66025 50x50grid 5x5spacing.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -107,7 +110,7 @@ targetZ = XYZPathCoords[2]
 # Create delay at start of any test
 delayCount = 0
 delayLim = 200
-delayEveryStep = 0
+delayEveryStep = 1
 firstMoveDelay = 0
 firstMoveDivider = 100
 initialXFlag = False
@@ -119,7 +122,7 @@ cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
 cableL, cableR, cableT = kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH
 prismP = 0
 targetP = 0
-[targetXideal, targetYideal, targetP] = kineSolve.intersect(targetX, targetY, targetZ)
+[targetXideal, targetYideal, targetP, theta, roll] = kineSolve.intersect(targetX, targetY, targetZ)
 currentX = targetXideal
 currentY = targetYideal
 # print(targetXideal, targetYideal, targetP)
@@ -170,6 +173,12 @@ StepNoL, StepNoR, StepNoT, StepNoP = tStepL, tStepR, tStepT, tStepP
 initStepNoL, initStepNoR, initStepNoT = 0, 0, 0
 realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA = 0, 0, 0, 0, 0, 0, 0
 pneuPress = 2000
+
+############################################################################
+# Optitrack connection
+useRigidBodies = True
+if opTrack.pluggedIn:
+    opTrack.optiConnect()
 
 ###############################################################
 # Connect to Arduinos
@@ -270,11 +279,6 @@ try:
     print("Calibration done.")
     print("Beginning path following task.")
     
-    ############################################################################
-    # Optitrack connection
-    useRigidBodies = False
-    if opTrack.pluggedIn:
-        opTrack.optiConnect()
 
     ################################################################
     # Begin main loop
@@ -285,7 +289,8 @@ try:
             # End test when last coords reached
             if pathCounter >= len(xPath):
                 break
-            XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
+            else:
+                XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
             # print(XYZPathCoords)
             # XYZPathCoords = [15, 8.66025, 20]
         else:
@@ -303,7 +308,7 @@ try:
 
         # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
         # XYZPathCoords are desired coords in 3D.
-        [targetXideal, targetYideal, targetP] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
+        [targetXideal, targetYideal, targetP, theta, roll] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
 
         # Return target cable lengths at target coords and jacobian at current coords
         [targetL, targetR, targetT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
@@ -320,7 +325,7 @@ try:
         elif tStepP == cStepP:
             targDir = cDir
 
-        print(targetL, targetR, targetT, LcRealP)
+        # print(targetL, targetR, targetT, LcRealP)
         # Get cable speeds using Jacobian at current point and calculation of input speed
         [lhsV, rhsV, topV, actualX, actualY] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
         # print(lhsV, rhsV, topV, actualX, actualY)
@@ -346,6 +351,9 @@ try:
         StepNoP += PStep
 
         # print(StepNoL, StepNoR, StepNoT, StepNoP)
+
+        # Log deisred position at 
+        posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], theta, roll)
 
         if pumpsConnected:
         # Reduce speed when making first move after calibration.
@@ -436,6 +444,9 @@ finally:
     # Stop program
     # Disable pumps and set them to idle state
     try:
+        #Save position data
+        posLogging.posSave()
+
         if pumpsConnected:
             # Save values gathered from arduinos
             ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
@@ -452,8 +463,6 @@ finally:
         else:
             opTrack.optiSave(opTrack.markerData)
         opTrack.optiClose()
-
-        flagStop = True
 
         if 'ardIntLHS' in locals():
             if ardIntLHS.ser.is_open:

@@ -41,7 +41,7 @@ class kineSolver:
         # Real volume calc: there are numLs beams of length L0/numLs
         # self.FACT_V = ((self.ACT_WIDTH/1000)*(self.L_0/1000)**2)/(2*self.NUM_L)
         self.M3_to_MM3 = 1e9
-        self.VOL_FACTOR = 0.86 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
+        self.VOL_FACTOR = 1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
         self.CAL_FACTOR = 0.01 # % of max volume still in actuator after calibration
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
@@ -256,6 +256,8 @@ class kineSolver:
             # Find where line between conty_glob and desired point P_des
             # intersects the entry point trangle:
             u_Cont = (P_des - self.LEVER_POINT)/baseToPoint
+            theta_approx = 0
+            ang_around_shaft = 0
 
         # print("u_cont: ", u_Cont)
         # How far along u_Cont the POI lies, starting from desired point P_des
@@ -271,7 +273,7 @@ class kineSolver:
         elif (L_Pri > self.MAX_EXTEND):
             L_Pri = self.MAX_EXTEND
 
-        return POI_Cont[0], POI_Cont[1], L_Pri
+        return POI_Cont[0], POI_Cont[1], L_Pri, theta_approx, ang_around_shaft
 
 
 
