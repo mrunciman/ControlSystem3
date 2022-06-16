@@ -15,10 +15,8 @@ class posLogger():
 
     def __init__(self):
         self.poseData = []
-        print(self.poseData)
 
     def posLog(self, desX, desY, desZ, theta, roll):
-        print(theta)
         self.poseData.append([desX] + [desY] + [desZ] + [theta] + [roll] + [time.time()])
         
     def posSave(self):

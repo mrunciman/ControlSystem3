@@ -38,7 +38,6 @@ kineSolve = kinematics.kineSolver(sideLength)
 # mouseTrack = mouseGUI.mouseTracker(sideLength)
 ardLogging = pumpLog.ardLogger()
 posLogging = positionInput.posLogger()
-print(posLogging.poseData)
 opTrack = optiStream.optiTracker()
 phntmOmni = omniStream.omniStreamer()
 
@@ -63,7 +62,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/gridPath 2022-05-17 17-40-11 centre 15-8.66025 50x50grid 5x5spacing.csv', newline = '') as csvPath:
+    with open('control/paths/gridPath 2022-06-15 14-38-59 centre 15-8.66025 50x50grid 5x5spacing.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -272,6 +271,8 @@ try:
             ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
             # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
+            # Ensure same number of rows in position log file
+            posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], theta, roll)
 
     else:
         print("PUMPS NOT CONNECTED. RUNNING WITHOUT PUMPS.")
@@ -444,8 +445,7 @@ finally:
     # Stop program
     # Disable pumps and set them to idle state
     try:
-        #Save position data
-        posLogging.posSave()
+
 
         if pumpsConnected:
             # Save values gathered from arduinos
@@ -456,6 +456,11 @@ finally:
             # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
             ardLogging.ardSave()
+            # Ensure same number of rows in position log file
+            posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], theta, roll)
+
+        #Save position data
+        posLogging.posSave()
 
         #Save optitrack data
         if useRigidBodies:

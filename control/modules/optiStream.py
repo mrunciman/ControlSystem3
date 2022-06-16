@@ -15,7 +15,7 @@ fileName = os.path.join(parent, relative)
 with open(fileName, mode ='w', newline='') as optiLog0: 
     optiLog1 = csv.writer(optiLog0)
     optiLog1.writerow(['time stamp', 'cumulative time', 'ID', 'X', 'Y', 'Z', 'Y angle', 'Z angle', 'X angle', 'w', 'i', 'j', 'k',\
-        'ID', 'X', 'Y', 'Z', 'Y angle', 'Z angle', 'X angle', 'w', 'i', 'j', 'k'])
+        'ID', 'X', 'Y', 'Z', 'Y angle', 'Z angle', 'X angle', 'i', 'j', 'k', 'w'])
 
 class optiTracker:
 
@@ -108,7 +108,7 @@ class optiTracker:
         self.rigidData.append([self.timeStamp] + [self.timeRunning] + rowData)
 
 
-    def quat_to_euler(self, w, x, y, z):
+    def quat_to_euler(self, x, y, z, w):
         ysqr = y * y
 
         t0 = +2.0 * (w * x + y * z)
@@ -143,3 +143,23 @@ class optiTracker:
         # print("Rigid Body from MoCap: ", rbDataLocal)
         # rbDataLocal2 = self.trackSock.rigid_body_data_out
         # print("Rigid Body from MoCap: ", rbDataLocal2)
+
+
+
+# optiStream = optiTracker()
+
+# # Robot base
+# # qx = -0.003272728
+# # qy = 0.003644174
+# # qz = -0.013302799
+# # qw = -0.999899566
+
+# # Robot tip
+# qx = -0.069562741	
+# qy = 0.00613268	
+# qz = 0.064799614
+# qw = 0.995451927
+
+
+# [ X, Y, Z ] = optiStream.quat_to_euler(qx,qy,qz,qw)
+# print( X, Y, Z )

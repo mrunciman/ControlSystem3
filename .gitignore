@@ -3,8 +3,10 @@ control/modules/__pycache__/**
 **__pycache__/
 control/logs/
 control/paths/
+control/positions/
 .venv-inflate/
 .venv-deploy/
 control/arduino/SyringeControl/.vscode/
 .vscode/
 *.pyc
+*.cpython-38
