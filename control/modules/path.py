@@ -397,6 +397,7 @@ class pathGenerator:
         self.xPath = np.concatenate((self.xPath, xListPauseD))
         self.yPath = np.concatenate((self.yPath, yListPauseD))
 
+
     def pointMatrix(self, centreX, centreY, spaceX, spaceY, width, height):
         """
         Create rectangular array of points centred at (centreX, centreY),
@@ -406,10 +407,10 @@ class pathGenerator:
         self.relative = "../paths/gridPath " + self.logTime + " centre " + str(centreX) + "-" + str(centreY)\
             + " " + str(width) + "x" + str(height) + "grid " + str(spaceX) + "x" + str(spaceY) + "spacing.csv"
         self.fileName = os.path.join(self.location, self.relative)
-        numPointsX = int((width/spaceX) + 1)
-        numPointsY = int((height/spaceY) + 1)
+        numPointsX = mt.floor(width/spaceX)+1
+        numPointsY = mt.floor(height/spaceY)+1
 
-        zCoord = 110
+        zCoord = 87.75 + 10
 
         rowNum = 0
         # colNum = 0
@@ -419,7 +420,7 @@ class pathGenerator:
         startY = centreY - height/2
         # stopY = centreY + height/2
 
-        while rowNum <= numPointsY:
+        while rowNum < numPointsY:
             xListInter = np.linspace(startX, stopX, numPointsX)
             yListInter = np.array(numPointsY*[startY + rowNum*spaceY])
             rowNum += 1
@@ -455,6 +456,6 @@ class pathGenerator:
 sideLength = 30.0 # mm, from workspace2 model
 noCycles = 1
 pathGen = pathGenerator(sideLength)
-pathGen.pointMatrix(15, 8.66025, 5, 5, 50, 50)
+pathGen.pointMatrix(15, 8.66025, 5, 5, 30, 30)
 # pathGen.spiralPath2(noCycles)
 pathGen.generatePath()

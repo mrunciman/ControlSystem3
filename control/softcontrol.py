@@ -62,7 +62,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/gridPath 2022-06-15 14-38-59 centre 15-8.66025 50x50grid 5x5spacing.csv', newline = '') as csvPath:
+    with open('control/paths/spiralZ 2022-05-24 15-13-38 15mmRad30.0EqSide.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -109,7 +109,8 @@ targetZ = XYZPathCoords[2]
 # Create delay at start of any test
 delayCount = 0
 delayLim = 200
-delayEveryStep = 1
+delayEveryStep = False
+delayFactor = 8
 firstMoveDelay = 0
 firstMoveDivider = 100
 initialXFlag = False
@@ -121,7 +122,7 @@ cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
 cableL, cableR, cableT = kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH
 prismP = 0
 targetP = 0
-[targetXideal, targetYideal, targetP, theta, roll] = kineSolve.intersect(targetX, targetY, targetZ)
+[targetXideal, targetYideal, targetP, inclin, azimuth] = kineSolve.intersect(targetX, targetY, targetZ)
 currentX = targetXideal
 currentY = targetYideal
 # print(targetXideal, targetYideal, targetP)
@@ -272,7 +273,7 @@ try:
             # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
             # Ensure same number of rows in position log file
-            posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], theta, roll)
+            posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
     else:
         print("PUMPS NOT CONNECTED. RUNNING WITHOUT PUMPS.")
@@ -305,11 +306,11 @@ try:
         else:
             pathCounter += 1
             if delayEveryStep:
-                delayCount = delayLim - int(delayLim/8)
+                delayCount = delayLim - int(delayLim/delayFactor)
 
         # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
         # XYZPathCoords are desired coords in 3D.
-        [targetXideal, targetYideal, targetP, theta, roll] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
+        [targetXideal, targetYideal, targetP, inclin, azimuth] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
 
         # Return target cable lengths at target coords and jacobian at current coords
         [targetL, targetR, targetT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
@@ -354,7 +355,7 @@ try:
         # print(StepNoL, StepNoR, StepNoT, StepNoP)
 
         # Log deisred position at 
-        posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], theta, roll)
+        posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
         if pumpsConnected:
         # Reduce speed when making first move after calibration.
@@ -457,7 +458,7 @@ finally:
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
             ardLogging.ardSave()
             # Ensure same number of rows in position log file
-            posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], theta, roll)
+            posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
         #Save position data
         posLogging.posSave()

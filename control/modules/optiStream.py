@@ -145,14 +145,16 @@ class optiTracker:
         # print("Rigid Body from MoCap: ", rbDataLocal2)
 
 
+def tip_position(self, robotFrame, instrumentFrame):
+    # Method to get tip pose with respect to robot base
 
-# optiStream = optiTracker()
+
 
 # # Robot base
-# # qx = -0.003272728
-# # qy = 0.003644174
-# # qz = -0.013302799
-# # qw = -0.999899566
+# qx = -0.003272728
+# qy = 0.003644174
+# qz = -0.013302799
+# qw = -0.999899566
 
 # # Robot tip
 # qx = -0.069562741	
