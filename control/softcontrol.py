@@ -116,7 +116,7 @@ firstMoveDivider = 100
 initialXFlag = False
 initPressLogCount = 0
 initPressLogNum = 10
-useVisionFeedback = False
+useVisionFeedback = True
 
 # Initialise cable length variables at home position
 cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
@@ -244,7 +244,7 @@ try:
         calibP = False
 
         # Has the mechanism been calibrated/want to run without calibration?:
-        calibrated = False
+        calibrated = True
         # Perform calibration:
         print("Zeroing hydraulic actuators...")
         while (not calibrated):
@@ -328,19 +328,26 @@ try:
         real_x = T_Rob_Inst[0,3]
         real_y = T_Rob_Inst[1,3]
         real_z = T_Rob_Inst[2,3]
-        # print(real_x, real_y, real_z)
+        print(-real_z + 8.66, real_y+ 15, real_x)
         [errCableL, errCableR, errCableT, errPrism] = kineSolve.cableError(currentX, currentY, targetOpL, targetOpR, targetOpT, targetOpP, real_x, real_y, real_z)
-        print(errCableL, errCableR, errCableT, errPrism)
+        # print(errCableL, errCableR, errCableT, errPrism)
+
+        # print(targetL, targetR, targetT, LcRealP)
+        # Get cable speeds using Jacobian at current point and calculation of input speed
+        [lhsV, rhsV, topV, actualX, actualY] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
+        # print(lhsV, rhsV, topV, actualX, actualY)
+        # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
+        [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
 
         if useVisionFeedback:
-            targetL = targetOpL - errCableL
-            targetR = targetOpR - errCableR
-            targetT = targetOpT - errCableT
+            targetL = scaleTargL - errCableL
+            targetR = scaleTargR - errCableR
+            targetT = scaleTargT - errCableT
             targetP = targetOpP - errPrism
         else:
-            targetL = targetOpL
-            targetR = targetOpR 
-            targetT = targetOpT
+            targetL = scaleTargL
+            targetR = scaleTargR 
+            targetT = scaleTargT
             targetP = targetOpP
 
         tStepP = int(targetP*kineSolve.STEPS_PER_MM_PRI)
@@ -354,17 +361,12 @@ try:
         # If stopped, preserve previous direction as target direction: 
         elif tStepP == cStepP:
             targDir = cDir
-
         # print(targetL, targetR, targetT, LcRealP)
-        # Get cable speeds using Jacobian at current point and calculation of input speed
-        [lhsV, rhsV, topV, actualX, actualY] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
-        # print(lhsV, rhsV, topV, actualX, actualY)
-        # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
-        [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
+
         # Get volumes, volrates, syringe speeds, pulse freq & step counts estimate for each pump
-        [tVolL, vDotL, dDotL, fStepL, tStepL, tSpeedL, LcRealL, angleL] = kineSolve.volRate(cVolL, cableL, scaleTargL)
-        [tVolR, vDotR, dDotR, fStepR, tStepR, tSpeedR, LcRealR, angleR] = kineSolve.volRate(cVolR, cableR, scaleTargR)
-        [tVolT, vDotT, dDotT, fStepT, tStepT, tSpeedT, LcRealT, angleT] = kineSolve.volRate(cVolT, cableT, scaleTargT)
+        [tVolL, vDotL, dDotL, fStepL, tStepL, tSpeedL, LcRealL, angleL] = kineSolve.volRate(cVolL, cableL, targetL)
+        [tVolR, vDotR, dDotR, fStepR, tStepR, tSpeedR, LcRealR, angleR] = kineSolve.volRate(cVolR, cableR, targetR)
+        [tVolT, vDotT, dDotT, fStepT, tStepT, tSpeedT, LcRealT, angleT] = kineSolve.volRate(cVolT, cableT, targetT)
         # print(LcRealL, LcRealR, LcRealT, LcRealP)
 
         # CALCULATE FREQS FROM VALID STEP NUMBER
