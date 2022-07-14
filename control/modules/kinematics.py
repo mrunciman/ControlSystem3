@@ -41,7 +41,7 @@ class kineSolver:
         # Real volume calc: there are numLs beams of length L0/numLs
         # self.FACT_V = ((self.ACT_WIDTH/1000)*(self.L_0/1000)**2)/(2*self.NUM_L)
         self.M3_to_MM3 = 1e9
-        self.VOL_FACTOR = 1.2 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
+        self.VOL_FACTOR = 1.09 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
         self.CAL_FACTOR = 0.01 # % of max volume still in actuator after calibration
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
@@ -533,19 +533,25 @@ class kineSolver:
 
 
 
-    def cableError (self, currentX, currentY, targetL, targetR, targetT, targetP, realX, realY, realZ):
-        # errX = realX - desX
-        # errY = realY - desY
-        # errZ = realZ - desZ
+    def cableError (self, currentX, currentY, targetL, targetR, targetT, targetP, opX, opY, opZ):
+        # est variables are based on optitrack data
 
+        # Optitrack data uses different frame of reference so convert
+        # ADD SIDELENGTH/2 AND SIDELENGTH/2 * SIN(PI/6)
+        realX = -opZ + self.SIDE_LENGTH/2 * mt.tan(mt.pi/6)
+        realY = opY + self.SIDE_LENGTH/2
+        realZ = opX
+         
         # Based on estimated tip position in 3D space, find point of intersection (POI)
         # of shaft with parallel mech plane
-        [estPOIX, estPOIY, estP, inclin, azimuth] = self.intersect(realX, realY, realZ)
-        [targetXideal, targetYideal, targetP, inclin, azimuth]
+        [estPOIX, estPOIY, estP, inclin, azimuth] = self.intersect(realX, realY, realZ) 
+        # print("X and Y ", estPOIX, estPOIY)
 
         # Estimate the true cable lengths based on vision system
         [estL, estR, estT, cJaco, cJpinv] = self.cableLengths(currentX, currentY, estPOIX, estPOIY)
+        # print("Estimated cable lengths: ", estL, estR, estT)
        
+        # Error between observed and open-loop targets
         errCableL = estL - targetL
         errCableR = estR - targetR
         errCableT = estT - targetT

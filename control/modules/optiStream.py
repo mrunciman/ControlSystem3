@@ -1,8 +1,10 @@
 import csv
 import os
+from re import I
 import time
 import sys
 import numpy as np
+from numpy import linalg as la
 from modules import NatNetClient
 from modules import DataDescriptions
 from modules import MoCapData
@@ -53,8 +55,12 @@ class optiTracker:
         # self.rigidData = # self.trackSock.rigid_body_data_out.rigid_body_list
         self.markerData = []#self.trackSock.data_out.marker_set_data.unlabeled_markers.marker_pos_list 
         self.timeStamp = time.time() #self.trackSock.data_out.suffix_data.timestamp
-        self.timeRunning = 0 
+        self.timeRunning = 0
 
+        self.frameData = []
+        self.T_Robot_Inst = np.array([]) # poor style but works
+
+        self.M_TO_MM = 1000
 
     def optiConnect(self):
         is_running = self.trackSock.run()
@@ -100,10 +106,11 @@ class optiTracker:
     def receive_rigid_bodies(self, rigid_body_list):
         self.timeStamp = time.time()
         rowData = []
+        self.frameData = rigid_body_list
         for i in range (0, len(rigid_body_list)):
-            [id, pos, rot] = rigid_body_list[i]
-            [alpha, beta, gamma] = self.quat_to_euler(rot[0], rot[1], rot[2], rot[3])
-            rowData += [id, pos[0], pos[1], pos[2], alpha, beta, gamma, rot[0], rot[1], rot[2], rot[3]]
+            [id, pos, quat] = rigid_body_list[i]
+            [alpha, beta, gamma] = self.quat_to_euler(quat[0], quat[1], quat[2], quat[3])
+            rowData += [id, pos[0], pos[1], pos[2], alpha, beta, gamma, quat[0], quat[1], quat[2], quat[3]]
         # [alpha, beta, gamma] = self.quat_to_euler(rotation[0], rotation[1], rotation[2], rotation[3])
         self.rigidData.append([self.timeStamp] + [self.timeRunning] + rowData)
 
@@ -133,20 +140,79 @@ class optiTracker:
         return X, Y, Z 
 
 
+    def quat_to_rot_matrix(self, i, j, k, w): 
+        #requires quaternions in  w, i, j, k order
+        q0 = w
+        q1 = i
+        q2 = j
+        q3 = k
+            
+        # First row of the rotation matrix
+        r00 = 2 * (q0 * q0 + q1 * q1) - 1 
+        r01 = 2 * (q1 * q2 - q0 * q3) 
+        r02 = 2 * (q1 * q3 + q0 * q2) 
+            
+        # Second row of the rotation matrix
+        r10 = 2 * (q1 * q2 + q0 * q3) 
+        r11 = 2 * (q0 * q0 + q2 * q2) - 1
+        r12 = 2 * (q2 * q3 - q0 * q1) 
+        
+        # Third row of the rotation matrix
+        r20 = 2 * (q1 * q3 - q0 * q2) 
+        r21 = 2 * (q2 * q3 + q0 * q1) 
+        r22 = 2 * (q0 * q0 + q3 * q3) - 1 
+        
+        # 3x3 rotation matrix
+        rot_matrix = np.array([[r00, r01, r02],\
+                               [r10, r11, r12],\
+                               [r20, r21, r22]])
+        
+        return rot_matrix
 
 
-    def receive_rigid_body_frame(self, new_id, position, rotation):
+    # def receive_rigid_body_frame(self, new_id, position, rotation):
 
-        [alpha, beta, gamma] = self.quat_to_euler(rotation[0], rotation[1], rotation[2], rotation[3])
-        rbDataLocal = [new_id, position, alpha, beta, gamma]
+    #     [alpha, beta, gamma] = self.quat_to_euler(rotation[0], rotation[1], rotation[2], rotation[3])
+    #     rbDataLocal = [new_id, position, alpha, beta, gamma]
         # self.rigidData.append([new_id] + [position] + [alpha] + [beta] + [gamma])
         # print("Rigid Body from MoCap: ", rbDataLocal)
         # rbDataLocal2 = self.trackSock.rigid_body_data_out
         # print("Rigid Body from MoCap: ", rbDataLocal2)
 
 
-def tip_position(self, robotFrame, instrumentFrame):
-    # Method to get tip pose with respect to robot base
+    def get_frames(self):
+        if len(self.frameData) == 2:
+            [idI, posI, quatI] = self.frameData[0]
+            # posI = np.array(posI)
+            rotMatrixI = self.quat_to_rot_matrix(quatI[0], quatI[1], quatI[2], quatI[3])
+            tMatrixI = np.block([[rotMatrixI[0, :], self.M_TO_MM*posI[0]],\
+                                 [rotMatrixI[1, :], self.M_TO_MM*posI[1]],\
+                                 [rotMatrixI[2, :], self.M_TO_MM*posI[2]],\
+                                 [0, 0, 0, 1]])
+            # print(tMatrixI)
+
+            [idR, posR, quatR] = self.frameData[1]
+            rotMatrixR = self.quat_to_rot_matrix(quatR[0], quatR[1], quatR[2], quatR[3])
+            tMatrixR = np.block([[rotMatrixR[0, :], self.M_TO_MM*posR[0]],\
+                                 [rotMatrixR[1, :], self.M_TO_MM*posR[1]],\
+                                 [rotMatrixR[2, :], self.M_TO_MM*posR[2]],\
+                                 [0, 0, 0, 1]])
+            # print(tMatrixR)
+        else:
+            tMatrixI = np.zeros((4,4))
+            tMatrixR = np.zeros((4,4))
+        
+        return tMatrixI, tMatrixR
+
+
+    def tip_pose(self):
+        # Method to get tip pose with respect to robot base
+        [T_W_Inst, T_W_Rob] = self.get_frames()
+        T_Rob_W = np.linalg.pinv(T_W_Rob)
+        T_Rob_Inst = np.dot(T_Rob_W, T_W_Inst)
+        return T_Rob_Inst
+
+    
 
 
 
