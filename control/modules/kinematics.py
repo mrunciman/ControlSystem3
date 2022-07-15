@@ -538,8 +538,8 @@ class kineSolver:
 
         # Optitrack data uses different frame of reference so convert
         # ADD SIDELENGTH/2 AND SIDELENGTH/2 * SIN(PI/6)
-        realX = -opZ + self.SIDE_LENGTH/2 * mt.tan(mt.pi/6)
-        realY = opY + self.SIDE_LENGTH/2
+        realX = opZ + self.SIDE_LENGTH/2
+        realY = opY + self.SIDE_LENGTH/2 * mt.tan(mt.pi/6)
         realZ = opX
          
         # Based on estimated tip position in 3D space, find point of intersection (POI)

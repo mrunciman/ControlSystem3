@@ -325,12 +325,12 @@ try:
         pathCounter = 0
         T_Rob_Inst = opTrack.tip_pose()
         # print(T_Rob_Inst)
-        real_x = T_Rob_Inst[0,3]
-        real_y = T_Rob_Inst[1,3]
-        real_z = T_Rob_Inst[2,3]
-        print(-real_z + 8.66, real_y+ 15, real_x)
-        [errCableL, errCableR, errCableT, errPrism] = kineSolve.cableError(currentX, currentY, targetOpL, targetOpR, targetOpT, targetOpP, real_x, real_y, real_z)
-        # print(errCableL, errCableR, errCableT, errPrism)
+        realX = T_Rob_Inst[0,3]
+        realY = T_Rob_Inst[1,3]
+        realZ = T_Rob_Inst[2,3]
+        print("Position", realZ + 15, realY + 8.66, realX)
+        [errCableL, errCableR, errCableT, errPrism] = kineSolve.cableError(currentX, currentY, targetOpL, targetOpR, targetOpT, targetOpP, realX, realY, realZ)
+        print("Error: L, R, T, P: ", errCableL, errCableR, errCableT, errPrism, '\n')
 
         # print(targetL, targetR, targetT, LcRealP)
         # Get cable speeds using Jacobian at current point and calculation of input speed
@@ -414,7 +414,7 @@ try:
             pressTMed = ardIntTOP.newPressMed(pressT)
             # pressAMed = ardIntPNEU.newPressMed(pressA)
             [conLHS, dLHS] = ardIntLHS.derivPress(timeL, prevTimeL)
-            [conRHS, dRHS] =  ardIntRHS.derivPress(timeR, prevTimeR)
+            [conRHS, dRHS] = ardIntRHS.derivPress(timeR, prevTimeR)
             [conTOP, dTOP] = ardIntTOP.derivPress(timeT, prevTimeT)
             collisionAngle = kineSolve.collisionAngle(dLHS, dRHS, dTOP, conLHS, conRHS, conTOP)
 
@@ -436,9 +436,9 @@ try:
         # Update current position, cable lengths, and volumes as previous targets
         currentX = actualX
         currentY = actualY
-        cableL = scaleTargL
-        cableR = scaleTargR
-        cableT = scaleTargT
+        cableL = targetL
+        cableR = targetR
+        cableT = targetT
         cVolL = tVolL
         cVolR = tVolR
         cVolT = tVolT
