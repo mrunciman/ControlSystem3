@@ -62,7 +62,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/spiralZ 2022-05-24 15-13-38 15mmRad30.0EqSide.csv', newline = '') as csvPath:
+    with open('control/paths/gridPath 2022-07-11 12-05-23 centre 15-8.66025 30x30grid 5x5spacing.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -95,6 +95,7 @@ print("Start point: ", XYZPathCoords)
 ############################################################################
 # Initialise variables 
 SAMP_FREQ = 1/kineSolve.TIMESTEP
+PRESS_MAX_KPA = 190000
 flagStop = False
 
 # Target must be cast as immutable type (float, in this case) so that 
@@ -109,7 +110,7 @@ targetZ = XYZPathCoords[2]
 # Create delay at start of any test
 delayCount = 0
 delayLim = 200
-delayEveryStep = False
+delayEveryStep = True
 delayFactor = 8
 firstMoveDelay = 0
 firstMoveDivider = 100
@@ -117,6 +118,7 @@ initialXFlag = False
 initPressLogCount = 0
 initPressLogNum = 10
 useVisionFeedback = True
+visionFeedFlag = False
 
 # Initialise cable length variables at home position
 cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
@@ -244,7 +246,7 @@ try:
         calibP = False
 
         # Has the mechanism been calibrated/want to run without calibration?:
-        calibrated = True
+        calibrated = False
         # Perform calibration:
         print("Zeroing hydraulic actuators...")
         while (not calibrated):
@@ -317,29 +319,31 @@ try:
         # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
         # XYZPathCoords are desired coords in 3D.
         [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
+        print("Open loop : ", targetXideal, targetYideal, targetOpP)
 
         # Return target cable lengths at target coords and jacobian at current coords
         [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
 
-        #Force stationary tip 
-        pathCounter = 0
-        T_Rob_Inst = opTrack.tip_pose()
-        # print(T_Rob_Inst)
-        realX = T_Rob_Inst[0,3]
-        realY = T_Rob_Inst[1,3]
-        realZ = T_Rob_Inst[2,3]
-        print("Position", realZ + 15, realY + 8.66, realX)
-        [errCableL, errCableR, errCableT, errPrism] = kineSolve.cableError(currentX, currentY, targetOpL, targetOpR, targetOpT, targetOpP, realX, realY, realZ)
-        print("Error: L, R, T, P: ", errCableL, errCableR, errCableT, errPrism, '\n')
-
-        # print(targetL, targetR, targetT, LcRealP)
         # Get cable speeds using Jacobian at current point and calculation of input speed
         [lhsV, rhsV, topV, actualX, actualY] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
         # print(lhsV, rhsV, topV, actualX, actualY)
         # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
         [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
 
-        if useVisionFeedback:
+        #Force stationary tip 
+        # pathCounter = 0
+        T_Rob_Inst = opTrack.tip_pose()
+        # print(T_Rob_Inst)
+        realX = T_Rob_Inst[0,3]
+        realY = T_Rob_Inst[1,3]
+        realZ = T_Rob_Inst[2,3]
+        # print("Position", -realZ + 15, realY + 8.66, realX)
+        [errCableL, errCableR, errCableT, errPrism] = kineSolve.cableError(actualX, actualY, scaleTargL, scaleTargR, scaleTargT, targetOpP, realX, realY, realZ)
+        print("OL cables : ", targetOpL, targetOpR, targetOpT, targetOpP)
+        print("Error LRTP: ", errCableL, errCableR, errCableT, errPrism, '\n')
+
+
+        if visionFeedFlag:
             targetL = scaleTargL - errCableL
             targetR = scaleTargR - errCableR
             targetT = scaleTargT - errCableT
@@ -402,6 +406,8 @@ try:
                 ardIntTOP.sendStep(initStepNoT)
                 ardIntPRI.sendStep(StepNoP)
             else:
+                if useVisionFeedback:
+                    visionFeedFlag = 1
                 # Send step number to arduinos:
                 ardIntLHS.sendStep(StepNoL)
                 ardIntRHS.sendStep(StepNoR)
@@ -432,6 +438,11 @@ try:
             [realStepT, pressT, timeT] = ardIntTOP.listenReply()
             [realStepP, pressP, timeP] = ardIntPRI.listenReply()
             # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
+
+            # Check for high pressure
+            if (max(pressL, pressR, pressT, pressL) > PRESS_MAX_KPA):
+                print("Overpressure: ", max(pressL, pressR, pressT, pressL), " kPa")
+                flagStop = True
 
         # Update current position, cable lengths, and volumes as previous targets
         currentX = actualX
