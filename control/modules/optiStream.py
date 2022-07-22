@@ -63,16 +63,26 @@ class optiTracker:
         self.M_TO_MM = 1000
 
     def optiConnect(self):
-        is_running = self.trackSock.run()
-        if not is_running:
-            print("ERROR: Could not start streaming client.")
-            try:
-                sys.exit(1)
-            except SystemExit:
-                print("...")
-            finally:
-                print("exiting")
-        return is_running
+        running = self.trackSock.run()
+        # if not running:
+        #     print("ERROR: Could not start streaming client.")
+        #     try:
+        #         sys.exit(1)
+        #     except SystemExit:
+        #         print("...")
+        #     finally:
+        #         print("exiting")
+
+        T_Rob_Inst = self.tip_pose()
+        # print(T_Rob_Inst)
+        if np.any(T_Rob_Inst) != True:
+            print("Optitrack not connected!")
+            optiTrackConnected = False
+            self.optiClose()
+        else:
+            optiTrackConnected = True
+
+        return optiTrackConnected
 
 
     def optiSave(self, dataToSave):

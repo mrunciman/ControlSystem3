@@ -62,7 +62,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/gridPath 2022-07-11 12-05-23 centre 15-8.66025 30x30grid 5x5spacing.csv', newline = '') as csvPath:
+    with open('control/paths/spiralZ 2022-05-24 15-13-38 15mmRad30.0EqSide.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -110,14 +110,14 @@ targetZ = XYZPathCoords[2]
 # Create delay at start of any test
 delayCount = 0
 delayLim = 200
-delayEveryStep = True
+delayEveryStep = False
 delayFactor = 8
 firstMoveDelay = 0
 firstMoveDivider = 100
 initialXFlag = False
 initPressLogCount = 0
 initPressLogNum = 10
-useVisionFeedback = True
+useVisionFeedback = False
 visionFeedFlag = False
 
 # Initialise cable length variables at home position
@@ -185,8 +185,7 @@ targetOpL, targetOpR, targetOpT, targetOpP = 0, 0, 0, 0
 ############################################################################
 # Optitrack connection
 useRigidBodies = True
-if opTrack.pluggedIn:
-    opTrack.optiConnect()
+optiTrackConnected = opTrack.optiConnect()
 
 ###############################################################
 # Connect to Arduinos
@@ -319,7 +318,7 @@ try:
         # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
         # XYZPathCoords are desired coords in 3D.
         [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
-        print("Open loop : ", targetXideal, targetYideal, targetOpP)
+        # print("Open loop : ", targetXideal, targetYideal, targetOpP)
 
         # Return target cable lengths at target coords and jacobian at current coords
         [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
@@ -332,22 +331,24 @@ try:
 
         #Force stationary tip 
         # pathCounter = 0
-        T_Rob_Inst = opTrack.tip_pose()
-        # print(T_Rob_Inst)
-        realX = T_Rob_Inst[0,3]
-        realY = T_Rob_Inst[1,3]
-        realZ = T_Rob_Inst[2,3]
-        # print("Position", -realZ + 15, realY + 8.66, realX)
-        [errCableL, errCableR, errCableT, errPrism] = kineSolve.cableError(actualX, actualY, scaleTargL, scaleTargR, scaleTargT, targetOpP, realX, realY, realZ)
-        print("OL cables : ", targetOpL, targetOpR, targetOpT, targetOpP)
-        print("Error LRTP: ", errCableL, errCableR, errCableT, errPrism, '\n')
+        if optiTrackConnected:
+            T_Rob_Inst = opTrack.tip_pose()
+            # print(T_Rob_Inst)
+            realX = T_Rob_Inst[0,3]
+            realY = T_Rob_Inst[1,3]
+            realZ = T_Rob_Inst[2,3]
+            print("Open loop : ", targetXideal, targetYideal, targetOpP)
+            # print("Position", -realZ + 15, realY + 8.66, realX)
+            [errCableL, errCableR, errCableT, errPrism] = kineSolve.cableError(actualX, actualY, scaleTargL, scaleTargR, scaleTargT, targetOpP, realX, realY, realZ)
+            print("OL cables : ", targetOpL, targetOpR, targetOpT, targetOpP)
+            print("Error LRTP: ", errCableL, errCableR, errCableT, errPrism, '\n')
 
+            if visionFeedFlag:
+                targetL = scaleTargL - errCableL
+                targetR = scaleTargR - errCableR
+                targetT = scaleTargT - errCableT
+                targetP = targetOpP - errPrism
 
-        if visionFeedFlag:
-            targetL = scaleTargL - errCableL
-            targetR = scaleTargR - errCableR
-            targetT = scaleTargT - errCableT
-            targetP = targetOpP - errPrism
         else:
             targetL = scaleTargL
             targetR = scaleTargR 
@@ -505,11 +506,12 @@ finally:
         posLogging.posSave()
 
         #Save optitrack data
-        if useRigidBodies:
-            opTrack.optiSave(opTrack.rigidData)
-        else:
-            opTrack.optiSave(opTrack.markerData)
-        opTrack.optiClose()
+        if optiTrackConnected:
+            if useRigidBodies:
+                opTrack.optiSave(opTrack.rigidData)
+            else:
+                opTrack.optiSave(opTrack.markerData)
+            opTrack.optiClose()
 
         if 'ardIntLHS' in locals():
             if ardIntLHS.ser.is_open:
