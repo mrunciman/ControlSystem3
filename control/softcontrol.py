@@ -120,6 +120,11 @@ initPressLogNum = 10
 useVisionFeedback = True
 visionFeedFlag = False
 
+pathCountDivider = 10 # Pause will happen every nth loop
+pauseCount = 0 # Counter to keep track of pause time
+visionPause = 50 # How many times loop will run before mini pause is over
+
+
 # Initialise cable length variables at home position
 cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
 cableL, cableR, cableT = kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH
@@ -309,10 +314,19 @@ try:
             XYZPathCoords = [xMap, yMap, zMap]
 
         # Stay at given coord for number of cycles
+        # Mini pauses possible for vision system
         if delayCount < delayLim:
             delayCount += 1
         else:
-            pathCounter += 1
+            if pathCounter % pathCountDivider == 0:
+                pauseFlag = 1
+                pauseCount += 1
+                if pauseCount > visionPause:
+                    pauseCount = 0
+            else:
+                pauseFlag = 0
+                pathCounter += 1
+
             if delayEveryStep:
                 delayCount = delayLim - int(delayLim/delayFactor)
 
