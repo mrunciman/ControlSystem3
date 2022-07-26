@@ -189,6 +189,12 @@ class optiTracker:
         # rbDataLocal2 = self.trackSock.rigid_body_data_out
         # print("Rigid Body from MoCap: ", rbDataLocal2)
 
+    # def buildMatrix(self, R, T):
+    #     tMatrixI = np.block([[rotMatrixI[0, :], self.M_TO_MM*posI[0]],\
+    #                     [rotMatrixI[1, :], self.M_TO_MM*posI[1]],\
+    #                     [rotMatrixI[2, :], self.M_TO_MM*posI[2]],\
+    #                     [0, 0, 0, 1]])
+    #     return tMatrixI
 
     def get_frames(self):
         if len(self.frameData) == 2:
@@ -207,20 +213,33 @@ class optiTracker:
                                  [rotMatrixR[1, :], self.M_TO_MM*posR[1]],\
                                  [rotMatrixR[2, :], self.M_TO_MM*posR[2]],\
                                  [0, 0, 0, 1]])
+
+            if posI[0] < posR[0]:
+                tempR = tMatrixR
+                tMatrixR = tMatrixI
+                tMatrixI = tempR
             # print(tMatrixR)
         else:
             tMatrixI = np.zeros((4,4))
             tMatrixR = np.zeros((4,4))
+
+
         
         return tMatrixI, tMatrixR
 
 
-    def tip_pose(self):
+    def tip_pose(self,T_W_Inst_camera=None):
         # Method to get tip pose with respect to robot base
         [T_W_Inst, T_W_Rob] = self.get_frames()
         T_Rob_W = np.linalg.pinv(T_W_Rob)
         T_Rob_Inst = np.dot(T_Rob_W, T_W_Inst)
-        return T_Rob_Inst
+        if T_W_Inst_camera is not None:
+            # print("T_W_Inst Optitrack estimate: ", T_W_Inst)
+            # print("T_W_Inst Vision estimate: ", T_W_Inst_camera)
+            T_Rob_Inst_camera =  np.dot(T_Rob_W, T_W_Inst_camera)
+            return T_Rob_Inst, T_Rob_Inst_camera
+        else:
+            return T_Rob_Inst
 
     
 

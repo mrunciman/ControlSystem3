@@ -10,3 +10,4 @@ control/arduino/SyringeControl/.vscode/
 .vscode/
 *.pyc
 *.cpython-38
+.png
