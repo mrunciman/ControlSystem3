@@ -4,10 +4,10 @@
 */
 
 #include <math.h>
-#include <Wire.h>
+#include <Wire1.h>
 //Sensor library - https://github.com/sparkfun/MS5803-14BA_Breakout/
-#include <SparkFun_MS5803_I2C.h>
-#include <uStepperSLite.h>
+#include <SparkFun_MS5803_TwoI2C.h>
+#include <uStepperS.h>
 // #include <digitalWriteFast.h>
 #define PI 3.1415926535897932384626433832795
 
@@ -23,19 +23,20 @@ char shakeKey[5] = "TOP"; // INTERRUPTS INVERTED!!!!!
 
 ////////////////////////////////////////////////////////
 //uStepper S Lite Setup
-#define MAXACCELERATION 10000       //Max acceleration in steps/s^2 (2000 = 5 mm/s^2)
-#define MAXVELOCITY 3000           //Max velocity in steps/s (2000 is 5 mm/s)
+#define MAXACCELERATION 2000       //Max acceleration in steps/s^2 (2000 = 5 mm/s^2)
+#define MAXVELOCITY 2000           //Max velocity in steps/s (2000 is 5 mm/s)
 float SPEEDP_HIGH = 1000.0;
 float SPEEDP_LOW = 500.0;
 float STEPS_PER_REV = 3200.0;
 float DEG_PER_REV = 360.0;
 float angPos = 0.0; //DEG_PER_REV * stepIn/STEPS_PER_REV = 360 * stepIn/STEPS_PER_REV;
 float angMeas = 0.0; // stepCount = angMeas*STEPS_PER_REV/DEG_PER_REV
-uStepperSLite stepper(MAXACCELERATION, MAXVELOCITY);
+
+uStepperS stepper;
 
 // USEFUL FUNCTIONS:
 // stepper.isStalled()
-// disableMotor();
+// disableMotor();    -  setBrakeMode(FREEWHEELBRAKE);
 // setMaxVelocity(float vel)
 // runContinous(CCW)
 // softStop(SOFT)
@@ -141,7 +142,7 @@ int minSteps = 10;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void setup() {
-  Wire.begin();
+  Wire1.begin();
     //Sensor startup - see https://github.com/sparkfun/MS5803-14BA_Breakout/
   sensor.reset();
   sensor.begin();
@@ -178,8 +179,11 @@ void setup() {
   // uStepper S Lite setup - 
   //http://ustepper.com/docs/ustepperslite/html/classuStepperSLite.html#a9522d6afb14f71c6034ece6537180e00
   // stepper.setup();
-  stepper.setup(PID, STEPS_PER_REV, 20.0, 0.1, 0.0, true);
-  stepper.softStop(SOFT);
+  stepper.setup(CLOSEDLOOP,200);
+  stepper.setMaxAcceleration(MAXACCELERATION);
+  stepper.setMaxVelocity(MAXVELOCITY);
+  stepper.setControlThreshold(15);
+  stepper.stop();
 }
 
 // Internal interrupt service routine, timer 2 overflow
@@ -203,7 +207,7 @@ void pressureRead() {
   // Stop motor and wait if pressure exceeds maximum
   if (pressureAbs > PRESS_MAX){
     // extInterrupt = true;
-    stepper.softStop(SOFT); // Stop and disable
+    stepper.stop(); // Stop and disable
   }
   else if (pressureAbs < 0){
     pressureAbs = 0.00;
@@ -290,7 +294,7 @@ void pressInitZeroVol() {
     case 0:
       // Stop motor
       // Serial.println("Stop");
-      stepper.softStop(HARD);
+      stepper.stop();
       break;
     case 1:
       //Move motor forwards
@@ -311,7 +315,7 @@ void pressInitZeroVol() {
     default:
       //Just in case nothing matches, stop motor
       // Serial.println("Default");
-      stepper.softStop(SOFT);
+      stepper.stop();
       break;
   }
 }
@@ -351,7 +355,8 @@ void readWriteSerial() {
     if (stepRecv == "Closed"){
       // Disable the motor
       disconFlag = true;
-      stepper.disableMotor(); // digitalWrite(enablePin, HIGH);
+      // stepper.disableMotor(); // digitalWrite(enablePin, HIGH);
+      stepper.setBrakeMode(FREEWHEELBRAKE);
       //Send disable message
       writeSerial('D');
     }
@@ -464,9 +469,10 @@ void loop() {
     //////////////////////////////////////////////////////////////////////////////////////////
     //Limits hit
     case 0:
-      stepper.softStop(SOFT);
+      stepper.stop();
       //Make sure motor is disabled 
-      stepper.disableMotor(); // digitalWrite(enablePin, HIGH);
+      // stepper.disableMotor(); // digitalWrite(enablePin, HIGH);
+      stepper.setBrakeMode(FREEWHEELBRAKE);
       // Turn off timers for interrupts
       // TCCR2B = 0; 
       stateCount = 0;
@@ -489,7 +495,7 @@ void loop() {
     //////////////////////////////////////////////////////////////////////////////////////////
     //Disconnection
     case 2:
-      stepper.softStop(SOFT);
+      stepper.stop();
       // Turn off timers for interrupts
       TCCR2B = 0;
       break;
@@ -555,9 +561,10 @@ void loop() {
     //////////////////////////////////////////////////////////////////////////////////////////
     // Unrecognised state, act as if limit hit
     default:
-      stepper.softStop(SOFT);
+      stepper.stop();
       //Make sure motor is disabled 
-      stepper.disableMotor(); // digitalWrite(enablePin, HIGH);
+      // stepper.disableMotor(); // digitalWrite(enablePin, HIGH);
+      stepper.setBrakeMode(FREEWHEELBRAKE);
       // Turn off timers for interrupts
       TCCR2B = 0;
       stateCount = 0;
