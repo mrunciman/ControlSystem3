@@ -1,3 +1,4 @@
+from pickle import TRUE
 from visual_navigation.cylmarker import load_data, save_data, keypoints
 # from cylmarker.pose_estimation import pose_estimation
 # from cylmarker.make_new_pattern_and_marker import create_new_pattern, create_new_marker
@@ -113,7 +114,8 @@ class PoseEstimator:
         self.dist_coeff = np.array(dist_coeff_data)
 
         # translation_path = self.data_pttrn['translation_path']
-        translation_path =  'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45mm/data0721/'
+        # translation_path =  'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45mm/data0721/'
+        translation_path =  'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/data_0801/'
         # translation_path =  './data_45mm/data0721/'
         if from_matlab:
             from scipy import io
@@ -126,9 +128,12 @@ class PoseEstimator:
             self.X = XY['X']
             self.Y = XY['Y']
 
-        rotMatrixR = quat_to_rot_matrix(-0.006375742,0.008078535,-0.003986573,-0.999939084)
+        # rotMatrixR = quat_to_rot_matrix(-0.006375742,0.008078535,-0.003986573,-0.999939084) # Previous value
+        rotMatrixR = quat_to_rot_matrix(-0.011488591, 0.014160476, -0.001230368, -0.999832988)
+        
+        # posR=[-0.110181898,0.029305253,0.133816868] # Previous value
+        posR=[-0.112173915, 0.02704691, 0.082323581]
 
-        posR=[-0.110181898,0.029305253,0.133816868]
         T_W_Rob = np.block([[rotMatrixR[0, :], self.M_TO_MM*posR[0]],\
                                 [rotMatrixR[1, :], self.M_TO_MM*posR[1]],\
                                 [rotMatrixR[2, :], self.M_TO_MM*posR[2]],\
@@ -141,9 +146,9 @@ class PoseEstimator:
         self.camera.end()
 
     def pose_estimate(self,is_show=False):
-        is_save = True
+        is_save = False
         im = self.camera.receive_img()
-
+        # print(im.shape)
         im = cv.undistort(im, self.cam_matrix, self.dist_coeff)
         dist_coeff = None # we don't need to undistort again
 
@@ -172,16 +177,18 @@ class PoseEstimator:
             print("no pattern detected")
             if is_show:
                 cv.imshow("image", mask_marker_bg)
+                # cv.imshow("image", im)
                 cv.waitKey(1)
             if is_save:
-                cv.imwrite("nodetect_{}.png".format(time.time()),im)
+                cv.imwrite("nodetect.png".format(time.time()),im)
             return None
     def send_pose(self):
         h1 = self.pose_estimate()# Pattern to Camera
         if h1 is not None:
             temp1 = np.dot(np.dot(self.Y,h1),np.linalg.inv(self.X))
             R_temp, T_temp = unpack_homo(temp1)
-            trans_bias = np.array([0.36454775,0.70371892,-0.80012906])
+            # trans_bias = np.array([0.36454775,0.70371892,-0.80012906])
+            trans_bias = np.array([0.0,0.0,0.0])
             T_temp = T_temp+trans_bias
             temp1 = homo(R_temp, T_temp)
             return temp1# Estimated World to Instrument Pose
@@ -190,9 +197,10 @@ class PoseEstimator:
     def tip_pose(self):
         # Method to get tip pose with respect to robot base
         T_W_Inst = self.send_pose()# Estimated World to Instrument Pose
-        print("T_W_Inst: ",T_W_Inst)
+        # print("T_W_Inst: ",T_W_Inst)
         if T_W_Inst is not None:
             T_Rob_Inst = np.dot(self.T_Rob_W , T_W_Inst)
+            print("T_Rob_Inst: ", T_Rob_Inst)
             return T_Rob_Inst
         else:
             return None

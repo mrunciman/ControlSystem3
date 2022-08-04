@@ -2,7 +2,7 @@ from visual_navigation.cam_pose import PoseEstimator
 import time
 
 # config_path = '/control/visual_navigation/data_45mm/'
-config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45mm/'
+config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
 pose_est = PoseEstimator(config_path)
 pose_est.initialize()
 

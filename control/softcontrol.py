@@ -44,7 +44,7 @@ opTrack = optiStream.optiTracker()
 phntmOmni = omniStream.omniStreamer()
 
 
-config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45mm/'
+config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
 pose_est = PoseEstimator(config_path)
 pose_est.initialize()
 
@@ -339,11 +339,12 @@ try:
 
         #Force stationary tip 
         # pathCounter = 0
-        # T_Rob_Inst = pose_est.tip_pose()#4x4 homo matrix in MM
-        T_Rob_Inst_camera = pose_est.send_pose()#4x4 homo matrix in MM
+        T_Rob_Inst_camera = pose_est.tip_pose()#4x4 homo matrix in MM
+        # T_Rob_Inst_camera = pose_est.send_pose()#4x4 homo matrix in MM
         # print("Vision estimate: ", T_Rob_Inst)
-        if optiTrackConnected and T_Rob_Inst_camera is not None:
-            T_Rob_Inst,T_Rob_Inst_camera = opTrack.tip_pose(T_Rob_Inst_camera)
+        if useVisionFeedback == True:
+            # if optiTrackConnected and T_Rob_Inst_camera is not None:
+            # T_Rob_Inst, T_Rob_Inst_camera = opTrack.tip_pose(T_Rob_Inst_camera)
             # T_Rob_Inst = pose_est.tip_pose()#4x4 homo matrix in MM
             # print("Optitrack estimate: ", T_Rob_Inst)
             # print("Vision estimate: ", T_Rob_Inst_camera)
@@ -358,7 +359,7 @@ try:
                 print("Error LRTP: ", errCableL, errCableR, errCableT, errPrism)
 
             if visionFeedFlag:
-                print("Closed Loop active, '\n'")
+                print("Closed Loop active \n")
                 targetL = scaleTargL - errCableL
                 targetR = scaleTargR - errCableR
                 targetT = scaleTargT - errCableT

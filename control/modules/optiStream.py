@@ -78,7 +78,7 @@ class optiTracker:
         if np.any(T_Rob_Inst) != True:
             print("Optitrack not connected!")
             optiTrackConnected = False
-            self.optiClose()
+            # self.optiClose()
         else:
             optiTrackConnected = True
 

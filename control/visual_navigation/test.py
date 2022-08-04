@@ -1,11 +1,11 @@
 from cam_pose import PoseEstimator
 import time
 
-config_path = 'data_45mm'
+config_path = 'data_45short'
 pose_est = PoseEstimator(config_path)
 pose_est.initialize()
 
-for i in range(20):
+for i in range(50):
     # pose_est.pose_estimate(True)
     homo = pose_est.send_pose()
     if homo is not None:

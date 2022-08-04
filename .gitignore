@@ -11,3 +11,7 @@ control/arduino/SyringeControl/.vscode/
 *.pyc
 *.cpython-38
 .png
+control/modules/__pycache__/arduinoInterface.cpython-38.pyc
+control/modules/__pycache__/kinematics.cpython-38.pyc
+control/modules/__pycache__/pumpLog.cpython-38.pyc
+nodetect.png
