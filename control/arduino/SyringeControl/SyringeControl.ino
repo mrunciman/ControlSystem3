@@ -143,6 +143,13 @@ int minSteps = 10;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void setup() {
+  // uStepper S setup - 
+  stepper.setup(CLOSEDLOOP,200);
+  stepper.setMaxAcceleration(MAXACCELERATION);
+  stepper.setMaxVelocity(MAXVELOCITY);
+  stepper.setControlThreshold(15);
+  // stepper.stop();
+
   Wire1.begin();
     //Sensor startup - see https://github.com/sparkfun/MS5803-14BA_Breakout/
   sensor.reset();
@@ -176,15 +183,6 @@ void setup() {
   TIMSK2 |= (1 << OCIE2A);  // enable timer compare interrupt
   interrupts();             // enable all interrupts
 
-
-  // uStepper S Lite setup - 
-  //http://ustepper.com/docs/ustepperslite/html/classuStepperSLite.html#a9522d6afb14f71c6034ece6537180e00
-  // stepper.setup();
-  stepper.setup(CLOSEDLOOP,200);
-  stepper.setMaxAcceleration(MAXACCELERATION);
-  stepper.setMaxVelocity(MAXVELOCITY);
-  stepper.setControlThreshold(15);
-  stepper.stop();
 }
 
 // Internal interrupt service routine, timer 2 overflow
@@ -358,7 +356,7 @@ void readWriteSerial() {
       // Disable the motor
       disconFlag = true;
       // stepper.disableMotor(); // digitalWrite(enablePin, HIGH);
-      stepper.setBrakeMode(FREEWHEELBRAKE);
+      // stepper.setBrakeMode(FREEWHEELBRAKE);
       //Send disable message
       writeSerial('D');
     }
@@ -371,10 +369,8 @@ void readWriteSerial() {
         stepIn = minSteps;
       }
       angPos = DEG_PER_REV*(float(stepIn)/STEPS_PER_REV);
-      Serial.println(angPos);
       // stepCount = stepper.getStepsSinceReset();
       angMeas = stepper.encoder.getAngleMoved();
-      Serial.println(angMeas);
       stepCount = int(angMeas*STEPS_PER_REV/DEG_PER_REV);
       stepError = stepIn - stepCount;
       //Send stepCount
@@ -462,7 +458,7 @@ void loop() {
   else if(disconFlag == true){
     pumpState = 2;//Disconnection
   }
-  else if(pressFlag == false){//CHANGE TO TRUE TO ACTIVATE
+  else if(pressFlag == true){//CHANGE TO TRUE TO ACTIVATE
     pumpState = 3;//Calibration
   }
   else{
@@ -476,7 +472,7 @@ void loop() {
       stepper.stop();
       //Make sure motor is disabled 
       // stepper.disableMotor(); // digitalWrite(enablePin, HIGH);
-      stepper.setBrakeMode(FREEWHEELBRAKE);
+      // stepper.setBrakeMode(FREEWHEELBRAKE);
       // Turn off timers for interrupts
       // TCCR2B = 0; 
       stateCount = 0;
@@ -502,6 +498,10 @@ void loop() {
       stepper.stop();
       // Turn off timers for interrupts
       TCCR2B = 0;
+      stepper.setup(CLOSEDLOOP,200);
+      stepper.setMaxAcceleration(MAXACCELERATION);
+      stepper.setMaxVelocity(MAXVELOCITY);
+      stepper.setControlThreshold(15);
       break;
 
     //////////////////////////////////////////////////////////////////////////////////////////
@@ -568,7 +568,7 @@ void loop() {
       stepper.stop();
       //Make sure motor is disabled 
       // stepper.disableMotor(); // digitalWrite(enablePin, HIGH);
-      stepper.setBrakeMode(FREEWHEELBRAKE);
+      // stepper.setBrakeMode(FREEWHEELBRAKE);
       // Turn off timers for interrupts
       TCCR2B = 0;
       stateCount = 0;
