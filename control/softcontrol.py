@@ -22,6 +22,7 @@ import numpy as np
 # import random
 
 from modules import arduinoInterface
+from modules import fibrebotInterface
 from modules import kinematics
 # from modules import mouseGUI
 from modules import pumpLog
@@ -128,6 +129,10 @@ initPressLogNum = 10
 useVisionFeedback = True
 visionFeedFlag = False
 
+# Fibre related variables
+fibreDone = 0
+pauseVisFeedback = False
+
 # Initialise cable length variables at home position
 cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
 cableL, cableR, cableT = kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH
@@ -201,8 +206,11 @@ optiTrackConnected = opTrack.optiConnect()
 # Create function to find available COM ports, listen to replies, and assign COM ports based on replies
 print("Connecting to syringe pumps...")
 pumpsConnected = False
-[pumpCOMS, pumpSer, pumpNames] = arduinoInterface.ardConnect()
+[pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
 print(pumpCOMS)
+
+fibrebotLink = fibrebotInterface.fibreBot()
+fibrebotLink.connect(pumpSer, COMlist)
 
 # Set COM port for each pump by using its handshake key
 if len(pumpCOMS) == 4:
@@ -315,13 +323,28 @@ try:
             [xMap, yMap, zMap] = phntmOmni.omniMap()
             XYZPathCoords = [xMap, yMap, zMap]
 
+        fibreDone = fibrebotLink.receiveState()
+
         # Stay at given coord for number of cycles
         if delayCount < delayLim:
             delayCount += 1
-        else:
-            pathCounter += 1
-            if delayEveryStep:
-                delayCount = delayLim - int(delayLim/delayFactor)
+            # pathCounter remains as it is
+            fibrebotLink.sendState("Stop")
+        elif delayCount == delayLim:
+            # pathCounter remains as it is
+            fibrebotLink.sendState("Run")
+            delayCount += 1
+            pauseVisFeedback = True
+        elif delayCount > delayLim:
+            # wait for fibre to finish
+            if fibreDone:
+                # Start gross motion again
+                fibrebotLink.sendState("Stop")
+                pauseVisFeedback = False
+                pathCounter += 1
+                # reset delayCount
+                if delayEveryStep:
+                    delayCount = delayLim - int(delayLim/delayFactor)
 
         # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
         # XYZPathCoords are desired coords in 3D.
@@ -422,6 +445,12 @@ try:
                 ardIntRHS.sendStep(initStepNoR)
                 ardIntTOP.sendStep(initStepNoT)
                 ardIntPRI.sendStep(StepNoP)
+            elif pauseVisFeedback == True:
+                #Send previous values
+                ardIntLHS.sendStep(cStepL)
+                ardIntRHS.sendStep(cStepR)
+                ardIntTOP.sendStep(cStepT)
+                ardIntPRI.sendStep(cStepP)
             else:
                 if useVisionFeedback:
                     visionFeedFlag = 1
@@ -528,6 +557,9 @@ finally:
         else:
             opTrack.optiSave(opTrack.markerData)
         opTrack.optiClose()
+
+        # Send stop message to fibrebot
+        fibrebotLink.sendState("Stop")
 
         if 'ardIntLHS' in locals():
             if ardIntLHS.ser.is_open:

@@ -58,7 +58,7 @@ def ardConnect():
                 replyFlag += 1
         # print(pumpDict)
 
-    return pumpDict, serialDict, PUMPNAMES
+    return pumpDict, serialDict, PUMPNAMES, comlist
 
 class ardInterfacer:
 
