@@ -8,5 +8,5 @@ control/positions/
 .venv-deploy/
 control/arduino/SyringeControl/.vscode/
 .vscode/
-*.pyc
 *.cpython-38
+nodetect.png
