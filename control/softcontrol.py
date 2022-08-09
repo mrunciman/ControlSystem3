@@ -45,11 +45,6 @@ opTrack = optiStream.optiTracker()
 phntmOmni = omniStream.omniStreamer()
 
 
-config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
-pose_est = PoseEstimator(config_path)
-pose_est.initialize()
-
-
 ############################################################
 pathCounter = 0
 prevPathCounter = 0
@@ -71,7 +66,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/spiralZ 2022-05-24 15-13-38 15mmRad30.0EqSide - Copy.csv', newline = '') as csvPath:
+    with open('control/paths/gridPath 2022-07-11 11-36-55 centre 15-8.66025 30x30grid 5x5spacing 110pris.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -119,18 +114,18 @@ targetZ = XYZPathCoords[2]
 # Create delay at start of any test
 delayCount = 0
 delayLim = 200
-delayEveryStep = False
+delayEveryStep = True
 delayFactor = 8
 firstMoveDelay = 0
 firstMoveDivider = 100
 initialXFlag = False
 initPressLogCount = 0
 initPressLogNum = 10
-useVisionFeedback = True
+useVisionFeedback = False
 visionFeedFlag = False
 
 # Fibre related variables
-fibreDone = 0
+fibreDone = False
 pauseVisFeedback = False
 
 # Initialise cable length variables at home position
@@ -201,7 +196,7 @@ useRigidBodies = True
 optiTrackConnected = opTrack.optiConnect()
 
 ###############################################################
-# Connect to Arduinos
+# Connect to Peripherals
 
 # Create function to find available COM ports, listen to replies, and assign COM ports based on replies
 print("Connecting to syringe pumps...")
@@ -211,6 +206,13 @@ print(pumpCOMS)
 
 fibrebotLink = fibrebotInterface.fibreBot()
 fibrebotLink.connect(pumpSer, COMlist)
+fibrebotLink.sendState("Stop")
+print("Fibrebot connected.")
+
+if useVisionFeedback:
+    config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
+    pose_est = PoseEstimator(config_path)
+    pose_est.initialize()
 
 # Set COM port for each pump by using its handshake key
 if len(pumpCOMS) == 4:
@@ -324,14 +326,17 @@ try:
             XYZPathCoords = [xMap, yMap, zMap]
 
         fibreDone = fibrebotLink.receiveState()
+        # print(fibreDone)
 
         # Stay at given coord for number of cycles
         if delayCount < delayLim:
+            #Robot moving to location and settling
             delayCount += 1
             # pathCounter remains as it is
-            fibrebotLink.sendState("Stop")
+            # fibrebotLink.sendState("Stop")
         elif delayCount == delayLim:
             # pathCounter remains as it is
+            print("Fibrebot triggered, robot stationary")
             fibrebotLink.sendState("Run")
             delayCount += 1
             pauseVisFeedback = True
@@ -340,6 +345,7 @@ try:
             if fibreDone:
                 # Start gross motion again
                 fibrebotLink.sendState("Stop")
+                print("Robot moving to next point and settling")
                 pauseVisFeedback = False
                 pathCounter += 1
                 # reset delayCount
@@ -360,17 +366,8 @@ try:
         # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
         [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
 
-        #Force stationary tip 
-        # pathCounter = 0
-        T_Rob_Inst_camera = pose_est.tip_pose()#4x4 homo matrix in MM
-        # T_Rob_Inst_camera = pose_est.send_pose()#4x4 homo matrix in MM
-        # print("Vision estimate: ", T_Rob_Inst)
         if useVisionFeedback == True:
-            # if optiTrackConnected and T_Rob_Inst_camera is not None:
-            # T_Rob_Inst, T_Rob_Inst_camera = opTrack.tip_pose(T_Rob_Inst_camera)
-            # T_Rob_Inst = pose_est.tip_pose()#4x4 homo matrix in MM
-            # print("Optitrack estimate: ", T_Rob_Inst)
-            # print("Vision estimate: ", T_Rob_Inst_camera)
+            T_Rob_Inst_camera = pose_est.tip_pose()#4x4 homo matrix in MM
             if T_Rob_Inst_camera is not None:
                 realX = T_Rob_Inst_camera[0,3]
                 realY = T_Rob_Inst_camera[1,3]
@@ -559,7 +556,8 @@ finally:
         opTrack.optiClose()
 
         # Send stop message to fibrebot
-        fibrebotLink.sendState("Stop")
+        fibrebotLink.sendState("STOP")
+        fibrebotLink.fibreSerial.close()
 
         if 'ardIntLHS' in locals():
             if ardIntLHS.ser.is_open:

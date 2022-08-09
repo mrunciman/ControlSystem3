@@ -2,23 +2,20 @@ import serial
 import serial.tools.list_ports
 
 
+# serInfo = serial.tools.list_ports.comports()
+# for i in serInfo:
+#     print(i) 
 
-print(serial.tools.list_ports.ListPortInfo) 
-
-FIBRE_NAME = "ASRL1::INSTR"
-
-# Use COM port whose hwid matches the DAQ
-# serial.tools.list_ports.ListPortInfo
-
+# FIBRE_NAME = "ASRL1::INSTR"
 
 class fibreBot:
-
-
+# Make a serial connection to the NI controller of the fibrebot
     def __init__(self):
         self.fibreSerial = serial.Serial()
 
+    # Connect
     def connect(self, pumpSer, COMlist):
-        remainingCOM = set(COMlist) - set(pumpSer)
+        remainingCOM = str(set(COMlist) - set(pumpSer)).strip("{}'")
 
         self.fibreSerial.port = remainingCOM
         self.fibreSerial.baudrate = 9600
@@ -46,12 +43,12 @@ class fibreBot:
             reply = self.fibreSerial.readline().strip()
             self.fibreSerial.reset_input_buffer()
             reply = reply.decode('ascii')
-
+            # print(reply)
             if reply == "B":
                 #Fibrebot motion complete
-                return 1
+                return True
             else:
-                return 0
+                return False
 
         
 
