@@ -20,13 +20,16 @@
 # control input U1 and U2 in [m^3/s]
 # disturbance estimate F_obs in [N]
 
+import math as mt
+
 class energyShaping():
     def __init__(self):
         self.F_hat = 0
-        self.self.x_p = 0
+        self.x_p = 0
         self.x_dotp = 0
         self.x_dotfp = 0
         self.controlU = []
+        self.A_SYRINGE = mt.pi*(13.25**2) # mm^2
 
 
     def energyShape(self, x, v, P1, P2, xd, dt, lin_mode, Mode, adapt, vel):
@@ -43,14 +46,14 @@ class energyShaping():
         # IMPORT FROM KINEMATICS.PY
         ## model parameters
         L0 = 50/1000               # length of the bellow [m]
-        m = 1.5                      # payload in [kg]
+        m = 1.5                    # payload in [kg]
         eps = 1/10^4          
         x = min(x, L0/3 - eps)
-        vol0 = 1/10^7                # dead volume of fluid (default)
+        vol0 = 1/10^7              # dead volume of fluid (default)
         nl = 4
         Ds = 12/1000
         dc = 9/1000
-        K_B = 0.85*L0^2/nl*(dc/3 + Ds/2)   # coefficient to fit the "volume - contraction" curve in Applied Sciences
+        K_B = L0^2/nl*(dc/3 + Ds/2)
 
 
         R = 5                        # viscous friciton
@@ -168,7 +171,15 @@ class energyShaping():
                 +(Km*kp*v)/(2*dA2) - (beta0*dA2*v)/vol2))/beta0
 
 
-        self.controlU[1] = U1
-        self.controlU[2] = U2
-        self.controlU[3] = F_obs
+        self.controlU[0] = U1
+        self.controlU[1] = U2
+        self.controlU[2] = F_obs
         return self.controlU
+
+    def traject(self, x1_current, x2_current, dt):
+        U1 = self.controlU[1]
+        U2 = self.controlU[2]
+
+        x1_s_ast = x1_current + (32*U1*dt)/(30*self.A_SYRINGE)
+        x2_s_ast = x2_current + (32*U2*dt)/(30*self.A_SYRINGE)
+        return x1_s_ast, x2_s_ast
