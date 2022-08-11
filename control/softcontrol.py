@@ -29,6 +29,7 @@ from modules import pumpLog
 from modules import positionInput
 from modules import optiStream
 from modules import omniStream
+from modules import energyShaping
 
 from visual_navigation.cam_pose import PoseEstimator
 
@@ -43,6 +44,7 @@ ardLogging = pumpLog.ardLogger()
 posLogging = positionInput.posLogger()
 opTrack = optiStream.optiTracker()
 phntmOmni = omniStream.omniStreamer()
+energyS = energyShaping.energyShaper()
 
 
 ############################################################
@@ -123,6 +125,7 @@ initPressLogCount = 0
 initPressLogNum = 10
 useVisionFeedback = False
 visionFeedFlag = False
+useEnergyShaping = True
 
 # Fibre related variables
 fibreDone = False
@@ -429,7 +432,23 @@ try:
         posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
         if pumpsConnected:
-        # Reduce speed when making first move after calibration.
+
+            # Calculate median pressure over 10 samples:
+            pressLMed = ardIntLHS.newPressMed(pressL)
+            pressRMed = ardIntRHS.newPressMed(pressR)
+            pressTMed = ardIntTOP.newPressMed(pressT)
+            # pressAMed = ardIntPNEU.newPressMed(pressA)
+            [conLHS, dLHS] = ardIntLHS.derivPress(timeL, prevTimeL)
+            [conRHS, dRHS] = ardIntRHS.derivPress(timeR, prevTimeR)
+            [conTOP, dTOP] = ardIntTOP.derivPress(timeT, prevTimeT)
+            collisionAngle = kineSolve.collisionAngle(dLHS, dRHS, dTOP, conLHS, conRHS, conTOP)
+
+            if useEnergyShaping and optiTrackConnected:
+                [x, v] = energyS.trackToState(opTrack.markerData)
+                controlInputs = energyS.energyShape(x, v, pressL, pressR, 15, kineSolve.TIMESTEP, 4, 0, 1)
+                [StepNoL , StepNoR] = energyS.traject(cStepL, cStepR, kineSolve.TIMESTEP)
+
+            # Reduce speed when making first move after calibration.
             if firstMoveDelay < firstMoveDivider:
                 firstMoveDelay += 1
                 # RStep = dStepR scaled for speed (w rounding differences)
@@ -456,16 +475,6 @@ try:
                 ardIntRHS.sendStep(StepNoR)
                 ardIntTOP.sendStep(StepNoT)
                 ardIntPRI.sendStep(StepNoP)
-
-            # Calculate median pressure over 10 samples:
-            pressLMed = ardIntLHS.newPressMed(pressL)
-            pressRMed = ardIntRHS.newPressMed(pressR)
-            pressTMed = ardIntTOP.newPressMed(pressT)
-            # pressAMed = ardIntPNEU.newPressMed(pressA)
-            [conLHS, dLHS] = ardIntLHS.derivPress(timeL, prevTimeL)
-            [conRHS, dRHS] = ardIntRHS.derivPress(timeR, prevTimeR)
-            [conTOP, dTOP] = ardIntTOP.derivPress(timeT, prevTimeT)
-            collisionAngle = kineSolve.collisionAngle(dLHS, dRHS, dTOP, conLHS, conRHS, conTOP)
 
             # Log values from arduinos
             ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)

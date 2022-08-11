@@ -86,8 +86,8 @@ class ardInterfacer:
         self.pressMed = np.median(self.pressArray)
         self.pressMedPrev = self.pressMed
 
-        self.derivThresh = 20
-        self.deriv2Thresh = 30
+        self.derivThresh = 200
+        self.deriv2Thresh = 300
 
         self.conDetected = False
     

@@ -1,6 +1,5 @@
 import csv
 import os
-from re import I
 import time
 import sys
 import numpy as np
