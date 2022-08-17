@@ -16,7 +16,7 @@ def ardConnect():
         comlist.append(comport.device)
     # print(comlist)
 
-    PUMPNAMES = ['LHS', 'RHS', 'TOP', 'PRI']#, 'PNEU']
+    PUMPNAMES = ['LHS', 'RHS']#, 'TOP', 'PRI']#, 'PNEU']
     pumpDict = {}
     serialDict = {}
 

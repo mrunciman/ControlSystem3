@@ -61,7 +61,7 @@ class optiTracker:
 
         self.M_TO_MM = 1000
 
-    def optiConnect(self):
+    def optiConnect(self, useRigidBodies):
         running = self.trackSock.run()
         # if not running:
         #     print("ERROR: Could not start streaming client.")
@@ -72,14 +72,26 @@ class optiTracker:
         #     finally:
         #         print("exiting")
 
-        T_Rob_Inst = self.tip_pose()
-        # print(T_Rob_Inst)
-        if np.any(T_Rob_Inst) != True:
-            print("Optitrack not connected!")
-            optiTrackConnected = False
-            # self.optiClose()
+        if useRigidBodies == True:
+            T_Rob_Inst = self.tip_pose()
+            # print(T_Rob_Inst)
+            if np.any(T_Rob_Inst) != True:
+                print("Optitrack not connected!")
+                optiTrackConnected = False
+                # self.optiClose()
+            else:
+                optiTrackConnected = True
+        
         else:
-            optiTrackConnected = True
+            
+            if self.markerData == []:
+                time.sleep(0.1)
+                if self.markerData == []:
+                    optiTrackConnected = False
+                else:
+                    optiTrackConnected = True
+            else:
+                optiTrackConnected = True
 
         return optiTrackConnected
 

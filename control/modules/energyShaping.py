@@ -29,17 +29,22 @@
 
 import math as mt
 
+STEPS_PER_MM = 400
+A_SYRINGE = mt.pi*((13.25/1000)**2) # m**2
+
+
+FRAMERATE = 1/120
+ZEROPOINT = 0.154 # distance between markers that I define as zero,  in m
+M_TO_MM = 1000
+
 class energyShaper():
     def __init__(self):
         self.F_hat = 0
         self.x_p = 0
         self.x_dotp = 0
         self.x_dotfp = 0
-        self.controlU = []
-        self.A_SYRINGE = mt.pi*(13.25**2) # mm**2
+        self.controlU = [0, 0, 0]
 
-        self.TIMESTEP = 1/120
-        self.ZEROPOINT = 50 # distance between markers that I define as zero
 
     def energyShape(self, x, v, P1, P2, xd, dt, lin_mode, Mode, adapt):
         '''
@@ -202,9 +207,13 @@ class energyShaper():
         U1 = self.controlU[1]
         U2 = self.controlU[2]
 
-        x1_s_ast = x1_current + (32*U1*dt)/(30*self.A_SYRINGE)
-        x2_s_ast = x2_current + (32*U2*dt)/(30*self.A_SYRINGE)
-        return x1_s_ast, x2_s_ast
+        x1_s_ast = x1_current + (32*U1*dt)/(30*A_SYRINGE)
+        x2_s_ast = x2_current + (32*U2*dt)/(30*A_SYRINGE)
+
+        step_1 = x1_s_ast*M_TO_MM*STEPS_PER_MM
+        step_2 = x2_s_ast*M_TO_MM*STEPS_PER_MM
+
+        return step_1, step_2
 
 
     def trackToState(self, markerData):
@@ -232,10 +241,10 @@ class energyShaper():
             dist = mt.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)
 
             # Map to coordinate system
-            x_obs = dist - self.ZEROPOINT
+            x_obs = dist - ZEROPOINT
 
             # ## discrete-time differentiation and low-pass filtering to compute velocity
-            x_dot = (x_obs - self.x_p)/self.TIMESTEP
+            x_dot = (x_obs - self.x_p)/FRAMERATE
             x_dotf = 0.9391*self.x_dotfp + 0.03047*(x_dot+self.x_dotp)
             v_obs = x_dotf 
             self.x_p = x_obs

@@ -22,7 +22,6 @@ import numpy as np
 # import random
 
 from modules import arduinoInterface
-from modules import fibrebotInterface
 from modules import kinematics
 # from modules import mouseGUI
 from modules import pumpLog
@@ -116,7 +115,7 @@ targetZ = XYZPathCoords[2]
 # Create delay at start of any test
 delayCount = 0
 delayLim = 200
-delayEveryStep = True
+delayEveryStep = False
 delayFactor = 8
 firstMoveDelay = 0
 firstMoveDivider = 100
@@ -127,9 +126,8 @@ useVisionFeedback = False
 visionFeedFlag = False
 useEnergyShaping = True
 
-# Fibre related variables
-fibreDone = False
-pauseVisFeedback = False
+# desired positon for energy shaping
+x_d = 0.015
 
 # Initialise cable length variables at home position
 cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
@@ -195,8 +193,8 @@ targetOpL, targetOpR, targetOpT, targetOpP = 0, 0, 0, 0
 
 ############################################################################
 # Optitrack connection
-useRigidBodies = True
-optiTrackConnected = opTrack.optiConnect()
+useRigidBodies = False
+optiTrackConnected = opTrack.optiConnect(useRigidBodies)
 
 ###############################################################
 # Connect to Peripherals
@@ -207,30 +205,25 @@ pumpsConnected = False
 [pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
 print(pumpCOMS)
 
-fibrebotLink = fibrebotInterface.fibreBot()
-fibrebotLink.connect(pumpSer, COMlist)
-fibrebotLink.sendState("Stop")
-print("Fibrebot connected.")
-
 if useVisionFeedback:
     config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
     pose_est = PoseEstimator(config_path)
     pose_est.initialize()
 
 # Set COM port for each pump by using its handshake key
-if len(pumpCOMS) == 4:
+if len(pumpCOMS) == 2:
     pumpsConnected = True
     print("...")
     lhsCOM = pumpCOMS[pumpNames[0]]
     rhsCOM = pumpCOMS[pumpNames[1]]
-    topCOM = pumpCOMS[pumpNames[2]]
-    priCOM = pumpCOMS[pumpNames[3]]
+    # topCOM = pumpCOMS[pumpNames[2]]
+    # priCOM = pumpCOMS[pumpNames[3]]
     # pneuCOM = pumpCOMS[pumpNames[4]]
 
     lhsSer = pumpSer[lhsCOM]
     rhsSer = pumpSer[rhsCOM]
-    topSer = pumpSer[topCOM]
-    priSer = pumpSer[priCOM]
+    # topSer = pumpSer[topCOM]
+    # priSer = pumpSer[priCOM]
     # pneuSer = pumpSer[pneuCOM]
 # else:
     # use data from file
@@ -247,12 +240,12 @@ try:
         ardIntRHS = arduinoInterface.ardInterfacer(pumpNames[1], rhsSer)
         reply = ardIntRHS.connect()
         print(reply)
-        ardIntTOP = arduinoInterface.ardInterfacer(pumpNames[2], topSer)
-        reply = ardIntTOP.connect()
-        print(reply)
-        ardIntPRI = arduinoInterface.ardInterfacer(pumpNames[3], priSer)
-        reply = ardIntPRI.connect()
-        print(reply)
+        # ardIntTOP = arduinoInterface.ardInterfacer(pumpNames[2], topSer)
+        # reply = ardIntTOP.connect()
+        # print(reply)
+        # ardIntPRI = arduinoInterface.ardInterfacer(pumpNames[3], priSer)
+        # reply = ardIntPRI.connect()
+        # print(reply)
 
         # ardIntPNEU = arduinoInterface.ardInterfacer(pumpNames[4], pneuSer)
         # reply = ardIntPNEU.connect()
@@ -262,11 +255,11 @@ try:
         # Calibrate arduinos for zero volume - maintain negative pressure for 4 seconds
         calibL = False
         calibR = False
-        calibT = False
-        calibP = False
+        calibT = True
+        calibP = True
 
         # Has the mechanism been calibrated/want to run without calibration?:
-        calibrated = False
+        calibrated = True
         # Perform calibration:
         print("Zeroing hydraulic actuators...")
         while (not calibrated):
@@ -274,10 +267,10 @@ try:
             print(realStepL, pressL)
             [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
             print(realStepR, pressR)
-            [realStepT, pressT, timeT] = ardIntTOP.listenZero(calibT, pressT, timeT)
-            print(realStepT, pressT)
-            [realStepP, pressP, timeP] = ardIntPRI.listenZero(calibP, pressP, timeP)
-            print(realStepP, calibP)
+            # [realStepT, pressT, timeT] = ardIntTOP.listenZero(calibT, pressT, timeT)
+            # print(realStepT, pressT)
+            # [realStepP, pressP, timeP] = ardIntPRI.listenZero(calibP, pressP, timeP)
+            # print(realStepP, calibP)
 
             if (realStepL == "000000LHS"):
                 calibL = True
@@ -296,8 +289,8 @@ try:
 
             ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
             ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
-            ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
-            ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
+            # ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
+            # ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
             # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
             # Ensure same number of rows in position log file
@@ -314,6 +307,13 @@ try:
     # Begin main loop
     while(flagStop == False):
 
+        # Stay at first coord for number of cycles
+        if delayCount < delayLim:
+            delayCount += 1
+            pathCounter = 0
+        else:
+            pathCounter += 1
+
         if not omni_connected:
         # Go sequentially through path coordinates
             # End test when last coords reached
@@ -327,33 +327,6 @@ try:
             phntmOmni.getOmniCoords()
             [xMap, yMap, zMap] = phntmOmni.omniMap()
             XYZPathCoords = [xMap, yMap, zMap]
-
-        fibreDone = fibrebotLink.receiveState()
-        # print(fibreDone)
-
-        # Stay at given coord for number of cycles
-        if delayCount < delayLim:
-            #Robot moving to location and settling
-            delayCount += 1
-            # pathCounter remains as it is
-            # fibrebotLink.sendState("Stop")
-        elif delayCount == delayLim:
-            # pathCounter remains as it is
-            print("Fibrebot triggered, robot stationary")
-            fibrebotLink.sendState("Run")
-            delayCount += 1
-            pauseVisFeedback = True
-        elif delayCount > delayLim:
-            # wait for fibre to finish
-            if fibreDone:
-                # Start gross motion again
-                fibrebotLink.sendState("Stop")
-                print("Robot moving to next point and settling")
-                pauseVisFeedback = False
-                pathCounter += 1
-                # reset delayCount
-                if delayEveryStep:
-                    delayCount = delayLim - int(delayLim/delayFactor)
 
         # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
         # XYZPathCoords are desired coords in 3D.
@@ -431,22 +404,27 @@ try:
         # Log deisred position at 
         posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
+        if useEnergyShaping and optiTrackConnected:
+            [x, v] = energyS.trackToState(opTrack.markerData[-1])
+            print("Distance: ", x, " Velocity: ", v, "Error: ", x - x_d)
+            controlInputs = energyS.energyShape(x, v, pressL, pressR, x_d, kineSolve.TIMESTEP, 4, 0, 1)
+            print(controlInputs)
+            [StepNoL , StepNoR] = energyS.traject(cStepL, cStepR, kineSolve.TIMESTEP)
+            if max(abs(StepNoL), abs(StepNoR)) > 5000:
+                StepNoL , StepNoR = cStepL, cStepR
+            print(StepNoL , StepNoR)
+
         if pumpsConnected:
 
             # Calculate median pressure over 10 samples:
             pressLMed = ardIntLHS.newPressMed(pressL)
             pressRMed = ardIntRHS.newPressMed(pressR)
-            pressTMed = ardIntTOP.newPressMed(pressT)
+            # pressTMed = ardIntTOP.newPressMed(pressT)
             # pressAMed = ardIntPNEU.newPressMed(pressA)
             [conLHS, dLHS] = ardIntLHS.derivPress(timeL, prevTimeL)
             [conRHS, dRHS] = ardIntRHS.derivPress(timeR, prevTimeR)
-            [conTOP, dTOP] = ardIntTOP.derivPress(timeT, prevTimeT)
+            # [conTOP, dTOP] = ardIntTOP.derivPress(timeT, prevTimeT)
             collisionAngle = kineSolve.collisionAngle(dLHS, dRHS, dTOP, conLHS, conRHS, conTOP)
-
-            if useEnergyShaping and optiTrackConnected:
-                [x, v] = energyS.trackToState(opTrack.markerData)
-                controlInputs = energyS.energyShape(x, v, pressL, pressR, 0.015, kineSolve.TIMESTEP, 4, 0, 1)
-                [StepNoL , StepNoR] = energyS.traject(cStepL, cStepR, kineSolve.TIMESTEP)
 
             # Reduce speed when making first move after calibration.
             if firstMoveDelay < firstMoveDivider:
@@ -459,36 +437,30 @@ try:
                 # Send scaled step number to arduinos:
                 ardIntLHS.sendStep(initStepNoL)
                 ardIntRHS.sendStep(initStepNoR)
-                ardIntTOP.sendStep(initStepNoT)
-                ardIntPRI.sendStep(StepNoP)
-            elif pauseVisFeedback == True:
-                #Send previous values
-                ardIntLHS.sendStep(cStepL)
-                ardIntRHS.sendStep(cStepR)
-                ardIntTOP.sendStep(cStepT)
-                ardIntPRI.sendStep(cStepP)
+                # ardIntTOP.sendStep(initStepNoT)
+                # ardIntPRI.sendStep(StepNoP)
             else:
                 if useVisionFeedback:
                     visionFeedFlag = 1
                 # Send step number to arduinos:
                 ardIntLHS.sendStep(StepNoL)
                 ardIntRHS.sendStep(StepNoR)
-                ardIntTOP.sendStep(StepNoT)
-                ardIntPRI.sendStep(StepNoP)
+                # ardIntTOP.sendStep(StepNoT)
+                # ardIntPRI.sendStep(StepNoP)
 
             # Log values from arduinos
             ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
             ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
-            ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
-            ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
+            # ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
+            # ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
             # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
 
             # Get current pump position, pressure and times from arduinos
             [realStepL, pressL, timeL] = ardIntLHS.listenReply()
             [realStepR, pressR, timeR] = ardIntRHS.listenReply()
-            [realStepT, pressT, timeT] = ardIntTOP.listenReply()
-            [realStepP, pressP, timeP] = ardIntPRI.listenReply()
+            # [realStepT, pressT, timeT] = ardIntTOP.listenReply()
+            # [realStepP, pressP, timeP] = ardIntPRI.listenReply()
             # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
 
             # Check for high pressure
@@ -545,8 +517,8 @@ finally:
             # Save values gathered from arduinos
             ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
             ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
-            ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
-            ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
+            # ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
+            # ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
             # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
             ardLogging.ardSave()
@@ -564,9 +536,6 @@ finally:
             opTrack.optiSave(opTrack.markerData)
         opTrack.optiClose()
 
-        # Send stop message to fibrebot
-        fibrebotLink.sendState("STOP")
-        fibrebotLink.fibreSerial.close()
 
         if 'ardIntLHS' in locals():
             if ardIntLHS.ser.is_open:
@@ -575,11 +544,11 @@ finally:
             if ardIntRHS.ser.is_open:
                 ardIntRHS.sendStep(CLOSEMESSAGE)
             
-            if ardIntTOP.ser.is_open:
-                ardIntTOP.sendStep(CLOSEMESSAGE)
+            # if ardIntTOP.ser.is_open:
+            #     ardIntTOP.sendStep(CLOSEMESSAGE)
 
-            if ardIntPRI.ser.is_open:
-                ardIntPRI.sendStep(CLOSEMESSAGE)
+            # if ardIntPRI.ser.is_open:
+            #     ardIntPRI.sendStep(CLOSEMESSAGE)
 
             # if ardIntPNEU.ser.is_open:
             #     ardIntPNEU.sendStep(CLOSEMESSAGE)
@@ -591,12 +560,12 @@ finally:
             [realStepR, pressR, timeR] = ardIntRHS.listenReply()
             print(realStepR, pressR, timeR)
             time.sleep(0.2)
-            [realStepT, pressT, timeT] = ardIntTOP.listenReply()
-            print(realStepT, pressT, timeT)
-            time.sleep(0.2)
-            [realStepP, pressP, timeP] = ardIntPRI.listenReply()
-            print(realStepP, pressP, timeP)
-            time.sleep(0.2)
+            # [realStepT, pressT, timeT] = ardIntTOP.listenReply()
+            # print(realStepT, pressT, timeT)
+            # time.sleep(0.2)
+            # [realStepP, pressP, timeP] = ardIntPRI.listenReply()
+            # print(realStepP, pressP, timeP)
+            # time.sleep(0.2)
             # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
             # print(realStepA, pressA, timeA)
 
@@ -604,8 +573,8 @@ finally:
             # Close serial connections
             ardIntLHS.ser.close()
             ardIntRHS.ser.close()
-            ardIntTOP.ser.close()
-            ardIntPRI.ser.close()
+            # ardIntTOP.ser.close()
+            # ardIntPRI.ser.close()
             # ardIntPNEU.ser.close()
 
     except TypeError as exTE:
