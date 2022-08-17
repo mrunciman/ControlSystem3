@@ -445,7 +445,7 @@ try:
 
             if useEnergyShaping and optiTrackConnected:
                 [x, v] = energyS.trackToState(opTrack.markerData)
-                controlInputs = energyS.energyShape(x, v, pressL, pressR, 15, kineSolve.TIMESTEP, 4, 0, 1)
+                controlInputs = energyS.energyShape(x, v, pressL, pressR, 0.015, kineSolve.TIMESTEP, 4, 0, 1)
                 [StepNoL , StepNoR] = energyS.traject(cStepL, cStepR, kineSolve.TIMESTEP)
 
             # Reduce speed when making first move after calibration.
