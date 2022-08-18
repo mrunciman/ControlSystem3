@@ -24,7 +24,7 @@ class kineSolver:
         self.OFFSET_Y = self.SIDE_LENGTH/2 * mt.tan(mt.pi/6)
 
         # 'Flat' muscle length:
-        self.L_0 = 50
+        self.L_0 = 30
 
         # Excess length of cable between entry point and muscle, in mm
         # self.Lx = 10
@@ -32,7 +32,7 @@ class kineSolver:
         # self.Lt = self.L_0 + self.Lx + self.SIDE_LENGTH
         # print(Lt)
         # Equivalent width of hydraulic muscle in mm
-        self.ACT_WIDTH = 18
+        # self.ACT_WIDTH = 30
         self.D_s = 12 # Flat section of actutor
         self.D_t = 30 # Total width of actuator
         self.D_c = (self.D_t - self.D_s)/2 # Width of each individual conic end

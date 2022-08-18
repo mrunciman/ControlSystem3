@@ -127,7 +127,7 @@ visionFeedFlag = False
 useEnergyShaping = True
 
 # desired positon for energy shaping
-x_d = 0.015
+x_d = 0.005
 
 # Initialise cable length variables at home position
 cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
@@ -159,7 +159,7 @@ LcRealP = tStepP/kineSolve.STEPS_PER_MM_PRI
 LStep, RStep, TStep, PStep = 0, 0, 0, 0
 
 # Set initial pressure and calibration variables
-pressL, pressR, pressT, pressP = 0, 0, 0, 0
+pressL, pressR, pressT, pressP = 100000, 100000, 0, 0
 prevPressL, prevPressR, prevPressT, prevPressP = 0, 0, 0, 0
 pressLMed, pressRMed, pressTMed, pressPMed, pressAMed = 0, 0, 0, 0, 0
 timeL, timeR, timeT, timeP = 0, 0, 0, 0
@@ -169,8 +169,8 @@ dLHS, dRHS, dTOP = 0, 0, 0
 collisionAngle = 1j
 
 # Current position
-cStepL = tStepL
-cStepR = tStepR
+cStepL = 0*tStepL
+cStepR = 0*tStepR
 cStepT = tStepT
 cStepP = tStepP
 realStepL, realStepR, realStepT, realStepP = 0, 0, 0, 0
@@ -406,13 +406,16 @@ try:
 
         if useEnergyShaping and optiTrackConnected:
             [x, v] = energyS.trackToState(opTrack.markerData[-1])
-            print("Distance: ", x, " Velocity: ", v, "Error: ", x - x_d)
+            print("Distance: ", round(x*1000,3), " Velocity: ", round(v*1000,3), "Error: ", round((x - x_d)*1000,3))
             controlInputs = energyS.energyShape(x, v, pressL, pressR, x_d, kineSolve.TIMESTEP, 4, 0, 1)
-            print(controlInputs)
+            print("U1: ", controlInputs[0], " U2: ", controlInputs[1], "F: ", controlInputs[2])
+            # print("U1: ", round(controlInputs[0], 3), " U2: ", round(controlInputs[1], 3), "F: ", round(controlInputs[2], 3))
+            print("Pressures: ", pressL, pressR)
             [StepNoL , StepNoR] = energyS.traject(cStepL, cStepR, kineSolve.TIMESTEP)
-            if max(abs(StepNoL), abs(StepNoR)) > 5000:
-                StepNoL , StepNoR = cStepL, cStepR
             print(StepNoL , StepNoR)
+            # if max(abs(StepNoL), abs(StepNoR)) > kineSolve.MAX_STEPS:
+            #     StepNoL , StepNoR = cStepL, cStepR
+
 
         if pumpsConnected:
 

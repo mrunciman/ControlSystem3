@@ -32,10 +32,27 @@ import math as mt
 STEPS_PER_MM = 400
 A_SYRINGE = mt.pi*((13.25/1000)**2) # m**2
 
+# IMPORT FROM KINEMATICS.PY
+## model parameters
+L0 = 30/1000               # length of the bellow [m]
+M_P = 0.5                    # payload in [kg]
+EPSILON = 1/10**4 
+VOL_0 = 1/10**7              # dead volume of fluid (default)
+NUM_L = 3
+D_S = 12/1000
+D_C = 9/1000
+K_B = L0**2/NUM_L*(D_C/3 + D_S/2)
 
 FRAMERATE = 1/120
-ZEROPOINT = 0.154 # distance between markers that I define as zero,  in m
+ZEROPOINT = 111.75/1000 # distance between markers that I define as zero,  in m
 M_TO_MM = 1000
+
+R = 5                        # viscous friciton
+BETA_0 = 2*10**9               # bulk modulus of water in Pa
+RHO = 1000                   # density of water in kg/m**3
+P_ATM = 10**5                  # atmospheric pressure in Pa
+A = (1.504/10**5)/(L0/3)      # area of linearized volume V(x)
+
 
 class energyShaper():
     def __init__(self):
@@ -60,34 +77,22 @@ class energyShaper():
             adapt       % 1 for adaptive observer; 0 without
         '''
 
-        # IMPORT FROM KINEMATICS.PY
-        ## model parameters
-        L0 = 50/1000               # length of the bellow [m]
-        m = 1.5                    # payload in [kg]
-        eps = 1/10**4          
-        x = min(x, L0/3 - eps)
-        vol0 = 1/10**7              # dead volume of fluid (default)
-        nl = 4
-        Ds = 12/1000
-        dc = 9/1000
-        K_B = L0**2/nl*(dc/3 + Ds/2)
+        if x == None:
+            self.controlU[0] = 0
+            self.controlU[1] = 0
+            self.controlU[2] = 0
+            return self.controlU
 
-
-        R = 5                        # viscous friciton
-        beta0 = 2*10**9               # bulk modulus of water in Pa
-        rho = 1000                   # density of water in kg/m**3
-        Patm = 10**5                  # atmospheric pressure in Pa
-        A = (1.504/10**5)/(L0/3)      # area of linearized volume V(x)
-
-            
+        x = min(x, L0/3 - EPSILON)          
 
         # volume of the bellows used in the system dynamics
+
 
         if lin_mode==1:
             # linear approximation
 
-            vol1 = 1.504/10**5-A*x+vol0
-            vol2 = A*x+vol0  
+            vol1 = 1.504/10**5-A*x+VOL_0
+            vol2 = A*x+VOL_0  
             dA1 = -A
             dA2 = A
             dA1x = 0
@@ -97,8 +102,8 @@ class energyShaper():
         elif lin_mode==2:
             # quadratic approximation
 
-            vol1 = vol0 + 3*K_B*(1/6 - ((2*L0)/3 + x)/(6*L0))**(1/2)
-            vol2 = vol0 + 3*K_B*(1/6 - (L0 - x)/(6*L0))**(1/2)
+            vol1 = VOL_0 + 3*K_B*(1/6 - ((2*L0)/3 + x)/(6*L0))**(1/2)
+            vol2 = VOL_0 + 3*K_B*(1/6 - (L0 - x)/(6*L0))**(1/2)
             dA1 = -K_B/(4*L0*(1/6 - ((2*L0)/3 + x)/(6*L0))**(1/2))
             dA2 = K_B/(4*L0*(1/6 - (L0 - x)/(6*L0))**(1/2))
             dA1x = -K_B/(48*L0**2*(1/6 - ((2*L0)/3 + x)/(6*L0))**(3/2))
@@ -108,16 +113,16 @@ class energyShaper():
         elif lin_mode==3:
             # cubic approximation
 
-            vol1 = vol0 + K_B*((2*L0 + 3*x)/(2*L0) + 1/2)*(2/3 - ((4*L0)/3 + 2*x)/(3*L0))**(1/2)      # decreases with x
-            vol2 = vol0 + K_B*((3*L0 - 3*x)/(2*L0) + 1/2)*(2/3 - (2*L0 - 2*x)/(3*L0))**(1/2)          # increases with x
+            vol1 = VOL_0 + K_B*((2*L0 + 3*x)/(2*L0) + 1/2)*(2/3 - ((4*L0)/3 + 2*x)/(3*L0))**(1/2)      # decreases with x
+            vol2 = VOL_0 + K_B*((3*L0 - 3*x)/(2*L0) + 1/2)*(2/3 - (2*L0 - 2*x)/(3*L0))**(1/2)          # increases with x
             dA1 = (3*K_B*(2/3 - ((4*L0)/3 + 2*x)/(3*L0))**(1/2))/(2*L0) - (K_B*((2*L0 + 3*x)/(2*L0) + 1/2))/(3*L0*(2/3 - ((4*L0)/3 + 2*x)/(3*L0))**(1/2))
             dA2 = (K_B*((3*L0 - 3*x)/(2*L0) + 1/2))/(3*L0*(2/3 - (2*L0 - 2*x)/(3*L0))**(1/2)) - (3*K_B*(2/3 - (2*L0 - 2*x)/(3*L0))**(1/2))/(2*L0)
             dA1x = - K_B/(L0**2*(2/3 - ((4*L0)/3 + 2*x)/(3*L0))**(1/2)) - (K_B*((2*L0 + 3*x)/(2*L0) + 1/2))/(9*L0**2*(2/3 - ((4*L0)/3 + 2*x)/(3*L0))**(3/2))
             dA2x = - K_B/(L0**2*(2/3 - (2*L0 - 2*x)/(3*L0))**(1/2)) - (K_B*((3*L0 - 3*x)/(2*L0) + 1/2))/(9*L0**2*(2/3 - (2*L0 - 2*x)/(3*L0))**(3/2))
 
         elif lin_mode == 4:
-            vol1 = vol0 + (6**(1/2)*K_B*((L0 - 4*x)/L0)**(1/2)*(380*L0**2 + 480*L0*x + 192*x**2))/(1536*L0**2)  # decreases with x
-            vol2 = vol0 + (6**(1/2)*K_B*((L0 + 4*x)/L0)**(1/2)*(380*L0**2 - 480*L0*x + 192*x**2))/(1536*L0**2)  # inreases with x
+            vol1 = VOL_0 + (6**(1/2)*K_B*((L0 - 4*x)/L0)**(1/2)*(380*L0**2 + 480*L0*x + 192*x**2))/(1536*L0**2)  # decreases with x
+            vol2 = VOL_0 + (6**(1/2)*K_B*((L0 + 4*x)/L0)**(1/2)*(380*L0**2 - 480*L0*x + 192*x**2))/(1536*L0**2)  # inreases with x
             dA1=(6**(1/2)*K_B*((L0 - 4*x)/L0)**(1/2)*(480*L0 + 384*x))/(1536*L0**2) - (6**(1/2)*K_B*(380*L0**2 + 480*L0*x + 192*x**2))/(768*L0**3*((L0 - 4*x)/L0)**(1/2));
             dA2=(6**(1/2)*K_B*(380*L0**2 - 480*L0*x + 192*x**2))/(768*L0**3*((L0 + 4*x)/L0)**(1/2)) - (6**(1/2)*K_B*((L0 + 4*x)/L0)**(1/2)*(480*L0 - 384*x))/(1536*L0**2);
             dA1x=(6**(1/2)*K_B*((L0 - 4*x)/L0)**(1/2))/(4*L0**2) - (6**(1/2)*K_B*(380*L0**2 + 480*L0*x + 192*x**2))/(384*L0**4*((L0 - 4*x)/L0)**(3/2)) - (6**(1/2)*K_B*(480*L0 + 384*x))/(384*L0**3*((L0 - 4*x)/L0)**(1/2));
@@ -125,12 +130,12 @@ class energyShaper():
 
 
 
-        M = m + rho*vol1 + rho*vol2
+        M = M_P + RHO*vol1 + RHO*vol2
         p0 = M*v
 
 
-        P1g = P1-Patm   
-        P2g = P2-Patm
+        P1g = P1 - P_ATM   
+        P2g = P2 - P_ATM
 
 
         ## tuning parameters
@@ -145,17 +150,17 @@ class energyShaper():
         ## nonlinear observer
 
         dF_hat = K_obs*(P1g*dA1 - self.F_hat + P2g*dA2)+(p0*K_obs\
-            *(2*m**2*K_obs \
-            - 2*R*m + 2*rho**2*vol1**2*K_obs \
-            + 2*rho**2*vol2**2*K_obs \
-            - 2*R*rho*vol1 \
-            - 2*R*rho*vol2 \
-            + dA1*p0*rho \
-            + dA2*p0*rho \
-            + 4*rho**2*vol1*vol2*K_obs \
-            + 4*m*rho*vol1*K_obs \
-            + 4*m*rho*vol2*K_obs))\
-            /(2*(m + rho*vol1 + rho*vol2)**2)
+            *(2*M_P**2*K_obs \
+            - 2*R*M_P + 2*RHO**2*vol1**2*K_obs \
+            + 2*RHO**2*vol2**2*K_obs \
+            - 2*R*RHO*vol1 \
+            - 2*R*RHO*vol2 \
+            + dA1*p0*RHO \
+            + dA2*p0*RHO \
+            + 4*RHO**2*vol1*vol2*K_obs \
+            + 4*M_P*RHO*vol1*K_obs \
+            + 4*M_P*RHO*vol2*K_obs))\
+            /(2*(M_P + RHO*vol1 + RHO*vol2)**2)
 
         self.F_hat = self.F_hat + dF_hat*dt
 
@@ -169,13 +174,13 @@ class energyShaper():
             else:
                 F_obs = 0    
 
-            U1 = (dA1*p0)/(m + rho*vol1 + rho*vol2) \
+            U1 = (dA1*p0)/(M_P + RHO*vol1 + RHO*vol2) \
                 - (vol1*((Ki*(P1g*dA1 - F_obs + P2g*dA2 + Km*kp*(x - xd)))/dA1 \
-                + (p0*(Km*(P1g*dA1x + P2g*dA2x + Km*kp) + 1))/(2*Km*dA1*(m + rho*vol1 + rho*vol2))))/beta0
+                + (p0*(Km*(P1g*dA1x + P2g*dA2x + Km*kp) + 1))/(2*Km*dA1*(M_P + RHO*vol1 + RHO*vol2))))/BETA_0
 
-            U2 = (dA2*p0)/(m + rho*vol1 + rho*vol2) \
+            U2 = (dA2*p0)/(M_P + RHO*vol1 + RHO*vol2) \
                 - (vol2*((Ki2*(P1g*dA1 - F_obs + P2g*dA2 + Km*kp*(x - xd)))/dA2 \
-                + (p0*(Km*(P1g*dA1x + P2g*dA2x + Km*kp) + 1))/(2*Km*dA2*(m + rho*vol1 + rho*vol2))))/beta0
+                + (p0*(Km*(P1g*dA1x + P2g*dA2x + Km*kp) + 1))/(2*Km*dA2*(M_P + RHO*vol1 + RHO*vol2))))/BETA_0
 
         
         elif Mode==2:
@@ -190,12 +195,12 @@ class energyShaper():
             U1 = -(vol1*(Ki*(P1g - (F_obs - Km*kp*(x - xd))/(2*dA1)) \
                 + (dA1*v)/Km \
                 + (dA1x*v*(F_obs - Km*kp*(x - xd)))/(2*dA1**2) \
-                + (Km*kp*v)/(2*dA1) - (beta0*dA1*v)/vol1))/beta0
+                + (Km*kp*v)/(2*dA1) - (BETA_0*dA1*v)/vol1))/BETA_0
 
             U2 = -(vol2*(Ki2*(P2g - (F_obs- Km*kp*(x - xd))/(2*dA2)) \
                 + (dA2*v)/Km \
                 + (dA2x*v*(F_obs - Km*kp*(x - xd)))/(2*dA2**2) \
-                +(Km*kp*v)/(2*dA2) - (beta0*dA2*v)/vol2))/beta0
+                +(Km*kp*v)/(2*dA2) - (BETA_0*dA2*v)/vol2))/BETA_0
 
 
         self.controlU[0] = U1
@@ -203,15 +208,19 @@ class energyShaper():
         self.controlU[2] = F_obs
         return self.controlU
 
-    def traject(self, x1_current, x2_current, dt):
-        U1 = self.controlU[1]
-        U2 = self.controlU[2]
 
-        x1_s_ast = x1_current + (32*U1*dt)/(30*A_SYRINGE)
-        x2_s_ast = x2_current + (32*U2*dt)/(30*A_SYRINGE)
+    def traject(self, steps1_current, steps2_current, dt):
+        U1 = self.controlU[0]
+        U2 = self.controlU[1]
 
-        step_1 = x1_s_ast*M_TO_MM*STEPS_PER_MM
-        step_2 = x2_s_ast*M_TO_MM*STEPS_PER_MM
+        delta_x1_s = (32*U1*dt)/(30*A_SYRINGE)*M_TO_MM*STEPS_PER_MM
+        delta_x2_s = (32*U2*dt)/(30*A_SYRINGE)*M_TO_MM*STEPS_PER_MM
+
+        x1_s_ast = steps1_current + delta_x1_s
+        x2_s_ast = steps2_current + delta_x2_s
+
+        step_1 = int(x1_s_ast)
+        step_2 = int(x2_s_ast)
 
         return step_1, step_2
 
