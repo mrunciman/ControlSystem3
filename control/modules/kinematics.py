@@ -37,7 +37,7 @@ class kineSolver:
         self.D_t = 30 # Total width of actuator
         self.D_c = (self.D_t - self.D_s)/2 # Width of each individual conic end
         # Number of length subdivisions
-        self.NUM_L = 4
+        self.NUM_L = 3
         self.FACT_V = ((self.L_0**2)/self.NUM_L)*(self.D_c/3 + self.D_s/2)
         # Syringe cross sectional area, diameter = 26.5 mm
         self.A_SYRINGE = mt.pi*(13.25**2) # mm^2

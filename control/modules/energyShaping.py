@@ -34,7 +34,8 @@ A_SYRINGE = mt.pi*((13.25/1000)**2) # m**2
 
 # IMPORT FROM KINEMATICS.PY
 ## model parameters
-L0 = 30/1000               # length of the bellow [m]
+L0 = 30/1000                 # length of the bellow [m]
+MAX_STROKE = L0/4
 M_P = 0.5                    # payload in [kg]
 EPSILON = 1/10**4 
 VOL_0 = 1/10**7              # dead volume of fluid (default)
@@ -44,14 +45,15 @@ D_C = 9/1000
 K_B = L0**2/NUM_L*(D_C/3 + D_S/2)
 
 FRAMERATE = 1/120
-ZEROPOINT = 111.75/1000 # distance between markers that I define as zero,  in m
+ZEROPOINT = 111.75/1000       # distance between markers that I define as zero,  in m
 M_TO_MM = 1000
 
-R = 5                        # viscous friciton
-BETA_0 = 2*10**9               # bulk modulus of water in Pa
-RHO = 1000                   # density of water in kg/m**3
-P_ATM = 10**5                  # atmospheric pressure in Pa
+R = 5                         # viscous friciton
+BETA_0 = 2*10**9              # bulk modulus of water in Pa
+RHO = 1000                    # density of water in kg/m**3
+P_ATM = 10**5                 # atmospheric pressure in Pa
 A = (1.504/10**5)/(L0/3)      # area of linearized volume V(x)
+# first_flag = True
 
 
 class energyShaper():
@@ -61,6 +63,13 @@ class energyShaper():
         self.x_dotp = 0
         self.x_dotfp = 0
         self.controlU = [0, 0, 0]
+        self.first_flag = True
+
+        self.x1_s_ast = 0 
+        self.x2_s_ast = 0
+
+        self.x1_s_ast_p = 0
+        self.x2_s_ast_p = 0
 
 
     def energyShape(self, x, v, P1, P2, xd, dt, lin_mode, Mode, adapt):
@@ -83,10 +92,16 @@ class energyShaper():
             self.controlU[2] = 0
             return self.controlU
 
-        x = min(x, L0/3 - EPSILON)          
+        # x = min(x, L0/4 - EPSILON)
+        if abs(x) > MAX_STROKE:
+            if x<0:
+                sign_x = -1
+            else:
+                sign_x = 1
+            x = sign_x*MAX_STROKE
+
 
         # volume of the bellows used in the system dynamics
-
 
         if lin_mode==1:
             # linear approximation
@@ -120,14 +135,22 @@ class energyShaper():
             dA1x = - K_B/(L0**2*(2/3 - ((4*L0)/3 + 2*x)/(3*L0))**(1/2)) - (K_B*((2*L0 + 3*x)/(2*L0) + 1/2))/(9*L0**2*(2/3 - ((4*L0)/3 + 2*x)/(3*L0))**(3/2))
             dA2x = - K_B/(L0**2*(2/3 - (2*L0 - 2*x)/(3*L0))**(1/2)) - (K_B*((3*L0 - 3*x)/(2*L0) + 1/2))/(9*L0**2*(2/3 - (2*L0 - 2*x)/(3*L0))**(3/2))
 
-        elif lin_mode == 4:
-            vol1 = VOL_0 + (6**(1/2)*K_B*((L0 - 4*x)/L0)**(1/2)*(380*L0**2 + 480*L0*x + 192*x**2))/(1536*L0**2)  # decreases with x
-            vol2 = VOL_0 + (6**(1/2)*K_B*((L0 + 4*x)/L0)**(1/2)*(380*L0**2 - 480*L0*x + 192*x**2))/(1536*L0**2)  # inreases with x
-            dA1=(6**(1/2)*K_B*((L0 - 4*x)/L0)**(1/2)*(480*L0 + 384*x))/(1536*L0**2) - (6**(1/2)*K_B*(380*L0**2 + 480*L0*x + 192*x**2))/(768*L0**3*((L0 - 4*x)/L0)**(1/2));
-            dA2=(6**(1/2)*K_B*(380*L0**2 - 480*L0*x + 192*x**2))/(768*L0**3*((L0 + 4*x)/L0)**(1/2)) - (6**(1/2)*K_B*((L0 + 4*x)/L0)**(1/2)*(480*L0 - 384*x))/(1536*L0**2);
-            dA1x=(6**(1/2)*K_B*((L0 - 4*x)/L0)**(1/2))/(4*L0**2) - (6**(1/2)*K_B*(380*L0**2 + 480*L0*x + 192*x**2))/(384*L0**4*((L0 - 4*x)/L0)**(3/2)) - (6**(1/2)*K_B*(480*L0 + 384*x))/(384*L0**3*((L0 - 4*x)/L0)**(1/2));
-            dA2x=(6**(1/2)*K_B*((L0 + 4*x)/L0)**(1/2))/(4*L0**2) - (6**(1/2)*K_B*(380*L0**2 - 480*L0*x + 192*x**2))/(384*L0**4*((L0 + 4*x)/L0)**(3/2)) - (6**(1/2)*K_B*(480*L0 - 384*x))/(384*L0**3*((L0 + 4*x)/L0)**(1/2));
 
+        elif lin_mode == 4:
+            # Here volume is dependent on the contraction, not position!
+            con1 = x + MAX_STROKE/2
+            if con1 > MAX_STROKE:
+                con1 = MAX_STROKE - EPSILON
+            vol1 = VOL_0 + (6**(1/2)*K_B*((L0 - 4*con1)/L0)**(1/2)*(380*L0**2 + 480*L0*con1 + 192*con1**2))/(1536*L0**2)  # decreases with x
+            dA1=(6**(1/2)*K_B*((L0 - 4*con1)/L0)**(1/2)*(480*L0 + 384*con1))/(1536*L0**2) - (6**(1/2)*K_B*(380*L0**2 + 480*L0*con1 + 192*con1**2))/(768*L0**3*((L0 - 4*con1)/L0)**(1/2))
+            dA1x=(6**(1/2)*K_B*((L0 - 4*con1)/L0)**(1/2))/(4*L0**2) - (6**(1/2)*K_B*(380*L0**2 + 480*L0*con1 + 192*con1**2))/(384*L0**4*((L0 - 4*con1)/L0)**(3/2)) - (6**(1/2)*K_B*(480*L0 + 384*con1))/(384*L0**3*((L0 - 4*con1)/L0)**(1/2))
+            
+            con2 = x - MAX_STROKE/2
+            if con2 > MAX_STROKE:
+                con2 = MAX_STROKE + EPSILON
+            vol2 = VOL_0 + (6**(1/2)*K_B*((L0 + 4*con2)/L0)**(1/2)*(380*L0**2 - 480*L0*con2 + 192*con2**2))/(1536*L0**2)  # inreases with x
+            dA2=(6**(1/2)*K_B*(380*L0**2 - 480*L0*con2 + 192*con2**2))/(768*L0**3*((L0 + 4*con2)/L0)**(1/2)) - (6**(1/2)*K_B*((L0 + 4*con2)/L0)**(1/2)*(480*L0 - 384*con2))/(1536*L0**2)
+            dA2x=(6**(1/2)*K_B*((L0 + 4*con2)/L0)**(1/2))/(4*L0**2) - (6**(1/2)*K_B*(380*L0**2 - 480*L0*con2 + 192*con2**2))/(384*L0**4*((L0 + 4*con2)/L0)**(3/2)) - (6**(1/2)*K_B*(480*L0 - 384*con2))/(384*L0**3*((L0 + 4*con2)/L0)**(1/2))
 
 
         M = M_P + RHO*vol1 + RHO*vol2
@@ -202,11 +225,14 @@ class energyShaper():
                 + (dA2x*v*(F_obs - Km*kp*(x - xd)))/(2*dA2**2) \
                 +(Km*kp*v)/(2*dA2) - (BETA_0*dA2*v)/vol2))/BETA_0
 
+        vol1_target = VOL_0 + (6**(1/2)*K_B*((L0 - 4*xd)/L0)**(1/2)*(380*L0**2 + 480*L0*xd + 192*xd**2))/(1536*L0**2)  # decreases with x
+        vol2_target = VOL_0 + (6**(1/2)*K_B*((L0 + 4*xd)/L0)**(1/2)*(380*L0**2 - 480*L0*xd + 192*xd**2))/(1536*L0**2)  # increases with x
+
 
         self.controlU[0] = U1
         self.controlU[1] = U2
         self.controlU[2] = F_obs
-        return self.controlU
+        return self.controlU, vol1, vol2
 
 
     def traject(self, steps1_current, steps2_current, dt):
@@ -216,11 +242,14 @@ class energyShaper():
         delta_x1_s = (32*U1*dt)/(30*A_SYRINGE)*M_TO_MM*STEPS_PER_MM
         delta_x2_s = (32*U2*dt)/(30*A_SYRINGE)*M_TO_MM*STEPS_PER_MM
 
-        x1_s_ast = steps1_current + delta_x1_s
-        x2_s_ast = steps2_current + delta_x2_s
+        self.x1_s_ast = self.x1_s_ast_p + delta_x1_s
+        self.x2_s_ast = self.x2_s_ast_p + delta_x2_s
 
-        step_1 = int(x1_s_ast)
-        step_2 = int(x2_s_ast)
+        self.x1_s_ast_p = self.x1_s_ast
+        self.x2_s_ast_p = self.x2_s_ast
+
+        step_1 = int(self.x1_s_ast)
+        step_2 = int(self.x2_s_ast)
 
         return step_1, step_2
 
@@ -251,9 +280,14 @@ class energyShaper():
 
             # Map to coordinate system
             x_obs = dist - ZEROPOINT
+            # x_obs = 0.00#5
 
             # ## discrete-time differentiation and low-pass filtering to compute velocity
-            x_dot = (x_obs - self.x_p)/FRAMERATE
+            if self.first_flag:
+                x_dot = 0
+                self.first_flag = False
+            else:
+                x_dot = (x_obs - self.x_p)/FRAMERATE
             x_dotf = 0.9391*self.x_dotfp + 0.03047*(x_dot+self.x_dotp)
             v_obs = x_dotf 
             self.x_p = x_obs

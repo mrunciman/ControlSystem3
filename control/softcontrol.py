@@ -30,7 +30,7 @@ from modules import optiStream
 from modules import omniStream
 from modules import energyShaping
 
-from visual_navigation.cam_pose import PoseEstimator
+# from visual_navigation.cam_pose import PoseEstimator
 
 np.set_printoptions(suppress=True, precision = 2)
 ############################################################
@@ -127,7 +127,8 @@ visionFeedFlag = False
 useEnergyShaping = True
 
 # desired positon for energy shaping
-x_d = 0.005
+x_d = 0.00#5
+firstflag = True
 
 # Initialise cable length variables at home position
 cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
@@ -402,20 +403,28 @@ try:
         # print(StepNoL, StepNoR, StepNoT, StepNoP)
 
         # Log deisred position at 
-        posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
+        # posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
         if useEnergyShaping and optiTrackConnected:
-            [x, v] = energyS.trackToState(opTrack.markerData[-1])
-            print("Distance: ", round(x*1000,3), " Velocity: ", round(v*1000,3), "Error: ", round((x - x_d)*1000,3))
-            controlInputs = energyS.energyShape(x, v, pressL, pressR, x_d, kineSolve.TIMESTEP, 4, 0, 1)
+            [pos_x, vel_x] = energyS.trackToState(opTrack.markerData[-1])
+            print("Distance: ", round(pos_x*1000,3), " Velocity: ", round(vel_x*1000,3), "Error: ", round((pos_x - x_d)*1000,3))
+            if firstflag:
+                [controlInputs, vol_est_1, vol_est_2] = energyS.energyShape(pos_x, vel_x, pressL, pressR, x_d, kineSolve.TIMESTEP, 4, 0, 1)
+                firstflag = False
+            else:
+                [controlInputs, vol_est_1, vol_est_2] = energyS.energyShape(pos_x, vel_x, pressL, pressR, x_d, kineSolve.TIMESTEP, 4, 0, 1)
+            print("Predicted stepper pos: ", vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED, vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED)
+            target_1  = vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
+            target_2  = vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
             print("U1: ", controlInputs[0], " U2: ", controlInputs[1], "F: ", controlInputs[2])
             # print("U1: ", round(controlInputs[0], 3), " U2: ", round(controlInputs[1], 3), "F: ", round(controlInputs[2], 3))
             print("Pressures: ", pressL, pressR)
-            [StepNoL , StepNoR] = energyS.traject(cStepL, cStepR, kineSolve.TIMESTEP)
+            [StepNoL , StepNoR] = energyS.traject(target_1, target_2, kineSolve.TIMESTEP)
             print(StepNoL , StepNoR)
             # if max(abs(StepNoL), abs(StepNoR)) > kineSolve.MAX_STEPS:
             #     StepNoL , StepNoR = cStepL, cStepR
 
+        posLogging.posLog(pos_x, vel_x, controlInputs[0], controlInputs[1], controlInputs[2])
 
         if pumpsConnected:
 
@@ -513,6 +522,8 @@ finally:
     ###########################################################################
     # Stop program
     # Disable pumps and set them to idle state
+    print(kineSolve.MAX_VOL/kineSolve.M3_to_MM3, kineSolve.MAX_STEPS, kineSolve.STEPS_PER_MMCUBED)
+
     try:
 
 

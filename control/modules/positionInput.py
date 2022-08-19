@@ -9,7 +9,7 @@ relative = "logs/positions/desired " + logTime + ".csv"
 fileName = os.path.join(parent, relative)
 with open(fileName, mode ='w', newline='') as posLog1: 
     logger1 = csv.writer(posLog1)
-    logger1.writerow(['X', 'Y', 'Z', 'inclination', 'azimuth', 'Timestamp', time.time()])
+    logger1.writerow(['X', 'Vel', 'U1', 'U2', 'Fhat', 'Timestamp', time.time()])
 
 class posLogger():
 
