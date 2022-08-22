@@ -206,10 +206,10 @@ pumpsConnected = False
 [pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
 print(pumpCOMS)
 
-if useVisionFeedback:
-    config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
-    pose_est = PoseEstimator(config_path)
-    pose_est.initialize()
+# if useVisionFeedback:
+#     config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
+#     pose_est = PoseEstimator(config_path)
+#     pose_est.initialize()
 
 # Set COM port for each pump by using its handshake key
 if len(pumpCOMS) == 2:
@@ -343,30 +343,30 @@ try:
         # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
         [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
 
-        if useVisionFeedback == True:
-            T_Rob_Inst_camera = pose_est.tip_pose()#4x4 homo matrix in MM
-            if T_Rob_Inst_camera is not None:
-                realX = T_Rob_Inst_camera[0,3]
-                realY = T_Rob_Inst_camera[1,3]
-                realZ = T_Rob_Inst_camera[2,3]
-                print("Open loop : ", targetXideal, targetYideal, targetOpP)
-                # print("Position", -realZ + 15, realY + 8.66, realX)
-                [errCableL, errCableR, errCableT, errPrism] = kineSolve.cableError(actualX, actualY, scaleTargL, scaleTargR, scaleTargT, targetOpP, realX, realY, realZ)
-                print("OL cables : ", targetOpL, targetOpR, targetOpT, targetOpP)
-                print("Error LRTP: ", errCableL, errCableR, errCableT, errPrism)
+        # if useVisionFeedback == True:
+        #     T_Rob_Inst_camera = pose_est.tip_pose()#4x4 homo matrix in MM
+        #     if T_Rob_Inst_camera is not None:
+        #         realX = T_Rob_Inst_camera[0,3]
+        #         realY = T_Rob_Inst_camera[1,3]
+        #         realZ = T_Rob_Inst_camera[2,3]
+        #         print("Open loop : ", targetXideal, targetYideal, targetOpP)
+        #         # print("Position", -realZ + 15, realY + 8.66, realX)
+        #         [errCableL, errCableR, errCableT, errPrism] = kineSolve.cableError(actualX, actualY, scaleTargL, scaleTargR, scaleTargT, targetOpP, realX, realY, realZ)
+        #         print("OL cables : ", targetOpL, targetOpR, targetOpT, targetOpP)
+        #         print("Error LRTP: ", errCableL, errCableR, errCableT, errPrism)
 
-            if visionFeedFlag:
-                print("Closed Loop active \n")
-                targetL = scaleTargL - errCableL
-                targetR = scaleTargR - errCableR
-                targetT = scaleTargT - errCableT
-                targetP = targetOpP - errPrism
+        #     if visionFeedFlag:
+        #         print("Closed Loop active \n")
+        #         targetL = scaleTargL - errCableL
+        #         targetR = scaleTargR - errCableR
+        #         targetT = scaleTargT - errCableT
+        #         targetP = targetOpP - errPrism
 
-        else:
-            targetL = scaleTargL
-            targetR = scaleTargR 
-            targetT = scaleTargT
-            targetP = targetOpP
+        # else:
+        targetL = scaleTargL
+        targetR = scaleTargR 
+        targetT = scaleTargT
+        targetP = targetOpP
 
         tStepP = int(targetP*kineSolve.STEPS_PER_MM_PRI)
         tStepP += targDir*antiHystSteps
@@ -405,24 +405,28 @@ try:
         # Log deisred position at 
         # posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
+        dt = (timeL - prevTimeL)/100 # kineSolve.TIMESTEP
+
         if useEnergyShaping and optiTrackConnected:
             [pos_x, vel_x] = energyS.trackToState(opTrack.markerData[-1])
             print("Distance: ", round(pos_x*1000,3), " Velocity: ", round(vel_x*1000,3), "Error: ", round((pos_x - x_d)*1000,3))
             if firstflag:
-                [controlInputs, vol_est_1, vol_est_2] = energyS.energyShape(pos_x, vel_x, pressL, pressR, x_d, kineSolve.TIMESTEP, 4, 0, 1)
+                [controlInputs, vol_est_1, vol_est_2] = energyS.energyShape(pos_x, vel_x, pressL, pressR, x_d, dt, 4, 0, 1)
                 firstflag = False
             else:
-                [controlInputs, vol_est_1, vol_est_2] = energyS.energyShape(pos_x, vel_x, pressL, pressR, x_d, kineSolve.TIMESTEP, 4, 0, 1)
+                [controlInputs, vol_est_1, vol_est_2] = energyS.energyShape(pos_x, vel_x, pressL, pressR, x_d, dt, 4, 0, 1)
             print("Predicted stepper pos: ", vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED, vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED)
-            target_1  = vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
-            target_2  = vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
+            # target_1  = vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
+            # target_2  = vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
             print("U1: ", controlInputs[0], " U2: ", controlInputs[1], "F: ", controlInputs[2])
             # print("U1: ", round(controlInputs[0], 3), " U2: ", round(controlInputs[1], 3), "F: ", round(controlInputs[2], 3))
             print("Pressures: ", pressL, pressR)
-            [StepNoL , StepNoR] = energyS.traject(target_1, target_2, kineSolve.TIMESTEP)
+            [StepNoL , StepNoR] = energyS.traject(int(realStepL), int(realStepR), dt)
             print(StepNoL , StepNoR)
-            # if max(abs(StepNoL), abs(StepNoR)) > kineSolve.MAX_STEPS:
-            #     StepNoL , StepNoR = cStepL, cStepR
+            if max(abs(StepNoL), abs(StepNoR)) > kineSolve.MAX_STEPS:
+                StepNoL , StepNoR = cStepL, cStepR
+            elif min(StepNoL, StepNoR) < 0:
+                StepNoL , StepNoR = cStepL, cStepR
 
         posLogging.posLog(pos_x, vel_x, controlInputs[0], controlInputs[1], controlInputs[2])
 

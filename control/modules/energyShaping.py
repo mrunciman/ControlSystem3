@@ -30,7 +30,8 @@
 import math as mt
 
 STEPS_PER_MM = 400
-A_SYRINGE = mt.pi*((13.25/1000)**2) # m**2
+A_SYRINGE = mt.pi*((13.25)**2) # m**2
+
 
 # IMPORT FROM KINEMATICS.PY
 ## model parameters
@@ -45,8 +46,9 @@ D_C = 9/1000
 K_B = L0**2/NUM_L*(D_C/3 + D_S/2)
 
 FRAMERATE = 1/120
-ZEROPOINT = 111.75/1000       # distance between markers that I define as zero,  in m
+ZEROPOINT = 114.75/1000       # distance between markers that I define as zero,  in m
 M_TO_MM = 1000
+MCUBE_TO_MMCUBE = 1e9
 
 R = 5                         # viscous friciton
 BETA_0 = 2*10**9              # bulk modulus of water in Pa
@@ -70,6 +72,55 @@ class energyShaper():
 
         self.x1_s_ast_p = 0
         self.x2_s_ast_p = 0
+
+
+
+    def trackToState(self, markerData):
+        '''
+        Find position and velocity of payload from optitrack markers
+        '''
+        # opTrack.markerData = [self.timeStamp] + [self.timeRunning] + [X, Y, Z]*n for n markers
+
+        # Find distance between individual markers
+        # Use 120 Hz data from stream
+        # Find speed by discrete time differentiation
+        # Map displacement of markers to coordinate system of energy shaping 
+
+        markers = markerData
+        dataLen = len(markers)
+        if dataLen >= 8:
+            x1 = markers[2]
+            y1 = markers[3]
+            z1 = markers[4]
+
+            x2 = markers[5]
+            y2 = markers[6]
+            z2 = markers[7]
+
+            dist = mt.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)
+
+            # Map to coordinate system
+            x_obs = dist - ZEROPOINT
+
+            # ## discrete-time differentiation and low-pass filtering to compute velocity
+            if self.first_flag:
+                x_dot = 0
+                self.first_flag = False
+            else:
+                x_dot = (x_obs - self.x_p)/FRAMERATE
+            x_dotf = 0.9391*self.x_dotfp + 0.03047*(x_dot+self.x_dotp)
+            v_obs = x_dotf 
+            self.x_p = x_obs
+            self.x_dotp = x_dot
+            self.x_dotfp = x_dotf
+
+
+        else:
+            x_obs, v_obs = None, None
+
+
+        return x_obs, v_obs
+
 
 
     def energyShape(self, x, v, P1, P2, xd, dt, lin_mode, Mode, adapt):
@@ -163,7 +214,7 @@ class energyShaper():
 
         ## tuning parameters
 
-        kp = 1       # 1 or 2 (default)
+        kp = 2       # 1 or 2 (default)
         Ki = 10      # 10 (default) or 20
         Ki2 = 10     # 10 (default) or 20
         K_obs = 10   # 10 (default) or 20
@@ -225,78 +276,33 @@ class energyShaper():
                 + (dA2x*v*(F_obs - Km*kp*(x - xd)))/(2*dA2**2) \
                 +(Km*kp*v)/(2*dA2) - (BETA_0*dA2*v)/vol2))/BETA_0
 
-        vol1_target = VOL_0 + (6**(1/2)*K_B*((L0 - 4*xd)/L0)**(1/2)*(380*L0**2 + 480*L0*xd + 192*xd**2))/(1536*L0**2)  # decreases with x
-        vol2_target = VOL_0 + (6**(1/2)*K_B*((L0 + 4*xd)/L0)**(1/2)*(380*L0**2 - 480*L0*xd + 192*xd**2))/(1536*L0**2)  # increases with x
-
-
         self.controlU[0] = U1
         self.controlU[1] = U2
         self.controlU[2] = F_obs
         return self.controlU, vol1, vol2
 
 
-    def traject(self, steps1_current, steps2_current, dt):
-        U1 = self.controlU[0]
-        U2 = self.controlU[1]
 
-        delta_x1_s = (32*U1*dt)/(30*A_SYRINGE)*M_TO_MM*STEPS_PER_MM
-        delta_x2_s = (32*U2*dt)/(30*A_SYRINGE)*M_TO_MM*STEPS_PER_MM
+
+    def traject(self, steps1_current, steps2_current, dt):
+        U1 = self.controlU[0]*MCUBE_TO_MMCUBE # in mm^3
+        U2 = self.controlU[1]*MCUBE_TO_MMCUBE
+
+        self.x1_s_ast_p = steps1_current
+        self.x2_s_ast_p = steps2_current
+
+        delta_x1_s = ((32*U1*dt)/(30*A_SYRINGE))*STEPS_PER_MM
+        delta_x2_s = ((32*U2*dt)/(30*A_SYRINGE))*STEPS_PER_MM
+
+        # print("Deltas: ", delta_x1_s, delta_x2_s)
 
         self.x1_s_ast = self.x1_s_ast_p + delta_x1_s
         self.x2_s_ast = self.x2_s_ast_p + delta_x2_s
 
-        self.x1_s_ast_p = self.x1_s_ast
-        self.x2_s_ast_p = self.x2_s_ast
+        # self.x1_s_ast_p = self.x1_s_ast
+        # self.x2_s_ast_p = self.x2_s_ast
 
         step_1 = int(self.x1_s_ast)
         step_2 = int(self.x2_s_ast)
 
         return step_1, step_2
-
-
-    def trackToState(self, markerData):
-        '''
-        Find position and velocity of payload from optitrack markers
-        '''
-        # opTrack.markerData = [self.timeStamp] + [self.timeRunning] + [X, Y, Z]*n for n markers
-
-        # Find distance between individual markers
-        # Use 120 Hz data from stream
-        # Find speed by discrete time differentiation
-        # Map displacement of markers to coordinate system of energy shaping 
-
-        markers = markerData
-        dataLen = len(markers)
-        if dataLen >= 8:
-            x1 = markers[2]
-            y1 = markers[3]
-            z1 = markers[4]
-
-            x2 = markers[5]
-            y2 = markers[6]
-            z2 = markers[7]
-
-            dist = mt.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)
-
-            # Map to coordinate system
-            x_obs = dist - ZEROPOINT
-            # x_obs = 0.00#5
-
-            # ## discrete-time differentiation and low-pass filtering to compute velocity
-            if self.first_flag:
-                x_dot = 0
-                self.first_flag = False
-            else:
-                x_dot = (x_obs - self.x_p)/FRAMERATE
-            x_dotf = 0.9391*self.x_dotfp + 0.03047*(x_dot+self.x_dotp)
-            v_obs = x_dotf 
-            self.x_p = x_obs
-            self.x_dotp = x_dot
-            self.x_dotfp = x_dotf
-
-
-        else:
-            x_obs, v_obs = None, None
-
-
-        return x_obs, v_obs

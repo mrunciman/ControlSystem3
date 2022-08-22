@@ -458,7 +458,7 @@ void loop() {
   else if(disconFlag == true){
     pumpState = 2;//Disconnection
   }
-  else if(pressFlag == true){//CHANGE TO TRUE TO ACTIVATE
+  else if(pressFlag == false){//CHANGE TO TRUE TO ACTIVATE
     pumpState = 3;//Calibration
   }
   else{
@@ -502,6 +502,9 @@ void loop() {
       stepper.setMaxAcceleration(MAXACCELERATION);
       stepper.setMaxVelocity(MAXVELOCITY);
       stepper.setControlThreshold(15);
+
+      disconFlag = false;
+      shakeFlag = false;
       break;
 
     //////////////////////////////////////////////////////////////////////////////////////////
