@@ -100,7 +100,7 @@ print("Start point: ", XYZPathCoords)
 ############################################################################
 # Initialise variables 
 SAMP_FREQ = 1/kineSolve.TIMESTEP
-PRESS_MAX_KPA = 190000
+PRESS_MAX_KPA = 160000
 flagStop = False
 
 # Target must be cast as immutable type (float, in this case) so that 
@@ -125,10 +125,13 @@ initPressLogNum = 10
 useVisionFeedback = False
 visionFeedFlag = False
 useEnergyShaping = True
+energyFlag = False
 
 # desired positon for energy shaping
 x_d = 0.00#5
 firstflag = True
+controlInputs = [0, 0, 0]
+pos_x, vel_x = 0, 0
 
 # Initialise cable length variables at home position
 cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
@@ -144,6 +147,9 @@ targetP = 0
 # print(targetL, targetR, targetT)
 repJaco = cJaco
 repJpinv = cJpinv
+
+cableL, targetL = 18.75, 18.75
+cableR, targetR = 18.75, 18.75
 
 # Set current volume (ignore tSpeed and step values) 
 [cVolL, tSpeedL, tStepL, LcRealL, angleL] = kineSolve.length2Vol(cableL, targetL)
@@ -260,14 +266,16 @@ try:
         calibP = True
 
         # Has the mechanism been calibrated/want to run without calibration?:
-        calibrated = True
+        calibrated = False
         # Perform calibration:
         print("Zeroing hydraulic actuators...")
         while (not calibrated):
             [realStepL, pressL, timeL] = ardIntLHS.listenZero(calibL, pressL, timeL)
             print(realStepL, pressL)
+            print("LHS: ", calibL)
             [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
             print(realStepR, pressR)
+            print("RHS: ", calibR)
             # [realStepT, pressT, timeT] = ardIntTOP.listenZero(calibT, pressT, timeT)
             # print(realStepT, pressT)
             # [realStepP, pressP, timeP] = ardIntPRI.listenZero(calibP, pressP, timeP)
@@ -277,10 +285,10 @@ try:
                 calibL = True
             if (realStepR == "000000RHS"):
                 calibR = True
-            if (realStepT == "000000TOP"):
-                calibT = True
-            if (realStepP == "0200PRI"):
-                calibP = True
+            # if (realStepT == "000000TOP"):
+            #     calibT = True
+            # if (realStepP == "0200PRI"):
+            #     calibP = True
 
             if (calibL * calibR * calibT * calibP == 1):
                 calibrated = True
@@ -319,7 +327,8 @@ try:
         # Go sequentially through path coordinates
             # End test when last coords reached
             if pathCounter >= len(xPath):
-                break
+                pathCounter = 0
+                # break
             else:
                 XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
             # print(XYZPathCoords)
@@ -381,6 +390,8 @@ try:
             targDir = cDir
         # print(targetL, targetR, targetT, LcRealP)
 
+        cableL, targetL = 18.75, 18.75
+        cableR, targetR = 18.75, 18.75
         # Get volumes, volrates, syringe speeds, pulse freq & step counts estimate for each pump
         [tVolL, vDotL, dDotL, fStepL, tStepL, tSpeedL, LcRealL, angleL] = kineSolve.volRate(cVolL, cableL, targetL)
         [tVolR, vDotR, dDotR, fStepR, tStepR, tSpeedR, LcRealR, angleR] = kineSolve.volRate(cVolR, cableR, targetR)
@@ -400,21 +411,19 @@ try:
         StepNoT += TStep
         StepNoP += PStep
 
-        # print(StepNoL, StepNoR, StepNoT, StepNoP)
+
+
+        # print(StepNoL, StepNoR, StepNoT, StepNoP
 
         # Log deisred position at 
         # posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
-        dt = (timeL - prevTimeL)/100 # kineSolve.TIMESTEP
-
-        if useEnergyShaping and optiTrackConnected:
+        if optiTrackConnected:
             [pos_x, vel_x] = energyS.trackToState(opTrack.markerData[-1])
             print("Distance: ", round(pos_x*1000,3), " Velocity: ", round(vel_x*1000,3), "Error: ", round((pos_x - x_d)*1000,3))
-            if firstflag:
-                [controlInputs, vol_est_1, vol_est_2] = energyS.energyShape(pos_x, vel_x, pressL, pressR, x_d, dt, 4, 0, 1)
-                firstflag = False
-            else:
-                [controlInputs, vol_est_1, vol_est_2] = energyS.energyShape(pos_x, vel_x, pressL, pressR, x_d, dt, 4, 0, 1)
+
+        if energyFlag:
+            [controlInputs, vol_est_1, vol_est_2] = energyS.energyShape(pos_x, vel_x, pressL, pressR, x_d, dt, 5, 0, 1)
             print("Predicted stepper pos: ", vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED, vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED)
             # target_1  = vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
             # target_2  = vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
@@ -422,11 +431,24 @@ try:
             # print("U1: ", round(controlInputs[0], 3), " U2: ", round(controlInputs[1], 3), "F: ", round(controlInputs[2], 3))
             print("Pressures: ", pressL, pressR)
             [StepNoL , StepNoR] = energyS.traject(int(realStepL), int(realStepR), dt)
-            print(StepNoL , StepNoR)
-            if max(abs(StepNoL), abs(StepNoR)) > kineSolve.MAX_STEPS:
-                StepNoL , StepNoR = cStepL, cStepR
-            elif min(StepNoL, StepNoR) < 0:
-                StepNoL , StepNoR = cStepL, cStepR
+            # [StepNoL , StepNoR] = energyS.traject(StepNoL, StepNoR, dt)
+            # print("StepNos: ", StepNoL , StepNoR)
+
+            StepNos = [StepNoL, StepNoR]
+            for i in range(len(StepNos)):
+                if StepNos[i] < 0:
+                    StepNos[i] = 10
+                elif StepNos[i] > kineSolve.MAX_STEPS:
+                    StepNos[i] = int(kineSolve.MAX_STEPS)
+            
+            StepNoL = StepNos[0]
+            StepNoR = StepNos[1]
+
+            print("StepNos: ", StepNoL , StepNoR)
+
+        else:
+            StepNoL = int(tStepL*0.95)
+            StepNoR = int(tStepR*0.95)
 
         posLogging.posLog(pos_x, vel_x, controlInputs[0], controlInputs[1], controlInputs[2])
 
@@ -458,6 +480,8 @@ try:
             else:
                 if useVisionFeedback:
                     visionFeedFlag = 1
+                if useEnergyShaping:
+                    energyFlag = True
                 # Send step number to arduinos:
                 ardIntLHS.sendStep(StepNoL)
                 ardIntRHS.sendStep(StepNoR)
@@ -475,14 +499,27 @@ try:
             # Get current pump position, pressure and times from arduinos
             [realStepL, pressL, timeL] = ardIntLHS.listenReply()
             [realStepR, pressR, timeR] = ardIntRHS.listenReply()
+            if (realStepL == "S_Empty"):
+                realStepL = StepNoL
+            elif (realStepR == "S_Empty"):
+                realStepR = StepNoR
+
+            if pressL == "P_Empty":
+                pressL = pressLMed
+            elif pressR == "P_Empty":
+                pressR = pressRMed
             # [realStepT, pressT, timeT] = ardIntTOP.listenReply()
             # [realStepP, pressP, timeP] = ardIntPRI.listenReply()
             # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
 
             # Check for high pressure
-            if (max(pressL, pressR, pressT, pressL) > PRESS_MAX_KPA):
+            if (max(int(pressL), int(pressR), int(pressT), int(pressL)) > PRESS_MAX_KPA):
                 print("Overpressure: ", max(pressL, pressR, pressT, pressL), " kPa")
                 flagStop = True
+            
+            dt = (timeL - prevTimeL)/1000 # kineSolve.TIMESTEP
+        else:
+            dt = kineSolve.TIMESTEP
 
         # Update current position, cable lengths, and volumes as previous targets
         currentX = actualX
@@ -559,6 +596,7 @@ finally:
             if ardIntLHS.ser.is_open:
                 ardIntLHS.sendStep(CLOSEMESSAGE)
 
+        if 'ardIntRHS' in locals():
             if ardIntRHS.ser.is_open:
                 ardIntRHS.sendStep(CLOSEMESSAGE)
             
@@ -577,7 +615,7 @@ finally:
             time.sleep(0.2)
             [realStepR, pressR, timeR] = ardIntRHS.listenReply()
             print(realStepR, pressR, timeR)
-            time.sleep(0.2)
+            # time.sleep(0.2)
             # [realStepT, pressT, timeT] = ardIntTOP.listenReply()
             # print(realStepT, pressT, timeT)
             # time.sleep(0.2)

@@ -202,7 +202,14 @@ class energyShaper():
             vol2 = VOL_0 + (6**(1/2)*K_B*((L0 + 4*con2)/L0)**(1/2)*(380*L0**2 - 480*L0*con2 + 192*con2**2))/(1536*L0**2)  # inreases with x
             dA2=(6**(1/2)*K_B*(380*L0**2 - 480*L0*con2 + 192*con2**2))/(768*L0**3*((L0 + 4*con2)/L0)**(1/2)) - (6**(1/2)*K_B*((L0 + 4*con2)/L0)**(1/2)*(480*L0 - 384*con2))/(1536*L0**2)
             dA2x=(6**(1/2)*K_B*((L0 + 4*con2)/L0)**(1/2))/(4*L0**2) - (6**(1/2)*K_B*(380*L0**2 - 480*L0*con2 + 192*con2**2))/(384*L0**4*((L0 + 4*con2)/L0)**(3/2)) - (6**(1/2)*K_B*(480*L0 - 384*con2))/(384*L0**3*((L0 + 4*con2)/L0)**(1/2))
-
+    
+        elif lin_mode == 5:
+            vol1 = VOL_0 + (3**(1/2)*K_B*(1 - (8*x)/L0)**(1/2)*(443*L0**2 + 528*L0*x + 192*x**2))/(1536*L0**2)  # decreases with x
+            vol2 = VOL_0 + (3**(1/2)*K_B*((8*x)/L0 + 1)**(1/2)*(443*L0**2 - 528*L0*x + 192*x**2))/(1536*L0**2)  # inreases with x
+            dA1=(3**(1/2)*K_B*(528*L0 + 384*x)*(1 - (8*x)/L0)**(1/2))/(1536*L0**2) - (3**(1/2)*K_B*(443*L0**2 + 528*L0*x + 192*x**2))/(384*L0**3*(1 - (8*x)/L0)**(1/2))
+            dA2=(3**(1/2)*K_B*(443*L0**2 - 528*L0*x + 192*x**2))/(384*L0**3*((8*x)/L0 + 1)**(1/2)) - (3**(1/2)*K_B*(528*L0 - 384*x)*((8*x)/L0 + 1)**(1/2))/(1536*L0**2)
+            dA1x=(3**(1/2)*K_B*(1 - (8*x)/L0)**(1/2))/(4*L0**2) - (3**(1/2)*K_B*(443*L0**2 + 528*L0*x + 192*x**2))/(96*L0**4*(1 - (8*x)/L0)**(3/2)) - (3**(1/2)*K_B*(528*L0 + 384*x))/(192*L0**3*(1 - (8*x)/L0)**(1/2))
+            dA2x=(3**(1/2)*K_B*((8*x)/L0 + 1)**(1/2))/(4*L0**2) - (3**(1/2)*K_B*(443*L0**2 - 528*L0*x + 192*x**2))/(96*L0**4*((8*x)/L0 + 1)**(3/2)) - (3**(1/2)*K_B*(528*L0 - 384*x))/(192*L0**3*((8*x)/L0 + 1)**(1/2))
 
         M = M_P + RHO*vol1 + RHO*vol2
         p0 = M*v
@@ -288,13 +295,15 @@ class energyShaper():
         U1 = self.controlU[0]*MCUBE_TO_MMCUBE # in mm^3
         U2 = self.controlU[1]*MCUBE_TO_MMCUBE
 
+        k_U = 1
+
         self.x1_s_ast_p = steps1_current
         self.x2_s_ast_p = steps2_current
 
-        delta_x1_s = ((32*U1*dt)/(30*A_SYRINGE))*STEPS_PER_MM
-        delta_x2_s = ((32*U2*dt)/(30*A_SYRINGE))*STEPS_PER_MM
+        delta_x1_s = k_U*((32*U1*dt)/(30*A_SYRINGE))*STEPS_PER_MM
+        delta_x2_s = k_U*((32*U2*dt)/(30*A_SYRINGE))*STEPS_PER_MM
 
-        # print("Deltas: ", delta_x1_s, delta_x2_s)
+        print("Deltas: ", delta_x1_s, delta_x2_s)
 
         self.x1_s_ast = self.x1_s_ast_p + delta_x1_s
         self.x2_s_ast = self.x2_s_ast_p + delta_x2_s

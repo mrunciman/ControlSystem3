@@ -70,6 +70,10 @@ class ardInterfacer:
         # self.ser.baudrate = 115200
         # self.ser.timeout = 0
         self.ser = ser
+        self.stepCountBU = 0
+        self.pumpTimeBU = 0
+        self.stepMessage = "S" + "0" + "\n"
+        self.stepMessEnc = self.stepMessage.encode('utf-8')
 
         self.press1 = 0.0
         self.press2 = 0.0
@@ -134,8 +138,8 @@ class ardInterfacer:
             stepString = stepNumber
         message = "S" + stepString + "\n"
         # print("Message: ", repr(message))
-        message = message.encode('utf-8')
-        self.ser.write(message)
+        self.stepMessEnc = message.encode('utf-8')
+        self.ser.write(self.stepMessEnc)
         return
 
 
@@ -144,9 +148,19 @@ class ardInterfacer:
         x = "e"
         stepPress = b""
         noBytes = self.ser.in_waiting
+        manTimeout = 0
         # Wait here for reply - source of delay
         while noBytes == 0:
             noBytes = self.ser.in_waiting
+            # self.ser.write(self.stepMessEnc)
+            manTimeout += 1
+            # if manTimeout == 20:
+            #     stepCount = self.stepCountBU # Change this later to handle dropped values
+            #     pumpPress = self.pressMed
+            #     pumpTime = self.pumpTimeBU
+            #     print("not three long")
+            #     return stepCount, pumpPress, pumpTime
+
         # stepPress = self.ser.readline()
         # print(stepPress)
         # Read all bytes in input buffer
@@ -170,15 +184,12 @@ class ardInterfacer:
 
         # IF STEP COUNT = L_'pumpName' STOP AND DISCONNECT ALL
         # print(stepPress)
-        if stepPress == ['']:
-            stepCount = "S_Empty" # Change this later to handle dropped values
-            pumpPress = "P_Empty"
-            pumpTime = "T_Empty"
-        elif len(stepPress) == 3:
+        if len(stepPress) == 3:
             stepCount = stepPress[0]
             if "L " in stepCount: # If "L " in stepPress then limit hit/pressure error
                 print("In from arduino: ", stepPress)
                 raise TypeError('Pressure limit or switch hit in main loop')
+            self.stepCountBU = stepCount
 
             filtPump = filter(str.isdigit, stepPress[1])
             pumpPress = "".join(filtPump)
@@ -192,11 +203,14 @@ class ardInterfacer:
             if pumpTime == "":
                 pumpTime = 0
             pumpTime = int(pumpTime)
+            self.pumpTimeBU = pumpTime
 
         else:
-            stepCount = stepPress
-            pumpPress = 0
-            pumpTime = 0
+            stepCount = self.stepCountBU
+            pumpPress = self.pressMed
+            pumpTime = self.pumpTimeBU
+            print("not three long")
+
         return stepCount, pumpPress, pumpTime
 
 
