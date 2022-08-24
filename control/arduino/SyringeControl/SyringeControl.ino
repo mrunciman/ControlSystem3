@@ -16,7 +16,7 @@
 // Handshake variables
 bool shakeFlag = false;
 String shakeInput; // 3 bit password to assign pump name/position
-char shakeKey[5] = "LHS"; //
+char shakeKey[5] = "RHS"; //
 // TOP = 7, RHS = 6, LHS = 8
 // PRI = 10, PNEU = 15
 
@@ -74,7 +74,7 @@ String flushInputBuffer;
 MS5803 sensor(ADDRESS_LOW);//CSB pin pulled low, so address low
 double pressureAbs = 1000.00; // Initial value
 int PRESS_THRESH = 10;//mbar
-int PRESS_MAX = 3500;
+int PRESS_MAX = 2500;
 int PRESS_MIN = 400;
 int PRESS_FINE = 50; // When within this threshold, use finer movements
 double pressSetpoint = 850.00;//mbar
@@ -122,7 +122,7 @@ unsigned long tStep2k = 1; // When tStep equals 500 us, 2 kHz pulse achieved - 6
 
 ////////////////////////////////////////////////////////
 // Messages
-char data[50]; // Char array to write stepNo, pressure and time into
+char data[54]; // Char array to write stepNo, pressure and time into
 char endByte[3] = "E";
 char disableMsg[3] = "D ";
 char limitHit[3] = "L ";
@@ -165,23 +165,23 @@ void setup() {
   }
 
   // Disable all interrupts
-  noInterrupts();
+  // noInterrupts();
   
-  //Initialise timer 2 - prescaler = 1024 gives ~61 - 15625 Hz range
-  TCCR2A = 0;
-  TCCR2B = 0;
-  TCNT2 = 0;
-  TCCR2A |= (1 << WGM21);   //Set CTC mode
-  // Set OCR2A to 124 for 125 Hz timer, where serial
-  // can be read and pressure taken every 6th cycle.
-  // desired frequency = 16Mhz/(prescaler*(1+OCR)) 
-    // 16e6/(1024*(255+1))= 61.035 Hz
-    // 16e6/(1024*(124+1)) = 125 Hz
-  OCR2A = 124;//124 for 125 Hz and 156 for 100 Hz
-  // Set CS22, CS21 and CS20 bits for 1024 prescaler
-  // TCCR2B |= (1 << CS22) | (1 << CS21) | (1 << CS20);   // Turn on
-  TIMSK2 |= (1 << OCIE2A);  // enable timer compare interrupt
-  interrupts();             // enable all interrupts
+  // //Initialise timer 2 - prescaler = 1024 gives ~61 - 15625 Hz range
+  // TCCR2A = 0;
+  // TCCR2B = 0;
+  // TCNT2 = 0;
+  // TCCR2A |= (1 << WGM21);   //Set CTC mode
+  // // Set OCR2A to 124 for 125 Hz timer, where serial
+  // // can be read and pressure taken every 6th cycle.
+  // // desired frequency = 16Mhz/(prescaler*(1+OCR)) 
+  //   // 16e6/(1024*(255+1))= 61.035 Hz
+  //   // 16e6/(1024*(124+1)) = 125 Hz
+  // OCR2A = 124;//124 for 125 Hz and 156 for 100 Hz
+  // // Set CS22, CS21 and CS20 bits for 1024 prescaler
+  // // TCCR2B |= (1 << CS22) | (1 << CS21) | (1 << CS20);   // Turn on
+  // TIMSK2 |= (1 << OCIE2A);  // enable timer compare interrupt
+  // interrupts();             // enable all interrupts
 
 }
 
@@ -206,14 +206,14 @@ void pressureRead() {
   // Stop motor and wait if pressure exceeds maximum
   if (pressureAbs > PRESS_MAX){
     // extInterrupt = true;
-    stepper.stop(); // Stop and disable
+    disconFlag = true; // Stop and disable
   }
   else if (pressureAbs < 0){
     pressureAbs = 0.00;
   }
-  // else if (pressureAbs < PRESS_MIN){
-  //   extInterrupt = true;
-  // }
+  else if (pressureAbs < PRESS_MIN){
+    disconFlag = true;
+  }
 
 }
 
@@ -279,7 +279,7 @@ void pressInitZeroVol() {
   if (motorState == 1 || motorState == 2){
     // if within 50 mbar of target pressure go slower
     if (abs(pressureError) < PRESS_FINE){ 
-      pressSteps = 16;
+      pressSteps = 32;
       // stepper.setMaxVelocity(SPEEDP_LOW);
     }
     else{
@@ -313,7 +313,7 @@ void pressInitZeroVol() {
     default:
       //Just in case nothing matches, stop motor
       // Serial.println("Default");
-      stepper.stop();
+      // stepper.stop();
       break;
   }
 }
@@ -335,7 +335,7 @@ void handShake() {
         // stepper.enableMotor(); // digitalWrite(enablePin, LOW);
         shakeInput = "";
         // Start timer for pressure readings
-        TCCR2B |= (1 << CS22) | (1 << CS21) | (1 << CS20);
+        // TCCR2B |= (1 << CS22) | (1 << CS21) | (1 << CS20);
         // Initialise the time variables
         timeAtStep = micros();
         flushInputBuffer = Serial.readStringUntil('\n');
@@ -370,7 +370,7 @@ void readWriteSerial() {
       }
       angPos = DEG_PER_REV*(float(stepIn)/STEPS_PER_REV);
       // stepCount = stepper.getStepsSinceReset();
-      angMeas = stepper.encoder.getAngleMoved();
+      angMeas = float(stepper.encoder.getAngleMoved());
       stepCount = int(angMeas*STEPS_PER_REV/DEG_PER_REV);
       stepError = stepIn - stepCount;
       //Send stepCount
@@ -391,9 +391,9 @@ void readWriteSerial() {
   }
   else {
     flushInputBuffer = Serial.readStringUntil('\n');
+    writeSerial('P');
   }
-  //Send stepCount
-  writeSerial('S');
+
 }
 
 
@@ -432,7 +432,7 @@ void stepAftertStep(){
 void writeSerial(char msg){
   writeTime = millis();
   if (msg == 'S'){ // Normal operation, send stepCount etc
-    sprintf(data, "%06,%d,%lu%s", stepCount, int(pressureAbs*10), writeTime, endByte);
+    sprintf(data, "%06d,%d,%lu%s", stepCount, int(pressureAbs*10), writeTime, endByte);
   }
   else if (msg == 'D'){ // Python cut off comms, acknowledge this
     sprintf(data, "%s%s,%d,%lu%s", disableMsg, shakeKey, int(pressureAbs*10), writeTime, endByte);
@@ -479,10 +479,10 @@ void loop() {
       // TCCR2B = 0; 
       stateCount = 0;
       startTime = millis();
-      if (sampFlag == true) {
-        pressureRead();
-        sampFlag = false;
-      }
+      // if (sampFlag == true) {
+      pressureRead();
+      //   sampFlag = false;
+      // }
       flushInputBuffer = Serial.readStringUntil('\n');
       // Notify that limit hit
       writeSerial('L');
@@ -491,6 +491,9 @@ void loop() {
     //////////////////////////////////////////////////////////////////////////////////////////
     //Handshake
     case 1:
+      if (!Serial) { //if serial disconnected, go to disconected state
+        disconFlag = true;
+      }
       handShake();
       break;
     
@@ -512,6 +515,11 @@ void loop() {
     //////////////////////////////////////////////////////////////////////////////////////////
     //Calibration
     case 3:
+
+      if (!Serial) { //if serial disconnected, go to disconected state
+        disconFlag = true;
+      }
+
       pressInitZeroVol();
 
       // if (sampFlag == true) {
@@ -524,6 +532,7 @@ void loop() {
         writeSerial('P');
         // stepper.stop();
         pressFlag = false;
+        writeSerial('P');
       }
       else{
         // Check for disconnection
@@ -547,19 +556,26 @@ void loop() {
     //////////////////////////////////////////////////////////////////////////////////////////
     //Active
     case 4:
-      // Call overpressure protection every 6th Timer2 interrupt
-      if (sampFlag == true) {
-        pressureRead();
-        sampFlag = false;
-      }
 
-      if (serFlag == true) { //Changed from serFlag to see if I can make things faster
+      if (!Serial) { //if serial disconnected, go to disconected state
+        disconFlag = true;
+      }
+      // Call overpressure protection every 6th Timer2 interrupt
+      // if (sampFlag == true) {
+      pressureRead();
+      //   sampFlag = false;
+      // }
+      timeNow = micros();
+      timeSinceStep = timeNow - timeAtStep;
+      timeAtStep = timeNow;
+      // ||(timeSinceStep >= 48000)
+      if (Serial.available() > 0) { //Changed from serFlag to see if I can make things faster
         readWriteSerial(); // Read stepIn, send stepCount and pressure
         serFlag = false;
       }
-      else if (!Serial) { //if serial disconnected, go to disconected state
-        disconFlag = true;
-      }
+      // else if (!Serial) { //if serial disconnected, go to disconected state
+      //   disconFlag = true;
+      // }
       // Move to the desired position
       // stepAftertStep();
       stepper.moveToAngle(angPos); // Could have problems with this - seems it is relative to current position, not zero position
@@ -567,19 +583,19 @@ void loop() {
 
     //////////////////////////////////////////////////////////////////////////////////////////
     // Unrecognised state, act as if limit hit
-    default:
-      stepper.stop();
-      //Make sure motor is disabled 
-      // stepper.disableMotor(); // digitalWrite(enablePin, HIGH);
-      // stepper.setBrakeMode(FREEWHEELBRAKE);
-      // Turn off timers for interrupts
-      TCCR2B = 0;
-      stateCount = 0;
-      startTime = millis();
-      pressureRead();
-      flushInputBuffer = Serial.readStringUntil('\n');
-      // Notify Python
-      writeSerial('L');
-      break;
+    // default:
+    //   // stepper.stop();
+    //   //Make sure motor is disabled 
+    //   // stepper.disableMotor(); // digitalWrite(enablePin, HIGH);
+    //   // stepper.setBrakeMode(FREEWHEELBRAKE);
+    //   // Turn off timers for interrupts
+    //   TCCR2B = 0;
+    //   stateCount = 0;
+    //   startTime = millis();
+    //   pressureRead();
+    //   flushInputBuffer = Serial.readStringUntil('\n');
+    //   // Notify Python
+    //   writeSerial('L');
+    //   break;
   }
 }
