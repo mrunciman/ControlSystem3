@@ -100,7 +100,9 @@ print("Start point: ", XYZPathCoords)
 ############################################################################
 # Initialise variables 
 SAMP_FREQ = 1/kineSolve.TIMESTEP
-PRESS_MAX_KPA = 160000
+PRESS_MAX_PA = 160000
+PRESS_MIN_PA = 70000
+CLOSEMESSAGE = "Closed"
 flagStop = False
 
 # Target must be cast as immutable type (float, in this case) so that 
@@ -236,7 +238,7 @@ if len(pumpCOMS) == 2:
     # use data from file
     # pass
 
-CLOSEMESSAGE = "Closed"
+
 
 try:
     if pumpsConnected:
@@ -270,12 +272,14 @@ try:
         # Perform calibration:
         print("Zeroing hydraulic actuators...")
         while (not calibrated):
-            [realStepL, pressL, timeL] = ardIntLHS.listenZero(calibL, pressL, timeL)
-            print(realStepL, pressL)
-            print("LHS: ", calibL)
-            [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
-            print(realStepR, pressR)
-            print("RHS: ", calibR)
+            if not calibL:
+                [realStepL, pressL, timeL] = ardIntLHS.listenZero(calibL, pressL, timeL)
+                print(realStepL, pressL)
+                # print("LHS: ", calibL)
+            # if not calibR:
+            #     [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
+            #     print(realStepR, pressR)
+                # print("RHS: ", calibR)
             # [realStepT, pressT, timeT] = ardIntTOP.listenZero(calibT, pressT, timeT)
             # print(realStepT, pressT)
             # [realStepP, pressP, timeP] = ardIntPRI.listenZero(calibP, pressP, timeP)
@@ -283,14 +287,14 @@ try:
 
             if (realStepL == "000000LHS"):
                 calibL = True
-            if (realStepR == "000000RHS"):
-                calibR = True
+            # if (realStepR == "000000RHS"):
+            #     calibR = True
             # if (realStepT == "000000TOP"):
             #     calibT = True
             # if (realStepP == "0200PRI"):
             #     calibP = True
 
-            if (calibL * calibR * calibT * calibP == 1):
+            if (calibL == 1):
                 calibrated = True
                 # Send 0s instead of StepNo and pressMed as signal that calibration done
                 StepNoL, StepNoR, StepNoT, StepNoP, StepNoA = 0, 0, 0, 0, 0
@@ -326,7 +330,7 @@ try:
         if not omni_connected:
         # Go sequentially through path coordinates
             # End test when last coords reached
-            if pathCounter >= len(xPath):
+            if pathCounter >= len(xPath)/2:
                 pathCounter = 0
                 # break
             else:
@@ -413,16 +417,16 @@ try:
 
 
 
-        # print(StepNoL, StepNoR, StepNoT, StepNoP
+        # print(StepNoL, StepNoR, StepNoT, StepNoP)
 
         # Log deisred position at 
         # posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
         if optiTrackConnected:
             [pos_x, vel_x] = energyS.trackToState(opTrack.markerData[-1])
-            print("Distance: ", round(pos_x*1000,3), " Velocity: ", round(vel_x*1000,3), "Error: ", round((pos_x - x_d)*1000,3))
 
         if energyFlag:
+            print("Distance: ", round(pos_x*1000,3), " Velocity: ", round(vel_x*1000,3), "Error: ", round((pos_x - x_d)*1000,3))
             [controlInputs, vol_est_1, vol_est_2] = energyS.energyShape(pos_x, vel_x, pressL, pressR, x_d, dt, 5, 0, 1)
             print("Predicted stepper pos: ", vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED, vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED)
             # target_1  = vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
@@ -437,7 +441,7 @@ try:
             StepNos = [StepNoL, StepNoR]
             for i in range(len(StepNos)):
                 if StepNos[i] < 0:
-                    StepNos[i] = 10
+                    StepNos[i] = 100
                 elif StepNos[i] > kineSolve.MAX_STEPS:
                     StepNos[i] = int(kineSolve.MAX_STEPS)
             
@@ -499,23 +503,27 @@ try:
             # Get current pump position, pressure and times from arduinos
             [realStepL, pressL, timeL] = ardIntLHS.listenReply()
             [realStepR, pressR, timeR] = ardIntRHS.listenReply()
-            if (realStepL == "S_Empty"):
-                realStepL = StepNoL
-            elif (realStepR == "S_Empty"):
-                realStepR = StepNoR
+            # if (realStepL == "S_Empty"):
+            #     realStepL = StepNoL
+            # elif (realStepR == "S_Empty"):
+            #     realStepR = StepNoR
 
-            if pressL == "P_Empty":
-                pressL = pressLMed
-            elif pressR == "P_Empty":
-                pressR = pressRMed
+            # if pressL == "P_Empty":
+            #     pressL = pressLMed
+            # elif pressR == "P_Empty":
+            #     pressR = pressRMed
             # [realStepT, pressT, timeT] = ardIntTOP.listenReply()
             # [realStepP, pressP, timeP] = ardIntPRI.listenReply()
             # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
 
             # Check for high pressure
-            if (max(int(pressL), int(pressR), int(pressT), int(pressL)) > PRESS_MAX_KPA):
-                print("Overpressure: ", max(pressL, pressR, pressT, pressL), " kPa")
+            if (max(int(pressL), int(pressR)) > PRESS_MAX_PA):
+                print("Overpressure: ", max(int(pressL), int(pressR)), " Pa")
                 flagStop = True
+            elif (min(int(pressL), int(pressR)) < PRESS_MIN_PA):
+                print("Under pressure: ", min(int(pressL), int(pressR)), " Pa")
+                flagStop = True
+
             
             dt = (timeL - prevTimeL)/1000 # kineSolve.TIMESTEP
         else:
@@ -563,79 +571,86 @@ finally:
     ###########################################################################
     # Stop program
     # Disable pumps and set them to idle state
-    print(kineSolve.MAX_VOL/kineSolve.M3_to_MM3, kineSolve.MAX_STEPS, kineSolve.STEPS_PER_MMCUBED)
+    # print(kineSolve.MAX_VOL/kineSolve.M3_to_MM3, kineSolve.MAX_STEPS, kineSolve.STEPS_PER_MMCUBED)
 
-    try:
-
-
-        if pumpsConnected:
-            # Save values gathered from arduinos
-            ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
-            ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
-            # ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
-            # ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
-            # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
-            ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
-            ardLogging.ardSave()
-            # Ensure same number of rows in position log file
-            posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
-
-        #Save position data
-        posLogging.posSave()
-
-        # #Save optitrack data
-        # if optiTrackConnected:
-        if useRigidBodies:
-            opTrack.optiSave(opTrack.rigidData)
-        else:
-            opTrack.optiSave(opTrack.markerData)
-        opTrack.optiClose()
+    # try:
 
 
-        if 'ardIntLHS' in locals():
-            if ardIntLHS.ser.is_open:
-                ardIntLHS.sendStep(CLOSEMESSAGE)
+    if pumpsConnected:
+        # Save values gathered from arduinos
+        ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
+        ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
+        # ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
+        # ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
+        # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
+        ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
+        ardLogging.ardSave()
+        # Ensure same number of rows in position log file
+        posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
-        if 'ardIntRHS' in locals():
-            if ardIntRHS.ser.is_open:
-                ardIntRHS.sendStep(CLOSEMESSAGE)
-            
-            # if ardIntTOP.ser.is_open:
-            #     ardIntTOP.sendStep(CLOSEMESSAGE)
+    #Save position data
+    posLogging.posSave()
 
-            # if ardIntPRI.ser.is_open:
-            #     ardIntPRI.sendStep(CLOSEMESSAGE)
-
-            # if ardIntPNEU.ser.is_open:
-            #     ardIntPNEU.sendStep(CLOSEMESSAGE)
-
+    if 'ardIntLHS' in locals():
+        if ardIntLHS.ser.is_open:
+            ardIntLHS.sendStep(CLOSEMESSAGE)
             time.sleep(0.2)
             [realStepL, pressL, timeL] = ardIntLHS.listenReply()
             print(realStepL, pressL, timeL)
+            ardIntLHS.ser.close()
+
+    if 'ardIntRHS' in locals():
+        if ardIntRHS.ser.is_open:
+            ardIntRHS.sendStep(CLOSEMESSAGE)
             time.sleep(0.2)
             [realStepR, pressR, timeR] = ardIntRHS.listenReply()
             print(realStepR, pressR, timeR)
-            # time.sleep(0.2)
-            # [realStepT, pressT, timeT] = ardIntTOP.listenReply()
-            # print(realStepT, pressT, timeT)
-            # time.sleep(0.2)
-            # [realStepP, pressP, timeP] = ardIntPRI.listenReply()
-            # print(realStepP, pressP, timeP)
-            # time.sleep(0.2)
-            # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
-            # print(realStepA, pressA, timeA)
-
-
-            # Close serial connections
-            ardIntLHS.ser.close()
             ardIntRHS.ser.close()
-            # ardIntTOP.ser.close()
-            # ardIntPRI.ser.close()
-            # ardIntPNEU.ser.close()
+            
+    # print(pumpSer)
+    for i in pumpSer:
+        print(pumpSer[i])
+        pumpSer[i].__exit__()
 
-    except TypeError as exTE:
-        tb_linesTE = traceback.format_exception(exTE.__class__, exTE, exTE.__traceback__)
-        tb_textTE = ''.join(tb_linesTE)
+        # if ardIntTOP.ser.is_open:
+        #     ardIntTOP.sendStep(CLOSEMESSAGE)
+
+        # if ardIntPRI.ser.is_open:
+        #     ardIntPRI.sendStep(CLOSEMESSAGE)
+
+        # if ardIntPNEU.ser.is_open:
+        #     ardIntPNEU.sendStep(CLOSEMESSAGE)
+
+    # #Save optitrack data
+    # if optiTrackConnected:
+    if useRigidBodies:
+        opTrack.optiSave(opTrack.rigidData)
+    else:
+        opTrack.optiSave(opTrack.markerData)
+    opTrack.optiClose()
+    while opTrack.trackSock.stop_threads == False:
+        opTrack.trackSock.stop_threads = True
+
+
+        # time.sleep(0.2)
+        # [realStepT, pressT, timeT] = ardIntTOP.listenReply()
+        # print(realStepT, pressT, timeT)
+        # time.sleep(0.2)
+        # [realStepP, pressP, timeP] = ardIntPRI.listenReply()
+        # print(realStepP, pressP, timeP)
+        # time.sleep(0.2)
+        # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
+        # print(realStepA, pressA, timeA)
+
+
+        # Close serial connections
+        # ardIntTOP.ser.close()
+        # ardIntPRI.ser.close()
+        # ardIntPNEU.ser.close()
+
+    # except TypeError as exTE:
+    #     tb_linesTE = traceback.format_exception(exTE.__class__, exTE, exTE.__traceback__)
+    #     tb_textTE = ''.join(tb_linesTE)
         # print(tb_textTE)
 
 # if __name__ == '__main__':

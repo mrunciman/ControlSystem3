@@ -1170,15 +1170,16 @@ class NatNetClient:
         data=bytearray(0)
         # 64k buffer size
         recv_buffer_size=64*1024
-        while not stop():
+        while not self.stop_threads:
             # Block for input
             try:
                 data, addr = in_socket.recvfrom( recv_buffer_size )
             except socket.error as msg:
-                if stop():
+                if self.stop_threads:
                     #print("ERROR: command socket access error occurred:\n  %s" %msg)
-                    #return 1
                     print("OptiTrack: shutting down")
+                    return 1
+                    
             except  socket.herror:
                 print("ERROR: command socket access herror occurred")
                 return 2
@@ -1210,7 +1211,7 @@ class NatNetClient:
                 data=bytearray(0)
 
             if not self.use_multicast:
-                if not stop():
+                if not self.stop_threads:
                     self.send_keep_alive(in_socket, self.server_ip_address, self.command_port)
         return 0
 
@@ -1220,12 +1221,12 @@ class NatNetClient:
         # 64k buffer size
         recv_buffer_size=64*1024
 
-        while not stop():
+        while not self.stop_threads:
             # Block for input
             try:
                 data, addr = in_socket.recvfrom( recv_buffer_size )
             except socket.error as msg:
-                if not stop():
+                if not self.stop_threads:
                     print("ERROR: data socket access error occurred:\n  %s" %msg)
                     return 1
             except  socket.herror:
@@ -1439,10 +1440,12 @@ class NatNetClient:
         return True
 
     def shutdown(self):
-        print("OptiTrack: shutdown called")
+        # print("OptiTrack: shutdown called")
         self.stop_threads = True
         # closing sockets causes blocking recvfrom to throw
         # an exception and break the loop
+        while self.stop_threads == False:
+            self.stop_threads = True
         self.command_socket.close()
         self.data_socket.close()
         # attempt to join the threads back.

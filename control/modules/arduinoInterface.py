@@ -14,17 +14,18 @@ def ardConnect():
     comlist = []
     for comport in serial.tools.list_ports.comports():
         comlist.append(comport.device)
-    # print(comlist)
+    print(comlist)
 
     PUMPNAMES = ['LHS', 'RHS']#, 'TOP', 'PRI']#, 'PNEU']
     pumpDict = {}
     serialDict = {}
 
-    reply = ""
+    reply = b""
+    replyASCII = ""
     replyFlag = 0
     MAXREPLYNO  = len(PUMPNAMES)
-    MESSAGE = '1'
-    MESSAGE = MESSAGE.encode('utf-8')
+    MESSAGE = "M\n".encode('utf-8')
+    # MESSAGE = MESSAGE.encode('utf-8')
 
     # Find the pumps and determine their names, otherwise flag that they're not connected
     
@@ -36,6 +37,7 @@ def ardConnect():
             ser.port = device
             ser.timeout = 0
             ser.open()
+            # print(ser)
             ser.reset_input_buffer()
             #Leave time to initialise
             time.sleep(1)
@@ -44,18 +46,30 @@ def ardConnect():
                 ser.write(MESSAGE)
                 #delay before reading reply
                 time.sleep(1)
-                reply = ser.readline().strip()
-                reply = reply.decode('ascii')
+                x = 'e'
+                reply = b""
+                while ord(x) != ord("\n"):
+                    x = ser.read()
+                    if x == b"":
+                        break
+                    if x == b"\n":
+                        break
+                    reply = reply + x
+                # reply = ser.readline()
+                # reply = reply.strip()
                 ser.reset_input_buffer()
-                # print("Reply: ", reply)
+                print("Reply: ", reply)
+                replyASCII = reply.decode('ascii')
+                print("ReplyASCII: ", replyASCII)
 
-                if reply in PUMPNAMES:
-                    index = PUMPNAMES.index(reply) # Which one of pumpNames was reply
+                if replyASCII in PUMPNAMES:
+                    index = PUMPNAMES.index(replyASCII) # Which one of pumpNames was reply
                     pumpDict.update({PUMPNAMES[index]:device})
                     serialDict.update({device:ser})
-                    reply = ""
+                    replyASCII = ""
                     break
                 replyFlag += 1
+                # ser.reset_input_buffer()
         # print(pumpDict)
 
     return pumpDict, serialDict, PUMPNAMES, comlist
@@ -72,7 +86,7 @@ class ardInterfacer:
         self.ser = ser
         self.stepCountBU = 0
         self.pumpTimeBU = 0
-        self.stepMessage = "S" + "0" + "\n"
+        self.stepMessage = "M\n"
         self.stepMessEnc = self.stepMessage.encode('utf-8')
 
         self.press1 = 0.0
@@ -109,8 +123,9 @@ class ardInterfacer:
         message = message.encode('utf-8')    #Encode message
         time.sleep(1)     #give arduino time to set up (there are delays in arduino code for pressure sensor)
         while(1):
-            time.sleep(0.5)     #delay before sending message again
             self.ser.write(message)
+            time.sleep(1)     #delay before sending message again
+            # self.ser.write(message)
             # print("Handshake: ", message)
             if self.ser.in_waiting > 0:
                 reply = self.ser.readline().strip()
@@ -152,14 +167,17 @@ class ardInterfacer:
         # Wait here for reply - source of delay
         while noBytes == 0:
             noBytes = self.ser.in_waiting
-            # self.ser.write(self.stepMessEnc)
             manTimeout += 1
-            # if manTimeout == 20:
-            #     stepCount = self.stepCountBU # Change this later to handle dropped values
-            #     pumpPress = self.pressMed
-            #     pumpTime = self.pumpTimeBU
-            #     print("not three long")
-            #     return stepCount, pumpPress, pumpTime
+            self.ser.write(self.stepMessEnc)
+            if manTimeout >= 2000:
+                self.ser.reset_input_buffer()
+                self.ser.reset_output_buffer()
+                manTimeout = 0
+                stepCount = self.stepCountBU # Change this later to handle dropped values
+                pumpPress = self.pressMed
+                pumpTime = self.pumpTimeBU
+                print("Unresponsive pump", self.PUMP_NAME)
+                return stepCount, pumpPress, pumpTime
 
         # stepPress = self.ser.readline()
         # print(stepPress)
@@ -209,7 +227,7 @@ class ardInterfacer:
             stepCount = self.stepCountBU
             pumpPress = self.pressMed
             pumpTime = self.pumpTimeBU
-            print("not three long")
+            print("Arduino output not three long")
 
         return stepCount, pumpPress, pumpTime
 
@@ -217,7 +235,7 @@ class ardInterfacer:
     def listenZero(self, isPumpZero, pressIn, timeIn):
         # If calibration done, don't wait for arduino
         if (isPumpZero == True):
-            stepCount = 0
+            stepCount = '000000' + str(self.PUMP_NAME)
             pumpPress = pressIn
             pumpTime = timeIn
             return stepCount, pumpPress, pumpTime

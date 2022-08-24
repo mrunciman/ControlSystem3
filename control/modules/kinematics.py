@@ -67,7 +67,7 @@ class kineSolver:
         self.STEPS_PER_MM = (self.STEPS_PER_REV*self.MICROSTEPS)/(self.LEAD) # steps per mm
         self.STEPS_PER_MM_PRI = (self.STEPS_PER_REV*self.MICROSTEPS_PRI)/(self.LEAD) # steps per mm
         self.STEPS_PER_MMCUBED = self.STEPS_PER_MM/self.A_SYRINGE # Steps per mm^3
-        self.MAX_STEPS = self.STEPS_PER_MMCUBED*self.MAX_VOL # number of steps needed to fill pouch
+        self.MAX_STEPS = self.STEPS_PER_MMCUBED*self.MAX_VOL*self.VOL_FACTOR # number of steps needed to fill pouch
         self.MIN_STEPS = 50
         # print(maxSteps)
         self.TIMESTEP = 6/125 # Inverse of sampling frequency on arduinos

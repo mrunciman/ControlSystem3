@@ -43,7 +43,8 @@ VOL_0 = 1/10**7              # dead volume of fluid (default)
 NUM_L = 3
 D_S = 12/1000
 D_C = 9/1000
-K_B = L0**2/NUM_L*(D_C/3 + D_S/2)
+VOL_FACTOR = 1.1
+K_B = VOL_FACTOR*(L0**2/NUM_L)*(D_C/3 + D_S/2)
 
 FRAMERATE = 1/120
 ZEROPOINT = 114.75/1000       # distance between markers that I define as zero,  in m
@@ -295,7 +296,7 @@ class energyShaper():
         U1 = self.controlU[0]*MCUBE_TO_MMCUBE # in mm^3
         U2 = self.controlU[1]*MCUBE_TO_MMCUBE
 
-        k_U = 1
+        k_U = 0.5
 
         self.x1_s_ast_p = steps1_current
         self.x2_s_ast_p = steps2_current
