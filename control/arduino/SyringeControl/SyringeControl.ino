@@ -136,7 +136,7 @@ void pressureRead() {
   // Stop motor and wait if pressure exceeds maximum
   if (pressureAbs > PRESS_MAX){
     // extInterrupt = true;
-    disconFlag = true; // Stop and disable
+    disconFlag = false; // Stop and disable
   }
   else if (pressureAbs < 0){
     pressureAbs = 0.00;
@@ -329,6 +329,10 @@ void loop() {
 
   timeNow = micros();
   timeSinceStep = timeNow - timeAtStep;
+  while (timeSinceStep < 47000){
+    timeNow = micros();
+    timeSinceStep = timeNow - timeAtStep;
+  }
   timeAtStep = timeNow;
 
   switch(pumpState){
@@ -345,6 +349,7 @@ void loop() {
     //////////////////////////////////////////////////////////////////////////////////////////
     //Disconnection
     case 2:
+      Serial.println("Disconnection");
       stepper.setup(CLOSEDLOOP,200);
       stepper.setMaxAcceleration(MAXACCELERATION);
       stepper.setMaxVelocity(MAXVELOCITY);
@@ -362,9 +367,7 @@ void loop() {
         disconFlag = true;
       }
 
-      if (timeSinceStep >= 48000){
-        pressInitZeroVol();
-      }
+      pressInitZeroVol();
 
       // If enough time has passed, say volume is 0, tell python and move on
       if (stateCount >= STABLE_TIME){
@@ -401,9 +404,7 @@ void loop() {
         disconFlag = true;
       }
 
-      if (timeSinceStep >= 48000){
-        pressureRead();
-      }
+      pressureRead();
 
       // timeNow = micros();
       // timeSinceStep = timeNow - timeAtStep;
@@ -416,6 +417,9 @@ void loop() {
 
       // Move to the desired position
       stepper.moveToAngle(angPos); // Could have problems with this - seems it is relative to current position, not zero position
+      break;
+    
+    default:
       break;
   }
 }
