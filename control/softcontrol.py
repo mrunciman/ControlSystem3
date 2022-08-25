@@ -66,7 +66,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/gridPath 2022-07-11 11-36-55 centre 15-8.66025 30x30grid 5x5spacing 110pris.csv', newline = '') as csvPath:
+    with open('control/paths/gridPath 2022-08-25 13-50-53 centre 15-8.66025 10x10grid 10x10spacing.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -205,9 +205,11 @@ pumpsConnected = False
 print(pumpCOMS)
 
 fibrebotLink = fibrebotInterface.fibreBot()
-fibrebotLink.connect(pumpSer, COMlist)
-fibrebotLink.sendState("Stop")
-print("Fibrebot connected.")
+fibreConnected = fibrebotLink.connect(pumpSer, COMlist)
+if fibreConnected:
+    print("Fibrebot connected.")
+    fibrebotLink.sendState("Stop")
+print(fibrebotLink.fibreSerial)
 
 if useVisionFeedback:
     config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
@@ -325,15 +327,19 @@ try:
             [xMap, yMap, zMap] = phntmOmni.omniMap()
             XYZPathCoords = [xMap, yMap, zMap]
 
-        fibreDone = fibrebotLink.receiveState()
-        # print(fibreDone)
+        if fibreConnected:
+            fibreDone = fibrebotLink.receiveState()
+            # print(fibreDone)
+
+            if fibreDone is not None:
+                print(fibreDone)
 
         # Stay at given coord for number of cycles
         if delayCount < delayLim:
             #Robot moving to location and settling
             delayCount += 1
             # pathCounter remains as it is
-            # fibrebotLink.sendState("Stop")
+            fibrebotLink.sendState("Stop")
         elif delayCount == delayLim:
             # pathCounter remains as it is
             print("Fibrebot triggered, robot stationary")

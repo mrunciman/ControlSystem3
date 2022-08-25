@@ -15,13 +15,21 @@ class fibreBot:
 
     # Connect
     def connect(self, pumpSer, COMlist):
+        connected = False
         remainingCOM = str(set(COMlist) - set(pumpSer)).strip("{}'")
-
-        self.fibreSerial.port = remainingCOM
-        self.fibreSerial.baudrate = 9600
-        self.fibreSerial.timeout = 0
-        self.fibreSerial.open()
-        self.fibreSerial.reset_input_buffer()
+        if remainingCOM != 'set()':
+            try:
+                self.fibreSerial.port = remainingCOM
+                self.fibreSerial.baudrate = 9600
+                self.fibreSerial.timeout = 0
+                self.fibreSerial.open()
+                self.fibreSerial.reset_input_buffer()
+                connected = True
+            except serial.SerialException:
+                connected = False
+                return connected
+        return connected
+        
 
     def sendState(self, state):
         if state == "Stop":
@@ -43,7 +51,7 @@ class fibreBot:
             reply = self.fibreSerial.readline().strip()
             self.fibreSerial.reset_input_buffer()
             reply = reply.decode('ascii')
-            # print(reply)
+            print(reply)
             if reply == "B":
                 #Fibrebot motion complete
                 return True
