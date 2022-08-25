@@ -17,6 +17,7 @@ Set step frequency of individual pumps to alter speed
 import csv
 import traceback
 import time
+import serial
 import numpy as np 
 # import math
 # import random
@@ -211,8 +212,9 @@ optiTrackConnected = opTrack.optiConnect(useRigidBodies)
 # Create function to find available COM ports, listen to replies, and assign COM ports based on replies
 print("Connecting to syringe pumps...")
 pumpsConnected = False
-[pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
-print(pumpCOMS)
+# [pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
+# # print(pumpCOMS)
+# print(pumpSer)
 
 # if useVisionFeedback:
 #     config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
@@ -220,52 +222,47 @@ print(pumpCOMS)
 #     pose_est.initialize()
 
 # Set COM port for each pump by using its handshake key
-if len(pumpCOMS) == 2:
-    pumpsConnected = True
-    print("...")
-    lhsCOM = pumpCOMS[pumpNames[0]]
-    rhsCOM = pumpCOMS[pumpNames[1]]
-    # topCOM = pumpCOMS[pumpNames[2]]
-    # priCOM = pumpCOMS[pumpNames[3]]
-    # pneuCOM = pumpCOMS[pumpNames[4]]
+# if len(pumpCOMS) == 2:
+#     pumpsConnected = True
+#     print("...")
+#     lhsCOM = pumpCOMS[pumpNames[0]]
+#     rhsCOM = pumpCOMS[pumpNames[1]]
+#     # topCOM = pumpCOMS[pumpNames[2]]
+#     # priCOM = pumpCOMS[pumpNames[3]]
+#     # pneuCOM = pumpCOMS[pumpNames[4]]
 
-    lhsSer = pumpSer[lhsCOM]
-    rhsSer = pumpSer[rhsCOM]
-    # topSer = pumpSer[topCOM]
-    # priSer = pumpSer[priCOM]
-    # pneuSer = pumpSer[pneuCOM]
-# else:
-    # use data from file
-    # pass
+#     lhsSer = pumpSer[lhsCOM]
+#     rhsSer = pumpSer[rhsCOM]
+#     # topSer = pumpSer[topCOM]
+#     # priSer = pumpSer[priCOM]
+#     # pneuSer = pumpSer[pneuCOM]
+# # else:
+#     # use data from file
+#     # pass
 
+connectedL = False
+connectedR = False
+lhsSer = serial.Serial('COM8', 115200, timeout=0, rtscts=1)
+rhsSer = serial.Serial('COM7', 115200, timeout=0, rtscts=1)
+lhsName = 'LHS'
+rhsName = 'RHS'
 
 
 try:
-    if pumpsConnected:
-        print("Pumps connected: ")
-        ardIntLHS = arduinoInterface.ardInterfacer(pumpNames[0], lhsSer)
-        reply = ardIntLHS.connect()
-        print(reply)
-        ardIntRHS = arduinoInterface.ardInterfacer(pumpNames[1], rhsSer)
-        reply = ardIntRHS.connect()
-        print(reply)
-        # ardIntTOP = arduinoInterface.ardInterfacer(pumpNames[2], topSer)
-        # reply = ardIntTOP.connect()
-        # print(reply)
-        # ardIntPRI = arduinoInterface.ardInterfacer(pumpNames[3], priSer)
-        # reply = ardIntPRI.connect()
-        # print(reply)
+    print("Pumps connected: ")
+    ardIntLHS = arduinoInterface.ardInterfacer(lhsName, lhsSer)
+    connectedL = ardIntLHS.connect()
+    ardIntRHS = arduinoInterface.ardInterfacer(rhsName, rhsSer)
+    connectedR = ardIntRHS.connect()
 
-        # ardIntPNEU = arduinoInterface.ardInterfacer(pumpNames[4], pneuSer)
-        # reply = ardIntPNEU.connect()
-        # print(reply)
+    if (connectedL*connectedR == 1):
+        pumpsConnected = True
+
 
         #############################################################
         # Calibrate arduinos for zero volume - maintain negative pressure for 4 seconds
         calibL = False
         calibR = False
-        calibT = True
-        calibP = True
 
         # Has the mechanism been calibrated/want to run without calibration?:
         calibrated = False
@@ -276,25 +273,17 @@ try:
                 [realStepL, pressL, timeL] = ardIntLHS.listenZero(calibL, pressL, timeL)
                 print(realStepL, pressL)
                 # print("LHS: ", calibL)
-            # if not calibR:
-            #     [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
-            #     print(realStepR, pressR)
+            if not calibR:
+                [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
+                print(realStepR, pressR)
                 # print("RHS: ", calibR)
-            # [realStepT, pressT, timeT] = ardIntTOP.listenZero(calibT, pressT, timeT)
-            # print(realStepT, pressT)
-            # [realStepP, pressP, timeP] = ardIntPRI.listenZero(calibP, pressP, timeP)
-            # print(realStepP, calibP)
 
             if (realStepL == "000000LHS"):
                 calibL = True
-            # if (realStepR == "000000RHS"):
-            #     calibR = True
-            # if (realStepT == "000000TOP"):
-            #     calibT = True
-            # if (realStepP == "0200PRI"):
-            #     calibP = True
+            if (realStepR == "000000RHS"):
+                calibR = True
 
-            if (calibL == 1):
+            if (calibL*calibR == 1):
                 calibrated = True
                 # Send 0s instead of StepNo and pressMed as signal that calibration done
                 StepNoL, StepNoR, StepNoT, StepNoP, StepNoA = 0, 0, 0, 0, 0
@@ -302,9 +291,6 @@ try:
 
             ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
             ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
-            # ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
-            # ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
-            # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
             # Ensure same number of rows in position log file
             posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
@@ -608,9 +594,9 @@ finally:
             ardIntRHS.ser.close()
             
     # print(pumpSer)
-    for i in pumpSer:
-        print(pumpSer[i])
-        pumpSer[i].__exit__()
+    # for i in pumpSer:
+    #     print(pumpSer[i])
+    #     pumpSer[i].__exit__()
 
         # if ardIntTOP.ser.is_open:
         #     ardIntTOP.sendStep(CLOSEMESSAGE)

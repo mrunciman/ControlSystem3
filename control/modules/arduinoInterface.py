@@ -117,9 +117,10 @@ class ardInterfacer:
         on each arduino.
         e.g. top = connect("TOP", 4)
         """
-        self.ser.open()
+        # self.ser.open()
+        connected = False
         message = self.PUMP_NAME + "\n"
-        reply = ""
+        # reply = ""
         message = message.encode('utf-8')    #Encode message
         time.sleep(1)     #give arduino time to set up (there are delays in arduino code for pressure sensor)
         while(1):
@@ -128,16 +129,31 @@ class ardInterfacer:
             # self.ser.write(message)
             # print("Handshake: ", message)
             if self.ser.in_waiting > 0:
-                reply = self.ser.readline().strip()
+                x = 'e'
+                reply = b""
+                while ord(x) != ord("\n"):
+                    x = self.ser.read()
+                    if x == b"":
+                        x = "e"
+                        # break
+                    # elif x == b"\n":
+                    #     break
+                    else:
+                        reply = reply + x
+                reply = reply.strip()
                 self.ser.reset_input_buffer()
+                print("Reply: ", reply)
+                replyASCII = reply.decode('ascii')
+                print("ReplyASCII: ", replyASCII)
                 reply = reply.decode('ascii')
 
                 if reply == self.PUMP_NAME:
+                    connected = True
                     self.ser.reset_output_buffer()
                     break
 
         # return open serial connection to allow pumps to be controlled in main code
-        return reply
+        return connected
 
 
 
@@ -162,22 +178,22 @@ class ardInterfacer:
     def listenReply(self):
         x = "e"
         stepPress = b""
-        noBytes = self.ser.in_waiting
-        manTimeout = 0
-        # Wait here for reply - source of delay
-        while noBytes == 0:
-            noBytes = self.ser.in_waiting
-            manTimeout += 1
-            self.ser.write(self.stepMessEnc)
-            if manTimeout >= 2000:
-                self.ser.reset_input_buffer()
-                self.ser.reset_output_buffer()
-                manTimeout = 0
-                stepCount = self.stepCountBU # Change this later to handle dropped values
-                pumpPress = self.pressMed
-                pumpTime = self.pumpTimeBU
-                print("Unresponsive pump", self.PUMP_NAME)
-                return stepCount, pumpPress, pumpTime
+        # noBytes = self.ser.in_waiting
+        # manTimeout = 0
+        # # Wait here for reply - source of delay
+        # while noBytes == 0:
+        #     noBytes = self.ser.in_waiting
+        #     manTimeout += 1
+        #     self.ser.write(self.stepMessEnc)
+        #     if manTimeout >= 2000:
+        #         self.ser.reset_input_buffer()
+        #         self.ser.reset_output_buffer()
+        #         manTimeout = 0
+        #         stepCount = self.stepCountBU # Change this later to handle dropped values
+        #         pumpPress = self.pressMed
+        #         pumpTime = self.pumpTimeBU
+        #         print("Unresponsive pump", self.PUMP_NAME)
+        #         return stepCount, pumpPress, pumpTime
 
         # stepPress = self.ser.readline()
         # print(stepPress)
@@ -185,12 +201,17 @@ class ardInterfacer:
         # stepPress = ser.read(noBytes)
         # Check for end character
         while ord(x) != ord("E"):
-            x = self.ser.read()
-            if x == b"":
-                break
-            if x == b"E":
-                break
-            stepPress = stepPress + x
+            try:
+                x = self.ser.read()
+                if x == b"":
+                    x = "e"
+                    # break
+                elif x == b"E":
+                    break
+                else:
+                    stepPress = stepPress + x
+            except serial.SerialException:
+                continue
 
         # print(stepPress)
         stepPress = stepPress.decode('utf-8')
