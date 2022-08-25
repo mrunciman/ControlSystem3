@@ -68,7 +68,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/gridPath 2022-07-11 11-36-55 centre 15-8.66025 30x30grid 5x5spacing 110pris.csv', newline = '') as csvPath:
+    with open('control/paths/gridPath 2022-05-12 11-04-35 10x10grid 1x1spacing.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -242,9 +242,11 @@ pumpsConnected = False
 
 connectedL = False
 connectedR = False
+topSer = serial.Serial('COM5', 115200, timeout=0)
 lhsSer = serial.Serial('COM8', 115200, timeout=0, rtscts=1)
 rhsSer = serial.Serial('COM7', 115200, timeout=0, rtscts=1)
 lhsName = 'LHS'
+lhsName = 'TOP'
 rhsName = 'RHS'
 
 

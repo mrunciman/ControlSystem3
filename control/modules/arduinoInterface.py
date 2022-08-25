@@ -120,37 +120,31 @@ class ardInterfacer:
         # self.ser.open()
         connected = False
         message = self.PUMP_NAME + "\n"
-        # reply = ""
+        self.stepMessEnc = message.encode('utf-8')
+        reply = b""
+        replyASCII = ""
         message = message.encode('utf-8')    #Encode message
-        time.sleep(1)     #give arduino time to set up (there are delays in arduino code for pressure sensor)
-        while(1):
-            self.ser.write(message)
-            time.sleep(1)     #delay before sending message again
-            # self.ser.write(message)
-            # print("Handshake: ", message)
-            if self.ser.in_waiting > 0:
-                x = 'e'
-                reply = b""
-                while ord(x) != ord("\n"):
-                    x = self.ser.read()
-                    if x == b"":
-                        x = "e"
-                        # break
-                    # elif x == b"\n":
-                    #     break
-                    else:
-                        reply = reply + x
-                reply = reply.strip()
-                self.ser.reset_input_buffer()
-                print("Reply: ", reply)
-                replyASCII = reply.decode('ascii')
-                print("ReplyASCII: ", replyASCII)
-                reply = reply.decode('ascii')
+        time.sleep(2)     #give arduino time to set up (there are delays in arduino code for pressure sensor)
+        while(replyASCII != self.PUMP_NAME):
 
-                if reply == self.PUMP_NAME:
-                    connected = True
-                    self.ser.reset_output_buffer()
-                    break
+            x = "e"
+            reply = b""
+            while ord(x) != ord("\n"):
+                x = self.ser.read()
+                if x == b"":
+                    self.ser.write(message)
+                    time.sleep(0.5)     #delay before sending message again
+                    x = "e"            # assign a rnadom value as x can't be empty
+                else:
+                    reply = reply + x
+            reply = reply.strip()
+            print("Reply: ", reply)
+            replyASCII = reply.decode('ascii')
+            print("ReplyASCII: ", replyASCII)
+            # reply = reply.decode('ascii')
+
+        connected = True
+        self.ser.reset_output_buffer()
 
         # return open serial connection to allow pumps to be controlled in main code
         return connected
@@ -201,17 +195,14 @@ class ardInterfacer:
         # stepPress = ser.read(noBytes)
         # Check for end character
         while ord(x) != ord("E"):
-            try:
-                x = self.ser.read()
-                if x == b"":
-                    x = "e"
-                    # break
-                elif x == b"E":
+            x = self.ser.read()
+            if x == b"":
+                self.ser.write(self.stepMessEnc)
+                x = "e"
+            else:
+                stepPress = stepPress + x
+                if stepPress == self.PUMP_NAME:
                     break
-                else:
-                    stepPress = stepPress + x
-            except serial.SerialException:
-                continue
 
         # print(stepPress)
         stepPress = stepPress.decode('utf-8')
