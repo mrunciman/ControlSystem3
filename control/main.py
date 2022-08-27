@@ -85,18 +85,6 @@ else:
 XYZPathCoords = [xMap, yMap, zMap]
 print("Start point: ", XYZPathCoords)
 
-# Do you want to use mouse as primary?
-# useMouse = False
-
-# if not useMouse:
-#     mouseTrack.xCoord = xPath[0]
-#     mouseTrack.yCoord = yPath[0]
-#     mouseTrack.zCoord = zPath[0]
-#     #Down-sample path here for display
-#     mouseTrack.xPathCoords = xPath[0: int(len(xPath)/noCycles)]  
-#     mouseTrack.yPathCoords = yPath[0: int(len(yPath)/noCycles)]
-#     mouseTrack.zPathCoords = zPath[0: int(len(zPath)/noCycles)]
-
 
 ############################################################################
 # Initialise variables 
@@ -213,13 +201,8 @@ optiTrackConnected = opTrack.optiConnect(useRigidBodies)
 print("Connecting to syringe pumps...")
 pumpsConnected = False
 # [pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
-# # print(pumpCOMS)
+# print(pumpCOMS)
 # print(pumpSer)
-
-# if useVisionFeedback:
-#     config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
-#     pose_est = PoseEstimator(config_path)
-#     pose_est.initialize()
 
 # Set COM port for each pump by using its handshake key
 # if len(pumpCOMS) == 2:
@@ -242,8 +225,10 @@ pumpsConnected = False
 
 connectedL = False
 connectedR = False
-lhsSer = serial.Serial('COM8', 115200, timeout=0, rtscts=1)
-rhsSer = serial.Serial('COM7', 115200, timeout=0, rtscts=1)
+lhsSer = serial.Serial('COM8', 115200, timeout=0)#rtscts=1
+rhsSer = serial.Serial('COM7', 115200, timeout=0)
+print(lhsSer)
+print(rhsSer)
 lhsName = 'LHS'
 rhsName = 'RHS'
 
@@ -258,6 +243,8 @@ try:
     if (connectedL*connectedR == 1):
         pumpsConnected = True
 
+        if optiTrackConnected:
+            [pos_x, vel_x] = energyS.trackToState(opTrack.markerData[-1])
 
         #############################################################
         # Calibrate arduinos for zero volume - maintain negative pressure for 4 seconds
@@ -265,7 +252,7 @@ try:
         calibR = False
 
         # Has the mechanism been calibrated/want to run without calibration?:
-        calibrated = False
+        calibrated = True
         # Perform calibration:
         print("Zeroing hydraulic actuators...")
         while (not calibrated):
@@ -286,14 +273,19 @@ try:
             if (calibL*calibR == 1):
                 calibrated = True
                 # Send 0s instead of StepNo and pressMed as signal that calibration done
-                StepNoL, StepNoR, StepNoT, StepNoP, StepNoA = 0, 0, 0, 0, 0
-                pressLMed, pressRMed, pressTMed, pressPMed, pressAMed = 0, 0, 0, 0, 0
+                StepNoL, StepNoR= 0, 0
+                # pressLMed, pressRMed, pressTMed, pressPMed, pressAMed = 0, 0, 0, 0, 0
+
+            pressLMed = ardIntLHS.newPressMed(pressL)
+            pressRMed = ardIntRHS.newPressMed(pressR)
 
             ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
             ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
             # Ensure same number of rows in position log file
-            posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
+            if optiTrackConnected:
+                [pos_x, vel_x] = energyS.trackToState(opTrack.markerData[-1])
+            posLogging.posLog(pos_x, vel_x, 0, 0, 0)
 
     else:
         print("PUMPS NOT CONNECTED. RUNNING WITHOUT PUMPS.")
@@ -322,7 +314,6 @@ try:
             else:
                 XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
             # print(XYZPathCoords)
-            # XYZPathCoords = [15, 8.66025, 20]
         else:
             phntmOmni.getOmniCoords()
             [xMap, yMap, zMap] = phntmOmni.omniMap()
@@ -341,25 +332,6 @@ try:
         # print(lhsV, rhsV, topV, actualX, actualY)
         # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
         [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
-
-        # if useVisionFeedback == True:
-        #     T_Rob_Inst_camera = pose_est.tip_pose()#4x4 homo matrix in MM
-        #     if T_Rob_Inst_camera is not None:
-        #         realX = T_Rob_Inst_camera[0,3]
-        #         realY = T_Rob_Inst_camera[1,3]
-        #         realZ = T_Rob_Inst_camera[2,3]
-        #         print("Open loop : ", targetXideal, targetYideal, targetOpP)
-        #         # print("Position", -realZ + 15, realY + 8.66, realX)
-        #         [errCableL, errCableR, errCableT, errPrism] = kineSolve.cableError(actualX, actualY, scaleTargL, scaleTargR, scaleTargT, targetOpP, realX, realY, realZ)
-        #         print("OL cables : ", targetOpL, targetOpR, targetOpT, targetOpP)
-        #         print("Error LRTP: ", errCableL, errCableR, errCableT, errPrism)
-
-        #     if visionFeedFlag:
-        #         print("Closed Loop active \n")
-        #         targetL = scaleTargL - errCableL
-        #         targetR = scaleTargR - errCableR
-        #         targetT = scaleTargT - errCableT
-        #         targetP = targetOpP - errPrism
 
         # else:
         targetL = scaleTargL
@@ -400,9 +372,6 @@ try:
         StepNoR += RStep 
         StepNoT += TStep
         StepNoP += PStep
-
-
-
         # print(StepNoL, StepNoR, StepNoT, StepNoP)
 
         # Log deisred position at 
@@ -418,23 +387,24 @@ try:
             # target_1  = vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
             # target_2  = vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
             print("U1: ", controlInputs[0], " U2: ", controlInputs[1], "F: ", controlInputs[2])
-            # print("U1: ", round(controlInputs[0], 3), " U2: ", round(controlInputs[1], 3), "F: ", round(controlInputs[2], 3))
             print("Pressures: ", pressL, pressR)
-            [StepNoL , StepNoR] = energyS.traject(int(realStepL), int(realStepR), dt)
-            # [StepNoL , StepNoR] = energyS.traject(StepNoL, StepNoR, dt)
+            # [StepNoL , StepNoR] = energyS.traject(int(realStepL), int(realStepR), dt)
+            [StepNoL , StepNoR] = energyS.traject(StepNoL, StepNoR, dt)
             # print("StepNos: ", StepNoL , StepNoR)
 
             StepNos = [StepNoL, StepNoR]
-            for i in range(len(StepNos)):
-                if StepNos[i] < 0:
-                    StepNos[i] = 100
-                elif StepNos[i] > kineSolve.MAX_STEPS:
-                    StepNos[i] = int(kineSolve.MAX_STEPS)
+            cStepNos = [cStepL, cStepR]
+            print("StepNos: ", StepNoL , StepNoR, cStepL, cStepR)
+            # for i in range(len(StepNos)):
+            #     if StepNos[i] < 0:
+            #         StepNos[i] = cStepNos[i]
+            #     elif StepNos[i] > kineSolve.MAX_STEPS:
+            #         StepNos[i] = int(kineSolve.MAX_STEPS)
             
-            StepNoL = StepNos[0]
-            StepNoR = StepNos[1]
-
-            print("StepNos: ", StepNoL , StepNoR)
+            # StepNoL = StepNos[0]
+            # StepNoR = StepNos[1]
+            # print("StepNos: ", StepNoL , StepNoR, cStepL, cStepR)
+            print('\n')
 
         else:
             StepNoL = int(tStepL*0.95)
@@ -447,11 +417,8 @@ try:
             # Calculate median pressure over 10 samples:
             pressLMed = ardIntLHS.newPressMed(pressL)
             pressRMed = ardIntRHS.newPressMed(pressR)
-            # pressTMed = ardIntTOP.newPressMed(pressT)
-            # pressAMed = ardIntPNEU.newPressMed(pressA)
             [conLHS, dLHS] = ardIntLHS.derivPress(timeL, prevTimeL)
             [conRHS, dRHS] = ardIntRHS.derivPress(timeR, prevTimeR)
-            # [conTOP, dTOP] = ardIntTOP.derivPress(timeT, prevTimeT)
             collisionAngle = kineSolve.collisionAngle(dLHS, dRHS, dTOP, conLHS, conRHS, conTOP)
 
             # Reduce speed when making first move after calibration.
@@ -460,47 +427,25 @@ try:
                 # RStep = dStepR scaled for speed (w rounding differences)
                 initStepNoL = int(StepNoL*(firstMoveDelay/firstMoveDivider))
                 initStepNoR = int(StepNoR*(firstMoveDelay/firstMoveDivider))
-                initStepNoT = int(StepNoT*(firstMoveDelay/firstMoveDivider))
-                initStepNoP = int(StepNoP*(firstMoveDelay/firstMoveDivider))
-                # Send scaled step number to arduinos:
-                ardIntLHS.sendStep(initStepNoL)
-                ardIntRHS.sendStep(initStepNoR)
-                # ardIntTOP.sendStep(initStepNoT)
-                # ardIntPRI.sendStep(StepNoP)
+                StepNoL = initStepNoL
+                StepNoR = initStepNoR
             else:
                 if useVisionFeedback:
                     visionFeedFlag = 1
                 if useEnergyShaping:
                     energyFlag = True
                 # Send step number to arduinos:
-                ardIntLHS.sendStep(StepNoL)
-                ardIntRHS.sendStep(StepNoR)
-                # ardIntTOP.sendStep(StepNoT)
-                # ardIntPRI.sendStep(StepNoP)
+            ardIntLHS.sendStep(StepNoL)
+            ardIntRHS.sendStep(StepNoR)
 
             # Log values from arduinos
             ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
             ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
-            # ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
-            # ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
-            # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
 
             # Get current pump position, pressure and times from arduinos
             [realStepL, pressL, timeL] = ardIntLHS.listenReply()
             [realStepR, pressR, timeR] = ardIntRHS.listenReply()
-            # if (realStepL == "S_Empty"):
-            #     realStepL = StepNoL
-            # elif (realStepR == "S_Empty"):
-            #     realStepR = StepNoR
-
-            # if pressL == "P_Empty":
-            #     pressL = pressLMed
-            # elif pressR == "P_Empty":
-            #     pressR = pressRMed
-            # [realStepT, pressT, timeT] = ardIntTOP.listenReply()
-            # [realStepP, pressP, timeP] = ardIntPRI.listenReply()
-            # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
 
             # Check for high pressure
             if (max(int(pressL), int(pressR)) > PRESS_MAX_PA):
@@ -508,12 +453,15 @@ try:
                 flagStop = True
             elif (min(int(pressL), int(pressR)) < PRESS_MIN_PA):
                 print("Under pressure: ", min(int(pressL), int(pressR)), " Pa")
-                flagStop = True
-
+                # flagStop = True
+                continue
             
             dt = (timeL - prevTimeL)/1000 # kineSolve.TIMESTEP
+            if dt == 0:
+                dt = kineSolve.TIMESTEP
         else:
             dt = kineSolve.TIMESTEP
+
 
         # Update current position, cable lengths, and volumes as previous targets
         currentX = actualX
@@ -572,7 +520,7 @@ finally:
         ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
         ardLogging.ardSave()
         # Ensure same number of rows in position log file
-        posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
+        posLogging.posLog(pos_x, vel_x, controlInputs[0], controlInputs[1], controlInputs[2])
 
     #Save position data
     posLogging.posSave()
@@ -581,7 +529,7 @@ finally:
         if ardIntLHS.ser.is_open:
             ardIntLHS.sendStep(CLOSEMESSAGE)
             time.sleep(0.2)
-            [realStepL, pressL, timeL] = ardIntLHS.listenReply()
+            # [realStepL, pressL, timeL] = ardIntLHS.listenReply()
             print(realStepL, pressL, timeL)
             ardIntLHS.ser.close()
 
@@ -589,7 +537,7 @@ finally:
         if ardIntRHS.ser.is_open:
             ardIntRHS.sendStep(CLOSEMESSAGE)
             time.sleep(0.2)
-            [realStepR, pressR, timeR] = ardIntRHS.listenReply()
+            # [realStepR, pressR, timeR] = ardIntRHS.listenReply()
             print(realStepR, pressR, timeR)
             ardIntRHS.ser.close()
             
