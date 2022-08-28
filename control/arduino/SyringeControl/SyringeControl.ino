@@ -12,7 +12,7 @@ Pressure control sketch for syringe pumps
 ////////////////////////////////////////////////////////
 // Handshake variables
 String shakeInput; // 3 bit password to assign pump name/position
-char shakeKey[5] = "RHS"; //
+char shakeKey[5] = "LHS"; //
 // TOP = 7, RHS = 6, LHS = 8
 
 ////////////////////////////////////////////////////////
@@ -53,8 +53,6 @@ int pressureError;
 int pressSteps = 64; // Num steps to move when calibrating
 int PRESS_STEPS_FINE = 20;
 int PRESS_STEPS_LG = 40;
-int SAMP_DIV = 6; // Factor to divide Timer2 frequency by
-// volatile bool sampFlag = false;
 
 ////////////////////////////////////////////////////////
 // Calibration
@@ -78,8 +76,8 @@ int motorState = 0;
 int stepCount = 0;
 // String stepRecv;
 int prevStepIn = 0;
-char stepRecv[10];
-char byteRead;
+char stepRecv[5] = "0000";
+char byteRead = 0;
 int availableBytes = 0;
 int stepIn;
 int stepError = 0;
@@ -143,13 +141,13 @@ void pressureRead() {
   // Stop motor and wait if pressure exceeds maximum
   if (pressureAbs > PRESS_MAX){
     // extInterrupt = true;
-    disconFlag = true; // Stop and disable
+    disconFlag = false; // Stop and disable
   }
   else if (pressureAbs < 0){
     pressureAbs = 0.00;
   }
   else if (pressureAbs < PRESS_MIN){
-    disconFlag = true;
+    disconFlag = false;
   }
 
 }
@@ -270,111 +268,45 @@ void readWriteSerial() {
     // Capital S in ASCII is 83, so check for that:
     if (firstDigit == 83) {
       availableBytes = Serial.available();
-      prevStepIn = stepIn;
       stepRecv[0] = '\0'; // Zero the stepRecv char array
-      byteRead = '\0';
+      byteRead = 0;
       int j = 0;
-      // while (byteRead != '\n'){
-      //   if (j < 10){ //Don't go over number of bytes in stepRecv
-      //     byteRead = Serial.read();
-      //     if (byteRead != '\n'){
-      //       stepRecv[j] = byteRead; // build stepRecv
-      //       stepRecv[j+1] = '\0'; // Append a null
-      //     }
-      //   }
-      //   else if (j >= availableBytes){
-      //     if (Serial.available()>0){ // check if more digits received
-
-      //     }
-      //     else{
-      //       j = j-1; // maintain index
-      //     }
-      //   }
-      //   else{
-      //     serErrorFlag = true;
-      //   }
-      //   j = j+1;
-      // }
-
-
-
       while (byteRead != '\n'){
         if (Serial.available()>0){
-          if (j < 10){ //Don't go over number of bytes in stepRecv
+          if (j < 5){ //Don't go over number of bytes in stepRecv
             byteRead = Serial.read();
-            if (byteRead != '\n'){
+            if (byteRead == 'S'){
+              break;
+            }
+            else if (byteRead != '\n'){
               stepRecv[j] = byteRead; // build stepRecv
               stepRecv[j+1] = '\0'; // Append a null
             }
-            else if(byteRead == 'C'){
-              disconFlag = true;
-            return;
-        }
+            else{
+              break;
+            }
           }
           else{
             serErrorFlag = true;
+            break;
           }
           j = j+1;
         }
+        else{
+          delayMicroseconds(100);
+        }
       }
 
-
-      for (int k = 0; k<strlen(stepRecv); k++){
-        // Serial.println(stepRecv[k]);
+      if (strcmp(stepRecv, "Closed")==0){
+        disconFlag = true;
+        stepRecv[0] = '\0';
+        return;
+      }
+      for (int k = 0; k <= strlen(stepRecv); k++){
         if(isDigit(stepRecv[k])==false){
           serErrorFlag = true;
+          // Serial.println(k);
         }
-      }
-      // for(int i=0; i<availableBytes; i++){
-      //   byteRead = Serial.read();
-      //   if (i == 10){
-      //     for(i; i<availableBytes; i++){
-      //       byteRead = Serial.read(); // flush buffer
-      //     }
-      //     prevStepIn = stepIn;
-      //     return;
-      //   }
-      //   // else if (i == availableBytes-1 ){
-      //   //   if (byteRead != '\n'){
-      //   //     delayMicroseconds(100);
-      //   //     if (Serial.available()>0){
-      //   //       byteRead = Serial.read();
-      //   //     }
-      //   //   }
-      //   // }
-
-      //   if (isDigit(byteRead)){
-      //     stepRecv[i] = byteRead; // build stepRecv
-      //     stepRecv[i+1] = '\0'; // Append a null
-      //   }
-      //   else if(byteRead == 'C'){
-      //     disconFlag = true;
-      //     return;
-      //   }
-      //   else if (byteRead == '\n'){
-      //     break;
-      //   }
-      //   // else if (byteRead == 'S'){
-      //   //   stepRecv[0] = '\0'; // Zero stepRecv char array
-      //   // }
-      // }
-      if (pumpState == 4){
-        if (serErrorFlag == false){
-          stepIn = atoi(stepRecv);
-          // if (stepIn > maxSteps){
-          //   stepIn = maxSteps;
-          // }
-          // else if (stepIn < minSteps){
-          //   stepIn = prevStepIn;
-          // }
-        }
-        else{
-          stepIn = prevStepIn;
-        }
-        angPos = float(DEG_PER_REV)*(float(stepIn)/float(STEPS_PER_REV));
-        angMeas = stepper.encoder.getAngleMoved();
-        stepCount = int(angMeas*STEPS_PER_REV/DEG_PER_REV);
-        stepError = stepIn - stepCount;
       }
     }
     else {
@@ -388,11 +320,33 @@ void readWriteSerial() {
 }
 
 
+void setPosition(){
+  if (serErrorFlag == false){
+    stepIn = atoi(stepRecv);
+    // Serial.println(stepIn);
+    if (stepIn > maxSteps){
+      stepIn = maxSteps;
+    }
+    else if (stepIn < minSteps){
+      stepIn = prevStepIn;
+    }
+    prevStepIn = stepIn;
+  }
+  else{
+    stepIn = prevStepIn;
+    serErrorFlag = false; // reset error flag
+  }
+  angPos = DEG_PER_REV*(float(stepIn)/STEPS_PER_REV);
+  angMeas = stepper.encoder.getAngleMoved();
+  stepCount = int(angMeas*STEPS_PER_REV/DEG_PER_REV);
+  stepError = stepIn - stepCount;
+}
+
 
 void writeSerial(char msg){
   writeTime = millis();
   if (msg == 'S'){ // Normal operation, send stepCount etc
-    sprintf(data, "%06d,%d,%lu,%s", stepCount, int(pressureAbs*10), writeTime, endByte);
+    sprintf(data, "%s,%d,%lu,%s", stepRecv, stepIn, writeTime, endByte);
   }
   else if (msg == 'D'){ // Python cut off comms, acknowledge this
     sprintf(data, "%s%s,%d,%lu%s", disableMsg, shakeKey, int(pressureAbs*10), writeTime, endByte);
@@ -496,6 +450,7 @@ void loop() {
 
       // Read stepIn
       readWriteSerial(); 
+      setPosition();
       //Send stepCount
       writeSerial('S');
 

@@ -123,6 +123,7 @@ x_d = 0.00#5
 firstflag = True
 controlInputs = [0, 0, 0]
 pos_x, vel_x = 0, 0
+dt = kineSolve.TIMESTEP
 
 # Initialise cable length variables at home position
 cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
@@ -225,12 +226,11 @@ pumpsConnected = False
 
 connectedL = False
 connectedR = False
-lhsSer = serial.Serial('COM8', 115200, timeout=0)#rtscts=1
-rhsSer = serial.Serial('COM7', 115200, timeout=0)
+lhsSer = serial.Serial('COM6', 115200, timeout=0)#rtscts=1
+rhsSer = serial.Serial('COM5', 115200, timeout=0)
 print(lhsSer)
 print(rhsSer)
 lhsName = 'LHS'
-lhsName = 'TOP'
 rhsName = 'RHS'
 
 

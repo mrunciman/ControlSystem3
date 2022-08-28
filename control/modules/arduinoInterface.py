@@ -212,7 +212,7 @@ class ardInterfacer:
         # print("Message: ", repr(message))
         self.ser.reset_output_buffer()
         self.stepMessEnc = message.encode('utf-8')
-        print("Message: ", self.stepMessEnc)
+        # print("Message: ", self.stepMessEnc)
         self.ser.write(self.stepMessEnc)
         return
 
