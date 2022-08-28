@@ -12,7 +12,7 @@ Pressure control sketch for syringe pumps
 ////////////////////////////////////////////////////////
 // Handshake variables
 String shakeInput; // 3 bit password to assign pump name/position
-char shakeKey[5] = "TOP"; //
+char shakeKey[5] = "RHS"; //
 // TOP = 7, RHS = 6, LHS = 8
 
 ////////////////////////////////////////////////////////
@@ -38,6 +38,7 @@ bool pressFlag = true;
 // Setting Serial input variables
 char firstDigit = 0;  // For checking incoming communications
 String flushInputBuffer;
+bool serErrorFlag = false;
 
 ////////////////////////////////////////////////////////
 // Pressure sensor variables
@@ -50,6 +51,8 @@ int PRESS_FINE = 50; // When within this threshold, use finer movements
 double pressSetpoint = 850.00;//mbar
 int pressureError;
 int pressSteps = 64; // Num steps to move when calibrating
+int PRESS_STEPS_FINE = 20;
+int PRESS_STEPS_LG = 40;
 int SAMP_DIV = 6; // Factor to divide Timer2 frequency by
 // volatile bool sampFlag = false;
 
@@ -73,7 +76,11 @@ int STEPS_PER_MM = 400; // Higher steps per mm value for ustepper s lite than ol
 int prevMotorState = 0;
 int motorState = 0;
 int stepCount = 0;
-String stepRecv;
+// String stepRecv;
+int prevStepIn = 0;
+char stepRecv[10];
+char byteRead;
+int availableBytes = 0;
 int stepIn;
 int stepError = 0;
 
@@ -136,7 +143,7 @@ void pressureRead() {
   // Stop motor and wait if pressure exceeds maximum
   if (pressureAbs > PRESS_MAX){
     // extInterrupt = true;
-    disconFlag = false; // Stop and disable
+    disconFlag = true; // Stop and disable
   }
   else if (pressureAbs < 0){
     pressureAbs = 0.00;
@@ -209,11 +216,11 @@ void pressInitZeroVol() {
   if (motorState == 1 || motorState == 2){
     // if within 50 mbar of target pressure go slower
     if (abs(pressureError) < PRESS_FINE){ 
-      pressSteps = 32;
+      pressSteps = PRESS_STEPS_FINE;
       // stepper.setMaxVelocity(SPEEDP_LOW);
     }
     else{
-      pressSteps = 64;
+      pressSteps = PRESS_STEPS_LG;
       // stepper.setMaxVelocity(SPEEDP_HIGH);
     }
   }
@@ -257,36 +264,126 @@ void handShake() {
 
 //Function to read input in serial monitor and set the new desired pressure.
 void readWriteSerial() {
-  firstDigit = Serial.read();
-  // Control code sends capital S to receive stepCount
-  // Capital S in ASCII is 83, so check for that:
-  if (firstDigit == 83) {
-    stepRecv = Serial.readStringUntil('\n');
-    if (stepRecv == "Closed"){
-      // Disable the motor
-      disconFlag = true;
-      //Send disable message
-      writeSerial('D');
-    }
-    else{
-      stepIn = stepRecv.toInt();
-      if (stepIn > maxSteps){
-        stepIn = maxSteps;
+  if (Serial.available() > 0){
+    firstDigit = Serial.read();
+    // Control code sends capital S to receive stepCount
+    // Capital S in ASCII is 83, so check for that:
+    if (firstDigit == 83) {
+      availableBytes = Serial.available();
+      prevStepIn = stepIn;
+      stepRecv[0] = '\0'; // Zero the stepRecv char array
+      byteRead = '\0';
+      int j = 0;
+      // while (byteRead != '\n'){
+      //   if (j < 10){ //Don't go over number of bytes in stepRecv
+      //     byteRead = Serial.read();
+      //     if (byteRead != '\n'){
+      //       stepRecv[j] = byteRead; // build stepRecv
+      //       stepRecv[j+1] = '\0'; // Append a null
+      //     }
+      //   }
+      //   else if (j >= availableBytes){
+      //     if (Serial.available()>0){ // check if more digits received
+
+      //     }
+      //     else{
+      //       j = j-1; // maintain index
+      //     }
+      //   }
+      //   else{
+      //     serErrorFlag = true;
+      //   }
+      //   j = j+1;
+      // }
+
+
+
+      while (byteRead != '\n'){
+        if (Serial.available()>0){
+          if (j < 10){ //Don't go over number of bytes in stepRecv
+            byteRead = Serial.read();
+            if (byteRead != '\n'){
+              stepRecv[j] = byteRead; // build stepRecv
+              stepRecv[j+1] = '\0'; // Append a null
+            }
+            else if(byteRead == 'C'){
+              disconFlag = true;
+            return;
+        }
+          }
+          else{
+            serErrorFlag = true;
+          }
+          j = j+1;
+        }
       }
-      if (stepIn < minSteps){
-        stepIn = minSteps;
+
+
+      for (int k = 0; k<strlen(stepRecv); k++){
+        // Serial.println(stepRecv[k]);
+        if(isDigit(stepRecv[k])==false){
+          serErrorFlag = true;
+        }
       }
-      angPos = DEG_PER_REV*(float(stepIn)/STEPS_PER_REV);
-      angMeas = float(stepper.encoder.getAngleMoved());
-      stepCount = int(angMeas*STEPS_PER_REV/DEG_PER_REV);
-      stepError = stepIn - stepCount;
-      //Send stepCount
-      writeSerial('S');
+      // for(int i=0; i<availableBytes; i++){
+      //   byteRead = Serial.read();
+      //   if (i == 10){
+      //     for(i; i<availableBytes; i++){
+      //       byteRead = Serial.read(); // flush buffer
+      //     }
+      //     prevStepIn = stepIn;
+      //     return;
+      //   }
+      //   // else if (i == availableBytes-1 ){
+      //   //   if (byteRead != '\n'){
+      //   //     delayMicroseconds(100);
+      //   //     if (Serial.available()>0){
+      //   //       byteRead = Serial.read();
+      //   //     }
+      //   //   }
+      //   // }
+
+      //   if (isDigit(byteRead)){
+      //     stepRecv[i] = byteRead; // build stepRecv
+      //     stepRecv[i+1] = '\0'; // Append a null
+      //   }
+      //   else if(byteRead == 'C'){
+      //     disconFlag = true;
+      //     return;
+      //   }
+      //   else if (byteRead == '\n'){
+      //     break;
+      //   }
+      //   // else if (byteRead == 'S'){
+      //   //   stepRecv[0] = '\0'; // Zero stepRecv char array
+      //   // }
+      // }
+      if (pumpState == 4){
+        if (serErrorFlag == false){
+          stepIn = atoi(stepRecv);
+          // if (stepIn > maxSteps){
+          //   stepIn = maxSteps;
+          // }
+          // else if (stepIn < minSteps){
+          //   stepIn = prevStepIn;
+          // }
+        }
+        else{
+          stepIn = prevStepIn;
+        }
+        angPos = float(DEG_PER_REV)*(float(stepIn)/float(STEPS_PER_REV));
+        angMeas = stepper.encoder.getAngleMoved();
+        stepCount = int(angMeas*STEPS_PER_REV/DEG_PER_REV);
+        stepError = stepIn - stepCount;
+      }
     }
-  }
-  else {
-    flushInputBuffer = Serial.readStringUntil('\n');
-    writeSerial('P');
+    else {
+      // flushInputBuffer = Serial.readStringUntil('\n');
+      availableBytes = Serial.available();
+      for(int i=0; i<availableBytes; i++){
+        byteRead = Serial.read();
+      }
+    }
   }
 }
 
@@ -295,7 +392,7 @@ void readWriteSerial() {
 void writeSerial(char msg){
   writeTime = millis();
   if (msg == 'S'){ // Normal operation, send stepCount etc
-    sprintf(data, "%06d,%d,%lu%s", stepCount, int(pressureAbs*10), writeTime, endByte);
+    sprintf(data, "%06d,%d,%lu,%s", stepCount, int(pressureAbs*10), writeTime, endByte);
   }
   else if (msg == 'D'){ // Python cut off comms, acknowledge this
     sprintf(data, "%s%s,%d,%lu%s", disableMsg, shakeKey, int(pressureAbs*10), writeTime, endByte);
@@ -320,7 +417,7 @@ void loop() {
   else if(disconFlag == true){
     pumpState = 2;//Disconnection
   }
-  else if(pressFlag == true){//CHANGE TO TRUE TO ACTIVATE
+  else if(pressFlag == false){//CHANGE TO TRUE TO ACTIVATE
     pumpState = 3;//Calibration
   }
   else{
@@ -329,7 +426,7 @@ void loop() {
 
   timeNow = micros();
   timeSinceStep = timeNow - timeAtStep;
-  while (timeSinceStep < 47000){
+  while (timeSinceStep < 47500){
     timeNow = micros();
     timeSinceStep = timeNow - timeAtStep;
   }
@@ -349,14 +446,15 @@ void loop() {
     //////////////////////////////////////////////////////////////////////////////////////////
     //Disconnection
     case 2:
-      Serial.println("Disconnection");
+      writeSerial('D');
       stepper.setup(CLOSEDLOOP,200);
       stepper.setMaxAcceleration(MAXACCELERATION);
       stepper.setMaxVelocity(MAXVELOCITY);
       stepper.setControlThreshold(15);
 
-      disconFlag = false;
-      shakeFlag = false;
+      disconFlag = false; // No not disconnected
+      shakeFlag = false; // No not handshaken
+      pressFlag = true; // Yes do calibration
       break;
 
     //////////////////////////////////////////////////////////////////////////////////////////
@@ -375,22 +473,12 @@ void loop() {
         stepCount = 0;
         stepper.encoder.setHome();
         // Notify that calibration is done
-        writeSerial('P');
         pressFlag = false;
         writeSerial('P');
       }
       else{
         // Check for disconnection
-        if (Serial.available() > 0) {
-          firstDigit = Serial.read();
-          if (firstDigit == 83) {
-            stepRecv = Serial.readStringUntil('\n');
-            if (stepRecv == "Closed"){
-              disconFlag = true;
-              writeSerial('D');
-            }
-          }
-        }
+        readWriteSerial();
         // If no reply, say calibration in progres
         writeSerial('p');
       }
@@ -406,19 +494,17 @@ void loop() {
 
       pressureRead();
 
-      // timeNow = micros();
-      // timeSinceStep = timeNow - timeAtStep;
-      // timeAtStep = timeNow;
-      // ||(timeSinceStep >= 48000)
-
-      if (Serial.available() > 0) { 
-        readWriteSerial(); // Read stepIn, send stepCount and pressure
-      }
+      // Read stepIn
+      readWriteSerial(); 
+      //Send stepCount
+      writeSerial('S');
 
       // Move to the desired position
       stepper.moveToAngle(angPos); // Could have problems with this - seems it is relative to current position, not zero position
       break;
-    
+
+    //////////////////////////////////////////////////////////////////////////////////////////
+    //Default
     default:
       break;
   }

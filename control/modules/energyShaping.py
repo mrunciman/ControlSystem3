@@ -296,7 +296,7 @@ class energyShaper():
         U1 = self.controlU[0]*MCUBE_TO_MMCUBE # in mm^3
         U2 = self.controlU[1]*MCUBE_TO_MMCUBE
 
-        k_U = 0.5
+        k_U = 0.1
 
         self.x1_s_ast_p = steps1_current
         self.x2_s_ast_p = steps2_current
