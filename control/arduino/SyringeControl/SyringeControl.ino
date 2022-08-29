@@ -13,7 +13,6 @@ Pressure control sketch for syringe pumps
 // Handshake variables
 String shakeInput; // 3 bit password to assign pump name/position
 char shakeKey[5] = "LHS"; //
-// TOP = 7, RHS = 6, LHS = 8
 
 ////////////////////////////////////////////////////////
 //uStepper S Lite Setup
@@ -75,11 +74,11 @@ int prevMotorState = 0;
 int motorState = 0;
 int stepCount = 0;
 // String stepRecv;
-int prevStepIn = 0;
-char stepRecv[5] = "0000";
+int prevStepIn = 10;
+char stepRecv[7] = "00000";
 char byteRead = 0;
 int availableBytes = 0;
-int stepIn;
+long int stepIn = 0;
 int stepError = 0;
 
 ///////////////////////////////////////////////////////
@@ -106,7 +105,7 @@ float A_SYRINGE = PI*pow(13.25, 2.0); // piston area in mm^2
 float FACT_V = (ACT_WIDTH*pow(L0 , 2.0))/(2.0*NUM_L);
 float MAX_V = FACT_V*(2.0/PI); // volume in mm^3 when fully actuated
 // steps to fill actuator
-int maxSteps = ((MAX_V/A_SYRINGE)*STEPS_PER_MM); 
+int maxSteps = 5000; //((MAX_V/A_SYRINGE)*STEPS_PER_MM); 
 int minSteps = 10;
 
 
@@ -262,12 +261,11 @@ void handShake() {
 
 //Function to read input in serial monitor and set the new desired pressure.
 void readWriteSerial() {
-  if (Serial.available() > 0){
+  while (Serial.available() > 0){
     firstDigit = Serial.read();
     // Control code sends capital S to receive stepCount
     // Capital S in ASCII is 83, so check for that:
     if (firstDigit == 83) {
-      availableBytes = Serial.available();
       stepRecv[0] = '\0'; // Zero the stepRecv char array
       byteRead = 0;
       int j = 0;
@@ -275,25 +273,30 @@ void readWriteSerial() {
         if (Serial.available()>0){
           if (j < 5){ //Don't go over number of bytes in stepRecv
             byteRead = Serial.read();
-            if (byteRead == 'S'){
+            if (byteRead == 115){ // look for s as end byte
+              break;
+            }
+            else if (byteRead == 83){
+              // serErrorFlag = true; // if byteRead is S something went wrong
               break;
             }
             else if (byteRead != '\n'){
               stepRecv[j] = byteRead; // build stepRecv
               stepRecv[j+1] = '\0'; // Append a null
             }
-            else{
+            else{ // not start, end byte
+              // serErrorFlag = true;
               break;
             }
           }
-          else{
-            serErrorFlag = true;
+          else{ // too long for stepRecv
+            // serErrorFlag = true;
             break;
           }
           j = j+1;
         }
         else{
-          delayMicroseconds(100);
+          delayMicroseconds(500);
         }
       }
 
@@ -304,38 +307,57 @@ void readWriteSerial() {
       }
       for (int k = 0; k <= strlen(stepRecv); k++){
         if(isDigit(stepRecv[k])==false){
-          serErrorFlag = true;
+          // serErrorFlag = true;
           // Serial.println(k);
+          continue;
         }
       }
     }
     else {
       // flushInputBuffer = Serial.readStringUntil('\n');
-      availableBytes = Serial.available();
-      for(int i=0; i<availableBytes; i++){
-        byteRead = Serial.read();
-      }
+      // availableBytes = Serial.available();
+      // for(int i=0; i<availableBytes; i++){
+      byteRead = Serial.read();
+      // }
     }
   }
 }
 
 
 void setPosition(){
-  if (serErrorFlag == false){
-    stepIn = atoi(stepRecv);
-    // Serial.println(stepIn);
-    if (stepIn > maxSteps){
-      stepIn = maxSteps;
-    }
-    else if (stepIn < minSteps){
-      stepIn = prevStepIn;
-    }
-    prevStepIn = stepIn;
+  stepIn = strtol(stepRecv, NULL, 10);
+  if (stepIn > maxSteps){
+    stepIn = maxSteps;
+  }
+  else if (stepIn < minSteps){
+    stepIn = prevStepIn;
+  }
+
+  if(serErrorFlag == true){
+    stepIn = prevStepIn;
+    serErrorFlag = false;
   }
   else{
-    stepIn = prevStepIn;
-    serErrorFlag = false; // reset error flag
+    prevStepIn = stepIn;
   }
+
+  // if (serErrorFlag == false){
+  //   stepIn = strtol(stepRecv, NULL, 10);
+  //   // stepIn = atoi(stepRecv);
+  //   // Serial.println(stepIn);
+  //   if (stepIn > maxSteps){
+  //     stepIn = maxSteps;
+  //   }
+  //   else if (stepIn < minSteps){
+  //     stepIn = prevStepIn;
+  //   }
+  //   prevStepIn = stepIn;
+  // }
+  // else{
+  //   stepIn = prevStepIn;
+  //   serErrorFlag = false; // reset error flag
+  // }
+
   angPos = DEG_PER_REV*(float(stepIn)/STEPS_PER_REV);
   angMeas = stepper.encoder.getAngleMoved();
   stepCount = int(angMeas*STEPS_PER_REV/DEG_PER_REV);
@@ -346,7 +368,7 @@ void setPosition(){
 void writeSerial(char msg){
   writeTime = millis();
   if (msg == 'S'){ // Normal operation, send stepCount etc
-    sprintf(data, "%s,%d,%lu,%s", stepRecv, stepIn, writeTime, endByte);
+    sprintf(data, "%s,%lu,%lu,%s", stepRecv, stepIn, writeTime, endByte);
   }
   else if (msg == 'D'){ // Python cut off comms, acknowledge this
     sprintf(data, "%s%s,%d,%lu%s", disableMsg, shakeKey, int(pressureAbs*10), writeTime, endByte);

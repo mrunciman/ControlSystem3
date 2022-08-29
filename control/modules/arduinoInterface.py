@@ -208,9 +208,9 @@ class ardInterfacer:
             stepString = "{:04d}".format(stepNumber)
         else:
             stepString = stepNumber
-        message = "S" + stepString + "\n"
+        message = "S" + stepString + "s" + "\n"
         # print("Message: ", repr(message))
-        self.ser.reset_output_buffer()
+        # self.ser.reset_output_buffer()
         self.stepMessEnc = message.encode('utf-8')
         # print("Message: ", self.stepMessEnc)
         self.ser.write(self.stepMessEnc)
@@ -225,11 +225,11 @@ class ardInterfacer:
             x = self.ser.read()
             if x == b"":
                 # self.ser.reset_input_buffer()
-                self.ser.reset_output_buffer()
-                self.ser.write(self.stepMessEnc)
+                # self.ser.reset_output_buffer()
+                # self.ser.write(self.stepMessEnc)
                 x = "e"
-            elif x == b"\n":
-                stepPress = b""
+            # elif x == b"\n":
+            #     stepPress = b""
                 # time.sleep(0.1) #delay before sending message again
             elif x == b"E":
                 break
@@ -241,6 +241,7 @@ class ardInterfacer:
                     # self.ser.write(self.stepMessEnc)
                     break
 
+        print("Message: ", self.stepMessEnc)
         print(stepPress)
         stepPress = stepPress.decode('utf-8')
         print(stepPress)
@@ -253,9 +254,6 @@ class ardInterfacer:
         # print(stepPress)
         if len(stepPress) == 4:
             stepCount = stepPress[0]
-            if "L " in stepCount: # If "L " in stepPress then limit hit/pressure error
-                print("In from arduino: ", stepPress)
-                raise TypeError('Pressure limit or switch hit in main loop')
             self.stepCountBU = stepCount
 
             filtPump = filter(str.isdigit, stepPress[1])
@@ -264,6 +262,7 @@ class ardInterfacer:
                 pumpPress = 0
             pumpPress = int(pumpPress)*10 # pressure in Pascals
             # pumpPress = int(stepPress[1])/10 # pressure in mbar
+            pumpPress = int(stepPress[1])
 
             filtTime = filter(str.isdigit, stepPress[2])
             pumpTime = "".join(filtTime)
@@ -271,11 +270,11 @@ class ardInterfacer:
                 pumpTime = 0
             pumpTime = int(pumpTime)
             self.pumpTimeBU = pumpTime
-        elif stepPress[0] == '':
-            print("First value is empty")
-            stepCount = self.stepCountBU
-            pumpPress = self.pressMed
-            pumpTime = self.pumpTimeBU
+        # elif stepPress[0] == '':
+        #     print("First value is empty")
+        #     stepCount = self.stepCountBU
+        #     pumpPress = self.pressMed
+        #     pumpTime = self.pumpTimeBU
         else:
             stepCount = self.stepCountBU
             pumpPress = self.pressMed
