@@ -12,6 +12,8 @@ location = os.path.dirname(__file__)
 parent = os.path.dirname(location)
 logTime = time.strftime("%Y-%m-%d %H-%M-%S")
 relative = "logs/opti/optiTrack " + logTime + ".csv"
+parent = "C:/Users/msrun/OneDrive - Imperial College London/Imperial/MRC/Energy Shaping/DATA_COLLECTION/logs/raw optitrack data"
+relative = "optiTrack " + logTime + ".csv"
 fileName = os.path.join(parent, relative)
 with open(fileName, mode ='w', newline='') as optiLog0: 
     optiLog1 = csv.writer(optiLog0)

@@ -221,15 +221,19 @@ class ardInterfacer:
     def listenReply(self):
         x = "e"
         stepPress = b""
+        # attemptNo = 0
         while ord(x) != ord("E"):
             x = self.ser.read()
             if x == b"":
-                # self.ser.reset_input_buffer()
-                # self.ser.reset_output_buffer()
-                # self.ser.write(self.stepMessEnc)
                 x = "e"
-            # elif x == b"\n":
-            #     stepPress = b""
+                # if attemptNo >= 100000:
+                #     attemptNo = 0
+                #     self.ser.reset_input_buffer()
+                #     self.ser.reset_output_buffer()
+                #     self.ser.write(self.stepMessEnc)
+                #     print("Re-send")
+            elif x == b"\n":
+                stepPress = b""
                 # time.sleep(0.1) #delay before sending message again
             elif x == b"E":
                 break
@@ -240,19 +244,20 @@ class ardInterfacer:
                     # self.stepMessEnc = message.encode('utf-8')
                     # self.ser.write(self.stepMessEnc)
                     break
+            # attemptNo += 1
 
-        print("Message: ", self.stepMessEnc)
-        print(stepPress)
+        # print("Message: ", self.stepMessEnc)
+        # print(stepPress)
         stepPress = stepPress.decode('utf-8')
-        print(stepPress)
+        # print(stepPress)
         stepPress = stepPress.split(',')
-        print(stepPress)
+        # print(stepPress)
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
 
         # IF STEP COUNT = L_'pumpName' STOP AND DISCONNECT ALL
         # print(stepPress)
-        if len(stepPress) == 4:
+        if len(stepPress) == 3:
             stepCount = stepPress[0]
             self.stepCountBU = stepCount
 
@@ -262,7 +267,7 @@ class ardInterfacer:
                 pumpPress = 0
             pumpPress = int(pumpPress)*10 # pressure in Pascals
             # pumpPress = int(stepPress[1])/10 # pressure in mbar
-            pumpPress = int(stepPress[1])
+            # pumpPress = int(stepPress[1])
 
             filtTime = filter(str.isdigit, stepPress[2])
             pumpTime = "".join(filtTime)
@@ -270,11 +275,11 @@ class ardInterfacer:
                 pumpTime = 0
             pumpTime = int(pumpTime)
             self.pumpTimeBU = pumpTime
-        # elif stepPress[0] == '':
-        #     print("First value is empty")
-        #     stepCount = self.stepCountBU
-        #     pumpPress = self.pressMed
-        #     pumpTime = self.pumpTimeBU
+        elif stepPress == ['']:
+            # print("First value is empty")
+            stepCount = self.stepCountBU
+            pumpPress = self.pressMed
+            pumpTime = self.pumpTimeBU
         else:
             stepCount = self.stepCountBU
             pumpPress = self.pressMed

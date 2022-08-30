@@ -12,12 +12,12 @@ Pressure control sketch for syringe pumps
 ////////////////////////////////////////////////////////
 // Handshake variables
 String shakeInput; // 3 bit password to assign pump name/position
-char shakeKey[5] = "LHS"; //
+char shakeKey[5] = "RHS"; //
 
 ////////////////////////////////////////////////////////
 //uStepper S Lite Setup
-#define MAXACCELERATION 2000       //Max acceleration in steps/s^2 (2000 = 5 mm/s^2)
-#define MAXVELOCITY 2000           //Max velocity in steps/s (2000 is 5 mm/s)
+#define MAXACCELERATION 500       //Max acceleration in steps/s^2 (2000 = 5 mm/s^2)
+#define MAXVELOCITY 1500           //Max velocity in steps/s (2000 is 5 mm/s)
 float SPEEDP_HIGH = 1000.0;
 float SPEEDP_LOW = 500.0;
 float STEPS_PER_REV = 3200.0;
@@ -47,11 +47,11 @@ int PRESS_THRESH = 10;//mbar
 int PRESS_MAX = 2500;
 int PRESS_MIN = 400;
 int PRESS_FINE = 50; // When within this threshold, use finer movements
-double pressSetpoint = 850.00;//mbar
+double pressSetpoint = 900.00;//mbar
 int pressureError;
-int pressSteps = 64; // Num steps to move when calibrating
-int PRESS_STEPS_FINE = 20;
-int PRESS_STEPS_LG = 40;
+int pressSteps = 30; // Num steps to move when calibrating
+int PRESS_STEPS_FINE = 15;
+int PRESS_STEPS_LG = 30;
 
 ////////////////////////////////////////////////////////
 // Calibration
@@ -74,7 +74,7 @@ int prevMotorState = 0;
 int motorState = 0;
 int stepCount = 0;
 // String stepRecv;
-int prevStepIn = 10;
+int prevStepIn = 0;
 char stepRecv[7] = "00000";
 char byteRead = 0;
 int availableBytes = 0;
@@ -106,7 +106,7 @@ float FACT_V = (ACT_WIDTH*pow(L0 , 2.0))/(2.0*NUM_L);
 float MAX_V = FACT_V*(2.0/PI); // volume in mm^3 when fully actuated
 // steps to fill actuator
 int maxSteps = 5000; //((MAX_V/A_SYRINGE)*STEPS_PER_MM); 
-int minSteps = 10;
+int minSteps = 0;
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -123,7 +123,7 @@ void setup() {
   sensor.begin();
   delay(1000);
 
-  pressureAbs = sensor.getPressure(ADC_4096);
+  pressureAbs = sensor.getPressure(ADC_2048);
   //Serial configuration
   Serial.begin(115200);
   // Wait here until serial port is opened
@@ -135,7 +135,7 @@ void setup() {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void pressureRead() {
-  pressureAbs = sensor.getPressure(ADC_4096);
+  pressureAbs = sensor.getPressure(ADC_2048);
   // Filter out false readings
   // Stop motor and wait if pressure exceeds maximum
   if (pressureAbs > PRESS_MAX){
@@ -296,7 +296,7 @@ void readWriteSerial() {
           j = j+1;
         }
         else{
-          delayMicroseconds(500);
+          delayMicroseconds(100);
         }
       }
 
@@ -330,6 +330,9 @@ void setPosition(){
     stepIn = maxSteps;
   }
   else if (stepIn < minSteps){
+    stepIn = prevStepIn;
+  }
+  else if (abs(prevStepIn-stepIn) > 250){
     stepIn = prevStepIn;
   }
 
@@ -368,7 +371,7 @@ void setPosition(){
 void writeSerial(char msg){
   writeTime = millis();
   if (msg == 'S'){ // Normal operation, send stepCount etc
-    sprintf(data, "%s,%lu,%lu,%s", stepRecv, stepIn, writeTime, endByte);
+    sprintf(data, "%06d,%d,%lu%s", stepCount, int(pressureAbs*10), writeTime, endByte);
   }
   else if (msg == 'D'){ // Python cut off comms, acknowledge this
     sprintf(data, "%s%s,%d,%lu%s", disableMsg, shakeKey, int(pressureAbs*10), writeTime, endByte);
@@ -393,13 +396,14 @@ void loop() {
   else if(disconFlag == true){
     pumpState = 2;//Disconnection
   }
-  else if(pressFlag == false){//CHANGE TO TRUE TO ACTIVATE
+  else if(pressFlag == true){//CHANGE TO TRUE TO ACTIVATE
     pumpState = 3;//Calibration
   }
   else{
     pumpState = 4;//Active
   }
 
+  // Hold here until time is right
   timeNow = micros();
   timeSinceStep = timeNow - timeAtStep;
   while (timeSinceStep < 47500){
@@ -448,15 +452,16 @@ void loop() {
         // Step count should now be zero - muscle empty.
         stepCount = 0;
         stepper.encoder.setHome();
+        writeSerial('P');
         // Notify that calibration is done
         pressFlag = false;
         writeSerial('P');
       }
       else{
-        // Check for disconnection
-        readWriteSerial();
         // If no reply, say calibration in progres
         writeSerial('p');
+        // Check for disconnection
+        readWriteSerial();
       }
       break;
 

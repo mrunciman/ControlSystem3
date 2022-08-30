@@ -10,6 +10,8 @@ location = os.path.dirname(__file__)
 parent = os.path.dirname(location)
 logTime = time.strftime("%Y-%m-%d %H-%M-%S")
 relative = "logs/pumps/arduinoLogs " + logTime + ".csv"
+parent = "C:/Users/msrun/OneDrive - Imperial College London/Imperial/MRC/Energy Shaping/DATA_COLLECTION/logs/syringe pump logs"
+relative = "arduinoLogs " + logTime + ".csv"
 fileName = os.path.join(parent, relative) # USE THIS IN REAL TESTS
 # fileName = 'ardLogFile.csv' # For test purposes
 with open(fileName, mode ='w', newline='') as arduinoLog1: 

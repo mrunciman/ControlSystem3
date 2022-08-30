@@ -47,7 +47,7 @@ VOL_FACTOR = 1.1
 K_B = VOL_FACTOR*(L0**2/NUM_L)*(D_C/3 + D_S/2)
 
 FRAMERATE = 1/120
-ZEROPOINT = 114.75/1000       # distance between markers that I define as zero,  in m
+ZEROPOINT = 117/1000       # distance between markers that I define as zero,  in m
 M_TO_MM = 1000
 MCUBE_TO_MMCUBE = 1e9
 
@@ -61,7 +61,7 @@ A = (1.504/10**5)/(L0/3)      # area of linearized volume V(x)
 
 class energyShaper():
     def __init__(self):
-        self.F_hat = 0
+        self.F_hat = 0.5
         self.x_p = 0
         self.x_dotp = 0
         self.x_dotfp = 0
@@ -76,7 +76,7 @@ class energyShaper():
 
 
 
-    def trackToState(self, markerData):
+    def trackToState(self, markerData, dt):
         '''
         Find position and velocity of payload from optitrack markers
         '''
@@ -108,7 +108,7 @@ class energyShaper():
                 x_dot = 0
                 self.first_flag = False
             else:
-                x_dot = (x_obs - self.x_p)/FRAMERATE
+                x_dot = (x_obs - self.x_p)/dt
             x_dotf = 0.9391*self.x_dotfp + 0.03047*(x_dot+self.x_dotp)
             v_obs = x_dotf 
             self.x_p = x_obs
@@ -150,7 +150,7 @@ class energyShaper():
                 sign_x = -1
             else:
                 sign_x = 1
-            x = sign_x*MAX_STROKE
+            x = sign_x*(MAX_STROKE - EPSILON)
 
 
         # volume of the bellows used in the system dynamics
@@ -225,7 +225,7 @@ class energyShaper():
         kp = 2       # 1 or 2 (default)
         Ki = 10      # 10 (default) or 20
         Ki2 = 10     # 10 (default) or 20
-        K_obs = 10   # 10 (default) or 20
+        K_obs = 0.5   # 10 (default) or 20
         Km = 2       # 2 or 4 (default)
 
 
@@ -251,7 +251,7 @@ class energyShaper():
         ## energy shaping control law
 
             if adapt==1:
-                F_obs = self.F_hat - p0*K_obs
+                F_obs = -(self.F_hat - p0*K_obs)
 
             else:
                 F_obs = 0    
@@ -284,8 +284,8 @@ class energyShaper():
                 + (dA2x*v*(F_obs - Km*kp*(x - xd)))/(2*dA2**2) \
                 +(Km*kp*v)/(2*dA2) - (BETA_0*dA2*v)/vol2))/BETA_0
 
-        self.controlU[0] = U1
-        self.controlU[1] = U2
+        self.controlU[0] = -U1
+        self.controlU[1] = -U2
         self.controlU[2] = F_obs
         return self.controlU, vol1, vol2
 
@@ -296,7 +296,7 @@ class energyShaper():
         U1 = self.controlU[0]*MCUBE_TO_MMCUBE # in mm^3
         U2 = self.controlU[1]*MCUBE_TO_MMCUBE
 
-        k_U = 0.1
+        k_U = 1
 
         self.x1_s_ast_p = steps1_current
         self.x2_s_ast_p = steps2_current

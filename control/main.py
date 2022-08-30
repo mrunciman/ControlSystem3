@@ -37,11 +37,12 @@ np.set_printoptions(suppress=True, precision = 2)
 ############################################################
 # Instantiate classes:
 sideLength = 30 # mm, from workspace2 model
+x_d = 0/1000   # in metres
 
 kineSolve = kinematics.kineSolver(sideLength)
 # mouseTrack = mouseGUI.mouseTracker(sideLength)
 ardLogging = pumpLog.ardLogger()
-posLogging = positionInput.posLogger()
+posLogging = positionInput.posLogger(x_d)
 opTrack = optiStream.optiTracker()
 phntmOmni = omniStream.omniStreamer()
 energyS = energyShaping.energyShaper()
@@ -68,7 +69,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/gridPath 2022-05-12 11-04-35 10x10grid 1x1spacing.csv', newline = '') as csvPath:
+    with open('control/paths/gridPath 2022-08-25 18-14-05 centre 15-8.66025 30x30grid 30x30spacing.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -89,7 +90,7 @@ print("Start point: ", XYZPathCoords)
 ############################################################################
 # Initialise variables 
 SAMP_FREQ = 1/kineSolve.TIMESTEP
-PRESS_MAX_PA = 160000
+PRESS_MAX_PA = 175000
 PRESS_MIN_PA = 70000
 CLOSEMESSAGE = "Closed"
 flagStop = False
@@ -104,8 +105,8 @@ targetY = XYZPathCoords[1]
 targetZ = XYZPathCoords[2]
 
 # Create delay at start of any test
-delayCount = 0
-delayLim = 200
+delayCount = 100
+delayLim = 100
 delayEveryStep = False
 delayFactor = 8
 firstMoveDelay = 0
@@ -119,11 +120,11 @@ useEnergyShaping = True
 energyFlag = False
 
 # desired positon for energy shaping
-x_d = 0.00#5
 firstflag = True
 controlInputs = [0, 0, 0]
 pos_x, vel_x = 0, 0
 dt = kineSolve.TIMESTEP
+StepNoLE , StepNoRE = 0, 0
 
 # Initialise cable length variables at home position
 cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
@@ -226,8 +227,8 @@ pumpsConnected = False
 
 connectedL = False
 connectedR = False
-lhsSer = serial.Serial('COM6', 115200, timeout=0)#rtscts=1
-rhsSer = serial.Serial('COM5', 115200, timeout=0)
+lhsSer = serial.Serial('COM8', 115200, timeout=0)#rtscts=1
+rhsSer = serial.Serial('COM7', 115200, timeout=0)
 print(lhsSer)
 print(rhsSer)
 lhsName = 'LHS'
@@ -245,7 +246,7 @@ try:
         pumpsConnected = True
 
         if optiTrackConnected:
-            [pos_x, vel_x] = energyS.trackToState(opTrack.markerData[-1])
+            [pos_x, vel_x] = energyS.trackToState(opTrack.markerData[-1], dt)
 
         #############################################################
         # Calibrate arduinos for zero volume - maintain negative pressure for 4 seconds
@@ -253,7 +254,7 @@ try:
         calibR = False
 
         # Has the mechanism been calibrated/want to run without calibration?:
-        calibrated = True
+        calibrated = False
         # Perform calibration:
         print("Zeroing hydraulic actuators...")
         while (not calibrated):
@@ -266,9 +267,9 @@ try:
                 print(realStepR, pressR)
                 # print("RHS: ", calibR)
 
-            if (realStepL == "000000LHS"):
+            if ((realStepL == "000000LHS") or (realStepL == "000000")):
                 calibL = True
-            if (realStepR == "000000RHS"):
+            if ((realStepR == "000000RHS") or (realStepR == "000000")):
                 calibR = True
 
             if (calibL*calibR == 1):
@@ -285,7 +286,7 @@ try:
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
             # Ensure same number of rows in position log file
             if optiTrackConnected:
-                [pos_x, vel_x] = energyS.trackToState(opTrack.markerData[-1])
+                [pos_x, vel_x] = energyS.trackToState(opTrack.markerData[-1], dt)
             posLogging.posLog(pos_x, vel_x, 0, 0, 0)
 
     else:
@@ -300,11 +301,11 @@ try:
     while(flagStop == False):
 
         # Stay at first coord for number of cycles
-        if delayCount < delayLim:
-            delayCount += 1
-            pathCounter = 0
-        else:
-            pathCounter += 1
+        # if delayCount < delayLim:
+        #     delayCount += 1
+        pathCounter = 0
+        # else:
+        #     pathCounter += 1
 
         if not omni_connected:
         # Go sequentially through path coordinates
@@ -369,47 +370,47 @@ try:
         fStepP = (tStepP - cStepP)*SAMP_FREQ
         [LStep, RStep, TStep, PStep] = kineSolve.freqScale(fStepL, fStepR, fStepT, fStepP)
         # RStep = dStepR scaled for speed (w rounding differences)
-        StepNoL += LStep
-        StepNoR += RStep 
-        StepNoT += TStep
-        StepNoP += PStep
+        # StepNoL += LStep
+        # StepNoR += RStep 
+        # StepNoT += TStep
+        # StepNoP += PStep
         # print(StepNoL, StepNoR, StepNoT, StepNoP)
 
         # Log deisred position at 
         # posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
         if optiTrackConnected:
-            [pos_x, vel_x] = energyS.trackToState(opTrack.markerData[-1])
+            [pos_x, vel_x] = energyS.trackToState(opTrack.markerData[-1], dt)
 
         if energyFlag:
             print("Distance: ", round(pos_x*1000,3), " Velocity: ", round(vel_x*1000,3), "Error: ", round((pos_x - x_d)*1000,3))
             [controlInputs, vol_est_1, vol_est_2] = energyS.energyShape(pos_x, vel_x, pressL, pressR, x_d, dt, 5, 0, 1)
-            print("Predicted stepper pos: ", vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED, vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED)
+            # print("Predicted stepper pos: ", vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED, vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED)
             # target_1  = vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
             # target_2  = vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
             print("U1: ", controlInputs[0], " U2: ", controlInputs[1], "F: ", controlInputs[2])
             print("Pressures: ", pressL, pressR)
             # [StepNoL , StepNoR] = energyS.traject(int(realStepL), int(realStepR), dt)
-            [StepNoL , StepNoR] = energyS.traject(StepNoL, StepNoR, dt)
+            [StepNoLE , StepNoRE] = energyS.traject(StepNoL, StepNoR, dt)
             # print("StepNos: ", StepNoL , StepNoR)
 
-            StepNos = [StepNoL, StepNoR]
+            StepNos = [StepNoLE, StepNoRE]
             cStepNos = [cStepL, cStepR]
-            print("StepNos: ", StepNoL , StepNoR, cStepL, cStepR)
-            # for i in range(len(StepNos)):
-            #     if StepNos[i] < 0:
-            #         StepNos[i] = cStepNos[i]
-            #     elif StepNos[i] > kineSolve.MAX_STEPS:
-            #         StepNos[i] = int(kineSolve.MAX_STEPS)
-            
-            # StepNoL = StepNos[0]
-            # StepNoR = StepNos[1]
             # print("StepNos: ", StepNoL , StepNoR, cStepL, cStepR)
+            for i in range(len(StepNos)):
+                if StepNos[i] < 0:
+                    StepNos[i] = cStepNos[i]
+                elif StepNos[i] > kineSolve.MAX_STEPS:
+                    StepNos[i] = int(kineSolve.MAX_STEPS)
+            
+            StepNoL = StepNos[0]
+            StepNoR = StepNos[1]
+            print("StepNos: ", StepNoL , StepNoR, cStepL, cStepR)
             print('\n')
 
         else:
-            StepNoL = int(tStepL*0.95)
-            StepNoR = int(tStepR*0.95)
+            StepNoL = int(tStepL*1.1)
+            StepNoR = int(tStepR*1.1)
 
         posLogging.posLog(pos_x, vel_x, controlInputs[0], controlInputs[1], controlInputs[2])
 
@@ -430,6 +431,13 @@ try:
                 initStepNoR = int(StepNoR*(firstMoveDelay/firstMoveDivider))
                 StepNoL = initStepNoL
                 StepNoR = initStepNoR
+                print("StepNos: ", StepNoL , StepNoR, cStepL, cStepR)
+            elif firstMoveDelay == firstMoveDivider:
+                if delayCount < delayLim:
+                    delayCount += 1
+                    print("Pausing, StepNos: ", StepNoL , StepNoR, cStepL, cStepR)
+                else:
+                    firstMoveDelay += 1
             else:
                 if useVisionFeedback:
                     visionFeedFlag = 1
@@ -454,8 +462,7 @@ try:
                 flagStop = True
             elif (min(int(pressL), int(pressR)) < PRESS_MIN_PA):
                 print("Under pressure: ", min(int(pressL), int(pressR)), " Pa")
-                # flagStop = True
-                continue
+                flagStop = True
             
             dt = (timeL - prevTimeL)/1000 # kineSolve.TIMESTEP
             if dt == 0:
@@ -506,7 +513,7 @@ finally:
     ###########################################################################
     # Stop program
     # Disable pumps and set them to idle state
-    # print(kineSolve.MAX_VOL/kineSolve.M3_to_MM3, kineSolve.MAX_STEPS, kineSolve.STEPS_PER_MMCUBED)
+    print(kineSolve.MAX_VOL/kineSolve.M3_to_MM3, kineSolve.MAX_STEPS, kineSolve.STEPS_PER_MMCUBED)
 
     # try:
 
