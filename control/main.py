@@ -37,7 +37,7 @@ np.set_printoptions(suppress=True, precision = 2)
 ############################################################
 # Instantiate classes:
 sideLength = 30 # mm, from workspace2 model
-x_d = 0/1000   # in metres
+x_d = 0.5/1000   # in metres
 
 kineSolve = kinematics.kineSolver(sideLength)
 # mouseTrack = mouseGUI.mouseTracker(sideLength)
@@ -105,8 +105,8 @@ targetY = XYZPathCoords[1]
 targetZ = XYZPathCoords[2]
 
 # Create delay at start of any test
-delayCount = 100
-delayLim = 100
+delayCount = 0
+delayLim = 25
 delayEveryStep = False
 delayFactor = 8
 firstMoveDelay = 0
@@ -121,7 +121,7 @@ energyFlag = False
 
 # desired positon for energy shaping
 firstflag = True
-controlInputs = [0, 0, 0]
+controlInputs = [0, 0, 0, 0]
 pos_x, vel_x = 0, 0
 dt = kineSolve.TIMESTEP
 StepNoLE , StepNoRE = 0, 0
@@ -227,8 +227,14 @@ pumpsConnected = False
 
 connectedL = False
 connectedR = False
-lhsSer = serial.Serial('COM8', 115200, timeout=0)#rtscts=1
-rhsSer = serial.Serial('COM7', 115200, timeout=0)
+lhsSer = serial.Serial()
+lhsSer.port = 'COM8'
+lhsSer.baudrate = 115200
+lhsSer.timeout = 0
+rhsSer = serial.Serial()
+rhsSer.port = 'COM7'
+rhsSer.baudrate = 115200
+rhsSer.timeout = 0
 print(lhsSer)
 print(rhsSer)
 lhsName = 'LHS'
@@ -287,7 +293,7 @@ try:
             # Ensure same number of rows in position log file
             if optiTrackConnected:
                 [pos_x, vel_x] = energyS.trackToState(opTrack.markerData[-1], dt)
-            posLogging.posLog(pos_x, vel_x, 0, 0, 0)
+            posLogging.posLog(pos_x, vel_x, 0, 0, 0, 0)
 
     else:
         print("PUMPS NOT CONNECTED. RUNNING WITHOUT PUMPS.")
@@ -388,8 +394,8 @@ try:
             # print("Predicted stepper pos: ", vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED, vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED)
             # target_1  = vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
             # target_2  = vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
-            print("U1: ", controlInputs[0], " U2: ", controlInputs[1], "F: ", controlInputs[2])
-            print("Pressures: ", pressL, pressR)
+            print("U1: ", controlInputs[0], " U2: ", controlInputs[1], "F: ", controlInputs[2], "Fhat: ", controlInputs[3])
+            # print("Pressures: ", pressL, pressR)
             # [StepNoL , StepNoR] = energyS.traject(int(realStepL), int(realStepR), dt)
             [StepNoLE , StepNoRE] = energyS.traject(StepNoL, StepNoR, dt)
             # print("StepNos: ", StepNoL , StepNoR)
@@ -412,7 +418,7 @@ try:
             StepNoL = int(tStepL*1.1)
             StepNoR = int(tStepR*1.1)
 
-        posLogging.posLog(pos_x, vel_x, controlInputs[0], controlInputs[1], controlInputs[2])
+        posLogging.posLog(pos_x, vel_x, controlInputs[0], controlInputs[1], controlInputs[2], controlInputs[3])
 
         if pumpsConnected:
 
@@ -433,6 +439,8 @@ try:
                 StepNoR = initStepNoR
                 print("StepNos: ", StepNoL , StepNoR, cStepL, cStepR)
             elif firstMoveDelay == firstMoveDivider:
+                x_d = 1/1000
+                posLogging.x_d = x_d
                 if delayCount < delayLim:
                     delayCount += 1
                     print("Pausing, StepNos: ", StepNoL , StepNoR, cStepL, cStepR)
@@ -528,7 +536,7 @@ finally:
         ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
         ardLogging.ardSave()
         # Ensure same number of rows in position log file
-        posLogging.posLog(pos_x, vel_x, controlInputs[0], controlInputs[1], controlInputs[2])
+        posLogging.posLog(pos_x, vel_x, controlInputs[0], controlInputs[1], controlInputs[2], controlInputs[3])
 
     #Save position data
     posLogging.posSave()

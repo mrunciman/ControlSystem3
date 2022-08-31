@@ -47,7 +47,7 @@ VOL_FACTOR = 1.1
 K_B = VOL_FACTOR*(L0**2/NUM_L)*(D_C/3 + D_S/2)
 
 FRAMERATE = 1/120
-ZEROPOINT = 117/1000       # distance between markers that I define as zero,  in m
+ZEROPOINT = 119/1000       # distance between markers that I define as zero,  in m
 M_TO_MM = 1000
 MCUBE_TO_MMCUBE = 1e9
 
@@ -61,11 +61,11 @@ A = (1.504/10**5)/(L0/3)      # area of linearized volume V(x)
 
 class energyShaper():
     def __init__(self):
-        self.F_hat = 0.5
+        self.F_hat = -0.5
         self.x_p = 0
         self.x_dotp = 0
         self.x_dotfp = 0
-        self.controlU = [0, 0, 0]
+        self.controlU = [0, 0, 0, 0]
         self.first_flag = True
 
         self.x1_s_ast = 0 
@@ -143,6 +143,9 @@ class energyShaper():
             self.controlU[1] = 0
             self.controlU[2] = 0
             return self.controlU
+
+        x = -x
+        xd = -xd
 
         # x = min(x, L0/4 - EPSILON)
         if abs(x) > MAX_STROKE:
@@ -222,11 +225,11 @@ class energyShaper():
 
         ## tuning parameters
 
-        kp = 2       # 1 or 2 (default)
+        kp = 4       # 1 or 2 (default)
         Ki = 10      # 10 (default) or 20
         Ki2 = 10     # 10 (default) or 20
-        K_obs = 0.5   # 10 (default) or 20
-        Km = 2       # 2 or 4 (default)
+        K_obs = 20   # 10 (default) or 20
+        Km = 4       # 2 or 4 (default)
 
 
         ## nonlinear observer
@@ -284,9 +287,10 @@ class energyShaper():
                 + (dA2x*v*(F_obs - Km*kp*(x - xd)))/(2*dA2**2) \
                 +(Km*kp*v)/(2*dA2) - (BETA_0*dA2*v)/vol2))/BETA_0
 
-        self.controlU[0] = -U1
-        self.controlU[1] = -U2
+        self.controlU[0] = U1
+        self.controlU[1] = U2
         self.controlU[2] = F_obs
+        self.controlU[3] = self.F_hat
         return self.controlU, vol1, vol2
 
 
@@ -296,7 +300,7 @@ class energyShaper():
         U1 = self.controlU[0]*MCUBE_TO_MMCUBE # in mm^3
         U2 = self.controlU[1]*MCUBE_TO_MMCUBE
 
-        k_U = 1
+        k_U = 3
 
         self.x1_s_ast_p = steps1_current
         self.x2_s_ast_p = steps2_current
@@ -304,7 +308,7 @@ class energyShaper():
         delta_x1_s = k_U*((32*U1*dt)/(30*A_SYRINGE))*STEPS_PER_MM
         delta_x2_s = k_U*((32*U2*dt)/(30*A_SYRINGE))*STEPS_PER_MM
 
-        print("Deltas: ", delta_x1_s, delta_x2_s)
+        # print("Deltas: ", delta_x1_s, delta_x2_s)
 
         self.x1_s_ast = self.x1_s_ast_p + delta_x1_s
         self.x2_s_ast = self.x2_s_ast_p + delta_x2_s
@@ -312,7 +316,7 @@ class energyShaper():
         # self.x1_s_ast_p = self.x1_s_ast
         # self.x2_s_ast_p = self.x2_s_ast
 
-        step_1 = int(self.x1_s_ast)
-        step_2 = int(self.x2_s_ast)
+        step_1 = round(self.x1_s_ast)
+        step_2 = round(self.x2_s_ast)
 
         return step_1, step_2

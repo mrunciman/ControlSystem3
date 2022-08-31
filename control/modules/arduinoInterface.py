@@ -164,7 +164,8 @@ class ardInterfacer:
         on each arduino. 
         e.g. top = connect("TOP", 4) 
         """ 
-        # self.ser.open() 
+        time.sleep(2)
+        self.ser.open()
         connected = False 
         message = self.PUMP_NAME + "\n" 
         self.stepMessEnc = message.encode('utf-8') 
@@ -191,7 +192,7 @@ class ardInterfacer:
         self.ser.write(message)  # one more time for luck
         time.sleep(0.5)
         connected = True 
-        self.ser.readline()
+        # self.ser.readline()
         # self.ser.reset_output_buffer()
         # return open serial connection to allow pumps to be controlled in main code 
         return connected 
@@ -221,34 +222,29 @@ class ardInterfacer:
     def listenReply(self):
         x = "e"
         stepPress = b""
-        # attemptNo = 0
-        while ord(x) != ord("E"):
+        reply = b""
+
+        # while self.ser.in_waiting == 0:
+        #     continue
+        # time.sleep(0.005)
+        # reply = self.ser.readline()
+        # stepPress = reply
+
+
+
+        while ord(x) != ord("\n"):
             x = self.ser.read()
             if x == b"":
                 x = "e"
-                # if attemptNo >= 100000:
-                #     attemptNo = 0
-                #     self.ser.reset_input_buffer()
-                #     self.ser.reset_output_buffer()
-                #     self.ser.write(self.stepMessEnc)
-                #     print("Re-send")
-            elif x == b"\n":
-                stepPress = b""
-                # time.sleep(0.1) #delay before sending message again
             elif x == b"E":
                 break
             else:
                 stepPress = stepPress + x
-                if stepPress.decode('ascii') == self.PUMP_NAME:   # Will this cause immediate reconnection?
-                    # message = self.PUMP_NAME + "\n"
-                    # self.stepMessEnc = message.encode('utf-8')
-                    # self.ser.write(self.stepMessEnc)
-                    break
-            # attemptNo += 1
 
         # print("Message: ", self.stepMessEnc)
         # print(stepPress)
         stepPress = stepPress.decode('utf-8')
+        stepPress = stepPress.strip("E\r\n")
         # print(stepPress)
         stepPress = stepPress.split(',')
         # print(stepPress)

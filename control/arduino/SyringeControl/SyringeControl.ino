@@ -11,12 +11,12 @@ Pressure control sketch for syringe pumps
 
 ////////////////////////////////////////////////////////
 // Handshake variables
-String shakeInput; // 3 bit password to assign pump name/position
-char shakeKey[5] = "RHS"; //
+char shakeInput[5] = "KEY"; // 3 bit password to assign pump name/position
+char shakeKey[5] = "LHS"; //
 
 ////////////////////////////////////////////////////////
 //uStepper S Lite Setup
-#define MAXACCELERATION 500       //Max acceleration in steps/s^2 (2000 = 5 mm/s^2)
+#define MAXACCELERATION 200       //Max acceleration in steps/s^2 (2000 = 5 mm/s^2)
 #define MAXVELOCITY 1500           //Max velocity in steps/s (2000 is 5 mm/s)
 float SPEEDP_HIGH = 1000.0;
 float SPEEDP_LOW = 500.0;
@@ -36,7 +36,7 @@ bool pressFlag = true;
 ////////////////////////////////////////////////////////
 // Setting Serial input variables
 char firstDigit = 0;  // For checking incoming communications
-String flushInputBuffer;
+// String flushInputBuffer;
 bool serErrorFlag = false;
 
 ////////////////////////////////////////////////////////
@@ -241,21 +241,43 @@ void pressInitZeroVol() {
 
 //Function to read input from python script and confirm pump position (TOP, LHS, RHS).
 void handShake() {
+  // Serial.println(Serial.availableForWrite());
+  shakeInput[0] = '\0';
+  byteRead = '\0';
+  int k = 0;
   while (Serial.available() > 0) {
-    shakeInput = Serial.readStringUntil('\n');
-    if (shakeInput != ""){
-      sprintf(data, "%s\n", shakeKey);
-      Serial.write(data);
-      if (shakeInput == shakeKey){
-        shakeFlag = true;
-        // Enable the motor after handshaking
-        shakeInput = "";
-        // Initialise the time variables
-        timeAtStep = micros();
-        flushInputBuffer = Serial.readStringUntil('\n');
+    byteRead = Serial.read();
+    if (byteRead != '\n'){
+      if(k < 3){
+        shakeInput[k] = byteRead; // build stepRecv
+        shakeInput[k+1] = '\0'; // Append a null
       }
+      else{
+        k = 0;
+        break;
+      }
+      k = k+1;
+    }
+    else{
+      break;
     }
   }
+
+
+  // shakeInput = Serial.readStringUntil('\n');
+  if (strlen(shakeInput)>0){
+    sprintf(data, "%s\n", shakeKey);
+    Serial.write(data);
+    if (strcmp(shakeInput, shakeKey) == false){
+      shakeFlag = true;
+      // Enable the motor after handshaking
+      shakeInput[0] = '\0';
+      // Initialise the time variables
+      timeAtStep = micros();
+      // flushInputBuffer = Serial.readStringUntil('\n');
+    }
+  }
+  
 }
 
 
@@ -267,7 +289,7 @@ void readWriteSerial() {
     // Capital S in ASCII is 83, so check for that:
     if (firstDigit == 83) {
       stepRecv[0] = '\0'; // Zero the stepRecv char array
-      byteRead = 0;
+      byteRead = '\0';
       int j = 0;
       while (byteRead != '\n'){
         if (Serial.available()>0){
@@ -279,6 +301,10 @@ void readWriteSerial() {
             else if (byteRead == 83){
               // serErrorFlag = true; // if byteRead is S something went wrong
               break;
+            }
+            else if (byteRead == 67){
+              disconFlag = true;
+              return;
             }
             else if (byteRead != '\n'){
               stepRecv[j] = byteRead; // build stepRecv
@@ -300,11 +326,11 @@ void readWriteSerial() {
         }
       }
 
-      if (strcmp(stepRecv, "Closed")==0){
-        disconFlag = true;
-        stepRecv[0] = '\0';
-        return;
-      }
+      // if (strcmp(stepRecv, "Closed")==0){
+      //   disconFlag = true;
+      //   stepRecv[0] = '\0';
+      //   return;
+      // }
       for (int k = 0; k <= strlen(stepRecv); k++){
         if(isDigit(stepRecv[k])==false){
           // serErrorFlag = true;
@@ -326,16 +352,19 @@ void readWriteSerial() {
 
 void setPosition(){
   stepIn = strtol(stepRecv, NULL, 10);
+
+  // First take out any big jumps in position
+  if (abs(prevStepIn - stepIn) > 250){
+    stepIn = prevStepIn;
+  }
+  // Then keep between max and min
   if (stepIn > maxSteps){
     stepIn = maxSteps;
   }
   else if (stepIn < minSteps){
     stepIn = prevStepIn;
   }
-  else if (abs(prevStepIn-stepIn) > 250){
-    stepIn = prevStepIn;
-  }
-
+  // Then make sure no errors made during reading
   if(serErrorFlag == true){
     stepIn = prevStepIn;
     serErrorFlag = false;
@@ -343,23 +372,6 @@ void setPosition(){
   else{
     prevStepIn = stepIn;
   }
-
-  // if (serErrorFlag == false){
-  //   stepIn = strtol(stepRecv, NULL, 10);
-  //   // stepIn = atoi(stepRecv);
-  //   // Serial.println(stepIn);
-  //   if (stepIn > maxSteps){
-  //     stepIn = maxSteps;
-  //   }
-  //   else if (stepIn < minSteps){
-  //     stepIn = prevStepIn;
-  //   }
-  //   prevStepIn = stepIn;
-  // }
-  // else{
-  //   stepIn = prevStepIn;
-  //   serErrorFlag = false; // reset error flag
-  // }
 
   angPos = DEG_PER_REV*(float(stepIn)/STEPS_PER_REV);
   angMeas = stepper.encoder.getAngleMoved();
@@ -370,22 +382,24 @@ void setPosition(){
 
 void writeSerial(char msg){
   writeTime = millis();
+  data[0] ='\0';
   if (msg == 'S'){ // Normal operation, send stepCount etc
-    sprintf(data, "%06d,%d,%lu%s", stepCount, int(pressureAbs*10), writeTime, endByte);
+    sprintf(data, "%06d,%d,%lu%s\r\n", stepCount, int(pressureAbs*10), writeTime, endByte);
   }
   else if (msg == 'D'){ // Python cut off comms, acknowledge this
-    sprintf(data, "%s%s,%d,%lu%s", disableMsg, shakeKey, int(pressureAbs*10), writeTime, endByte);
+    sprintf(data, "%s%s,%d,%lu%s\r\n", disableMsg, shakeKey, int(pressureAbs*10), writeTime, endByte);
   }
   else if (msg == 'L'){ // Limit switch hit, advise Python
-    sprintf(data, "%s%s,%d,%lu%s", limitHit, shakeKey, int(pressureAbs*10), writeTime, endByte);
+    sprintf(data, "%s%s,%d,%lu%s\r\n", limitHit, shakeKey, int(pressureAbs*10), writeTime, endByte);
   }
   else if (msg == 'p'){ // Calibrating
-    sprintf(data, "%06d%s,%d,%lu%s", STABLE_TIME-stateCount, shakeKey, int(pressureAbs*10), writeTime, endByte);
+    sprintf(data, "%06d%s,%d,%lu%s\r\n", STABLE_TIME-stateCount, shakeKey, int(pressureAbs*10), writeTime, endByte);
   }
   else if(msg = 'P'){ // Calibration finished
-    sprintf(data, "%06d%s,%d,%lu%s", stepCount, shakeKey, int(pressureAbs*10), writeTime, endByte);
+    sprintf(data, "%06d%s,%d,%lu%s\r\n", stepCount, shakeKey, int(pressureAbs*10), writeTime, endByte);
   }
   Serial.write(data);
+  Serial.flush();
 }
 
 
