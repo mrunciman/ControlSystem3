@@ -90,7 +90,7 @@ print("Start point: ", XYZPathCoords)
 ############################################################################
 # Initialise variables 
 SAMP_FREQ = 1/kineSolve.TIMESTEP
-PRESS_MAX_PA = 175000
+PRESS_MAX_PA = 180000
 PRESS_MIN_PA = 70000
 CLOSEMESSAGE = "Closed"
 flagStop = False
@@ -106,7 +106,7 @@ targetZ = XYZPathCoords[2]
 
 # Create delay at start of any test
 delayCount = 0
-delayLim = 25
+delayLim = 100
 delayEveryStep = False
 delayFactor = 8
 firstMoveDelay = 0
@@ -228,11 +228,11 @@ pumpsConnected = False
 connectedL = False
 connectedR = False
 lhsSer = serial.Serial()
-lhsSer.port = 'COM8'
+lhsSer.port = 'COM17'
 lhsSer.baudrate = 115200
 lhsSer.timeout = 0
 rhsSer = serial.Serial()
-rhsSer.port = 'COM7'
+rhsSer.port = 'COM24'
 rhsSer.baudrate = 115200
 rhsSer.timeout = 0
 print(lhsSer)
@@ -387,9 +387,9 @@ try:
 
         if optiTrackConnected:
             [pos_x, vel_x] = energyS.trackToState(opTrack.markerData[-1], dt)
+            print("Distance: ", round(pos_x*1000,3), " Velocity: ", round(vel_x*1000,3), "Error: ", round((pos_x - x_d)*1000,3))
 
         if energyFlag:
-            print("Distance: ", round(pos_x*1000,3), " Velocity: ", round(vel_x*1000,3), "Error: ", round((pos_x - x_d)*1000,3))
             [controlInputs, vol_est_1, vol_est_2] = energyS.energyShape(pos_x, vel_x, pressL, pressR, x_d, dt, 5, 0, 1)
             # print("Predicted stepper pos: ", vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED, vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED)
             # target_1  = vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
@@ -415,8 +415,8 @@ try:
             print('\n')
 
         else:
-            StepNoL = int(tStepL*1.1)
-            StepNoR = int(tStepR*1.1)
+            StepNoL = int(tStepL*1.05)
+            StepNoR = int(tStepR*1.05)
 
         posLogging.posLog(pos_x, vel_x, controlInputs[0], controlInputs[1], controlInputs[2], controlInputs[3])
 
@@ -446,6 +446,7 @@ try:
                     print("Pausing, StepNos: ", StepNoL , StepNoR, cStepL, cStepR)
                 else:
                     firstMoveDelay += 1
+
             else:
                 if useVisionFeedback:
                     visionFeedFlag = 1

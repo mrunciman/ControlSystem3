@@ -209,7 +209,7 @@ class ardInterfacer:
             stepString = "{:04d}".format(stepNumber)
         else:
             stepString = stepNumber
-        message = "S" + stepString + "s" + "\n"
+        message = "S" + stepString + "\n"
         # print("Message: ", repr(message))
         # self.ser.reset_output_buffer()
         self.stepMessEnc = message.encode('utf-8')
