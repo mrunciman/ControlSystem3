@@ -222,7 +222,7 @@ class ardInterfacer:
     def listenReply(self):
         x = "e"
         stepPress = b""
-        reply = b""
+        # reply = b""
 
         # while self.ser.in_waiting == 0:
         #     continue
@@ -240,6 +240,9 @@ class ardInterfacer:
                 break
             else:
                 stepPress = stepPress + x
+        
+        # if self.ser.in_waiting > 0:
+        #     self.ser.read(self.ser.in_waiting)
 
         # print("Message: ", self.stepMessEnc)
         # print(stepPress)

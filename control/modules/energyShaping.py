@@ -29,36 +29,6 @@
 
 import math as mt
 
-STEPS_PER_MM = 400
-A_SYRINGE = mt.pi*((13.25)**2) # m**2
-
-
-# IMPORT FROM KINEMATICS.PY
-## model parameters
-L0 = 30/1000                 # length of the bellow [m]
-MAX_STROKE = L0/4
-M_P = 0.5                    # payload in [kg]
-EPSILON = 1/10**4 
-VOL_0 = 1/10**7              # dead volume of fluid (default)
-NUM_L = 3
-D_S = 12/1000
-D_C = 9/1000
-VOL_FACTOR = 1.1
-K_B = VOL_FACTOR*(L0**2/NUM_L)*(D_C/3 + D_S/2)
-
-FRAMERATE = 1/120
-ZEROPOINT = 119/1000       # distance between markers that I define as zero,  in m
-M_TO_MM = 1000
-MCUBE_TO_MMCUBE = 1e9
-
-R = 5                         # viscous friciton
-BETA_0 = 2*10**9              # bulk modulus of water in Pa
-RHO = 1000                    # density of water in kg/m**3
-P_ATM = 10**5                 # atmospheric pressure in Pa
-A = (1.504/10**5)/(L0/3)      # area of linearized volume V(x)
-# first_flag = True
-
-
 class energyShaper():
     def __init__(self):
         self.F_hat = -0.5
@@ -86,6 +56,9 @@ class energyShaper():
         # Use 120 Hz data from stream
         # Find speed by discrete time differentiation
         # Map displacement of markers to coordinate system of energy shaping 
+
+        # FRAMERATE = 1/120
+        ZEROPOINT = 119/1000       # distance between markers that I define as zero,  in m
 
         markers = markerData
         dataLen = len(markers)
@@ -137,6 +110,26 @@ class energyShaper():
             Mode        % 0 for multi-step energy shaping; 2 for backstepping
             adapt       % 1 for adaptive observer; 0 without
         '''
+        simple = 0
+
+        ## model parameters
+        L0 = 30/1000                 # length of the bellow [m]
+        MAX_STROKE = L0/4
+        M_P = 0.5                    # payload in [kg]
+        EPSILON = 1/10**4 
+        VOL_0 = 1/10**7              # dead volume of fluid (default)
+        NUM_L = 3
+        D_S = 12/1000
+        D_C = 9/1000
+        VOL_FACTOR = 1.1
+        K_B = VOL_FACTOR*(L0**2/NUM_L)*(D_C/3 + D_S/2)
+
+        R = 5                         # viscous friciton
+        BETA_0 = 2*10**9              # bulk modulus of water in Pa
+        RHO = 1000                    # density of water in kg/m**3
+        P_ATM = 10**5                 # atmospheric pressure in Pa
+        A = (1.504/10**5)/(L0/3)      # area of linearized volume V(x)
+
 
         if x == None:
             self.controlU[0] = 0
@@ -146,6 +139,7 @@ class energyShaper():
 
         x = -x
         xd = -xd
+        offset0=-0.02
 
         # x = min(x, L0/4 - EPSILON)
         if abs(x) > MAX_STROKE:
@@ -208,19 +202,28 @@ class energyShaper():
             dA2x=(6**(1/2)*K_B*((L0 + 4*con2)/L0)**(1/2))/(4*L0**2) - (6**(1/2)*K_B*(380*L0**2 - 480*L0*con2 + 192*con2**2))/(384*L0**4*((L0 + 4*con2)/L0)**(3/2)) - (6**(1/2)*K_B*(480*L0 - 384*con2))/(384*L0**3*((L0 + 4*con2)/L0)**(1/2))
     
         elif lin_mode == 5:
-            vol1 = VOL_0 + (3**(1/2)*K_B*(1 - (8*x)/L0)**(1/2)*(443*L0**2 + 528*L0*x + 192*x**2))/(1536*L0**2)  # decreases with x
-            vol2 = VOL_0 + (3**(1/2)*K_B*((8*x)/L0 + 1)**(1/2)*(443*L0**2 - 528*L0*x + 192*x**2))/(1536*L0**2)  # inreases with x
-            dA1=(3**(1/2)*K_B*(528*L0 + 384*x)*(1 - (8*x)/L0)**(1/2))/(1536*L0**2) - (3**(1/2)*K_B*(443*L0**2 + 528*L0*x + 192*x**2))/(384*L0**3*(1 - (8*x)/L0)**(1/2))
-            dA2=(3**(1/2)*K_B*(443*L0**2 - 528*L0*x + 192*x**2))/(384*L0**3*((8*x)/L0 + 1)**(1/2)) - (3**(1/2)*K_B*(528*L0 - 384*x)*((8*x)/L0 + 1)**(1/2))/(1536*L0**2)
-            dA1x=(3**(1/2)*K_B*(1 - (8*x)/L0)**(1/2))/(4*L0**2) - (3**(1/2)*K_B*(443*L0**2 + 528*L0*x + 192*x**2))/(96*L0**4*(1 - (8*x)/L0)**(3/2)) - (3**(1/2)*K_B*(528*L0 + 384*x))/(192*L0**3*(1 - (8*x)/L0)**(1/2))
-            dA2x=(3**(1/2)*K_B*((8*x)/L0 + 1)**(1/2))/(4*L0**2) - (3**(1/2)*K_B*(443*L0**2 - 528*L0*x + 192*x**2))/(96*L0**4*((8*x)/L0 + 1)**(3/2)) - (3**(1/2)*K_B*(528*L0 - 384*x))/(192*L0**3*((8*x)/L0 + 1)**(1/2))
+            # vol1 = VOL_0 + (3**(1/2)*K_B*(1 - (8*x)/L0)**(1/2)*(443*L0**2 + 528*L0*x + 192*x**2))/(1536*L0**2)  # decreases with x
+            # vol2 = VOL_0 + (3**(1/2)*K_B*((8*x)/L0 + 1)**(1/2)*(443*L0**2 - 528*L0*x + 192*x**2))/(1536*L0**2)  # inreases with x
+            # dA1=(3**(1/2)*K_B*(528*L0 + 384*x)*(1 - (8*x)/L0)**(1/2))/(1536*L0**2) - (3**(1/2)*K_B*(443*L0**2 + 528*L0*x + 192*x**2))/(384*L0**3*(1 - (8*x)/L0)**(1/2))
+            # dA2=(3**(1/2)*K_B*(443*L0**2 - 528*L0*x + 192*x**2))/(384*L0**3*((8*x)/L0 + 1)**(1/2)) - (3**(1/2)*K_B*(528*L0 - 384*x)*((8*x)/L0 + 1)**(1/2))/(1536*L0**2)
+            # dA1x=(3**(1/2)*K_B*(1 - (8*x)/L0)**(1/2))/(4*L0**2) - (3**(1/2)*K_B*(443*L0**2 + 528*L0*x + 192*x**2))/(96*L0**4*(1 - (8*x)/L0)**(3/2)) - (3**(1/2)*K_B*(528*L0 + 384*x))/(192*L0**3*(1 - (8*x)/L0)**(1/2))
+            # dA2x=(3**(1/2)*K_B*((8*x)/L0 + 1)**(1/2))/(4*L0**2) - (3**(1/2)*K_B*(443*L0**2 - 528*L0*x + 192*x**2))/(96*L0**4*((8*x)/L0 + 1)**(3/2)) - (3**(1/2)*K_B*(528*L0 - 384*x))/(192*L0**3*((8*x)/L0 + 1)**(1/2))
+
+            vol1 = VOL_0 + (K_B*(3 - (24*offset0 + 24*x)/L0)**(1/2)*(443*L0**2 + 528*L0*x + 192*x**2))/(1536*L0**2)
+            vol2 = VOL_0 + (K_B*(3 - (24*offset0 - 24*x)/L0)**(1/2)*(443*L0**2 - 528*L0*x + 192*x**2))/(1536*L0**2)
+            dA1=(K_B*(3 - (24*offset0 + 24*x)/L0)**(1/2)*(528*L0 + 384*x))/(1536*L0**2) - (K_B*(443*L0**2 + 528*L0*x + 192*x**2))/(128*L0**3*(3 - (24*offset0 + 24*x)/L0)**(1/2))
+            dA2=(K_B*(443*L0**2 - 528*L0*x + 192*x**2))/(128*L0**3*(3 - (24*offset0 - 24*x)/L0)**(1/2)) - (K_B*(3 - (24*offset0 - 24*x)/L0)**(1/2)*(528*L0 - 384*x))/(1536*L0**2)
+            dA1x=(K_B*(3 - (24*offset0 + 24*x)/L0)**(1/2))/(4*L0**2) - (K_B*(528*L0 + 384*x))/(64*L0**3*(3 - (24*offset0 + 24*x)/L0)**(1/2)) - (3*K_B*(443*L0**2 + 528*L0*x + 192*x**2))/(32*L0**4*(3 - (24*offset0 + 24*x)/L0)**(3/2))
+            dA2x=(K_B*(3 - (24*offset0 - 24*x)/L0)**(1/2))/(4*L0**2) - (K_B*(528*L0 - 384*x))/(64*L0**3*(3 - (24*offset0 - 24*x)/L0)**(1/2)) - (3*K_B*(443*L0**2 - 528*L0*x + 192*x**2))/(32*L0**4*(3 - (24*offset0 - 24*x)/L0)**(3/2))
+
+
 
         M = M_P + RHO*vol1 + RHO*vol2
         p0 = M*v
 
 
-        P1g = P1 - P_ATM   
-        P2g = P2 - P_ATM
+        P1g = 0.1*(P1 - P_ATM)
+        P2g = 0.1*(P2 - P_ATM)
 
 
         ## tuning parameters
@@ -233,19 +236,22 @@ class energyShaper():
 
 
         ## nonlinear observer
-
-        dF_hat = K_obs*(P1g*dA1 - self.F_hat + P2g*dA2)+(p0*K_obs\
-            *(2*M_P**2*K_obs \
-            - 2*R*M_P + 2*RHO**2*vol1**2*K_obs \
-            + 2*RHO**2*vol2**2*K_obs \
-            - 2*R*RHO*vol1 \
-            - 2*R*RHO*vol2 \
-            + dA1*p0*RHO \
-            + dA2*p0*RHO \
-            + 4*RHO**2*vol1*vol2*K_obs \
-            + 4*M_P*RHO*vol1*K_obs \
-            + 4*M_P*RHO*vol2*K_obs))\
-            /(2*(M_P + RHO*vol1 + RHO*vol2)**2)
+        #Simplified observer
+        if simple == True:
+            dF_hat= K_obs*(self.F_hat + P1g - P2g - K_obs*p0)
+        else:
+            dF_hat = K_obs*(P1g*dA1 - self.F_hat + P2g*dA2)+(p0*K_obs\
+                *(2*M_P**2*K_obs \
+                - 2*R*M_P + 2*RHO**2*vol1**2*K_obs \
+                + 2*RHO**2*vol2**2*K_obs \
+                - 2*R*RHO*vol1 \
+                - 2*R*RHO*vol2 \
+                + dA1*p0*RHO \
+                + dA2*p0*RHO \
+                + 4*RHO**2*vol1*vol2*K_obs \
+                + 4*M_P*RHO*vol1*K_obs \
+                + 4*M_P*RHO*vol2*K_obs))\
+                /(2*(M_P + RHO*vol1 + RHO*vol2)**2)
 
         self.F_hat = self.F_hat + dF_hat*dt
 
@@ -258,34 +264,41 @@ class energyShaper():
 
             else:
                 F_obs = 0    
-
-            U1 = (dA1*p0)/(M_P + RHO*vol1 + RHO*vol2) \
-                - (vol1*((Ki*(P1g*dA1 - F_obs + P2g*dA2 + Km*kp*(x - xd)))/dA1 \
-                + (p0*(Km*(P1g*dA1x + P2g*dA2x + Km*kp) + 1))/(2*Km*dA1*(M_P + RHO*vol1 + RHO*vol2))))/BETA_0
-
-            U2 = (dA2*p0)/(M_P + RHO*vol1 + RHO*vol2) \
-                - (vol2*((Ki2*(P1g*dA1 - F_obs + P2g*dA2 + Km*kp*(x - xd)))/dA2 \
-                + (p0*(Km*(P1g*dA1x + P2g*dA2x + Km*kp) + 1))/(2*Km*dA2*(M_P + RHO*vol1 + RHO*vol2))))/BETA_0
-
-        
-        elif Mode==2:
-        # backstepping control law
-
-            if adapt==1:
-                F_obs = self.F_hat-p0*K_obs
+            
+            # Simplified expression for individual pressures
+            if simple == True:
+                mu=1
+                U1=-(Ki*(P1g - (kp*(x - xd))/2 + mu*F_obs))/BETA_0
+                U2=-(Ki2*(P2g + F_obs*(mu - 1) + (kp*(x - xd))/2))/BETA_0
 
             else:
-                F_obs = 0
+                U1 = (dA1*p0)/(M_P + RHO*vol1 + RHO*vol2) \
+                    - (vol1*((Ki*(P1g*dA1 - F_obs + P2g*dA2 + Km*kp*(x - xd)))/dA1 \
+                    + (p0*(Km*(P1g*dA1x + P2g*dA2x + Km*kp) + 1))/(2*Km*dA1*(M_P + RHO*vol1 + RHO*vol2))))/BETA_0
 
-            U1 = -(vol1*(Ki*(P1g - (F_obs - Km*kp*(x - xd))/(2*dA1)) \
-                + (dA1*v)/Km \
-                + (dA1x*v*(F_obs - Km*kp*(x - xd)))/(2*dA1**2) \
-                + (Km*kp*v)/(2*dA1) - (BETA_0*dA1*v)/vol1))/BETA_0
+                U2 = (dA2*p0)/(M_P + RHO*vol1 + RHO*vol2) \
+                    - (vol2*((Ki2*(P1g*dA1 - F_obs + P2g*dA2 + Km*kp*(x - xd)))/dA2 \
+                    + (p0*(Km*(P1g*dA1x + P2g*dA2x + Km*kp) + 1))/(2*Km*dA2*(M_P + RHO*vol1 + RHO*vol2))))/BETA_0
 
-            U2 = -(vol2*(Ki2*(P2g - (F_obs- Km*kp*(x - xd))/(2*dA2)) \
-                + (dA2*v)/Km \
-                + (dA2x*v*(F_obs - Km*kp*(x - xd)))/(2*dA2**2) \
-                +(Km*kp*v)/(2*dA2) - (BETA_0*dA2*v)/vol2))/BETA_0
+        
+        # elif Mode==2:
+        # # backstepping control law
+
+        #     if adapt==1:
+        #         F_obs = self.F_hat-p0*K_obs
+
+        #     else:
+        #         F_obs = 0
+
+        #     U1 = -(vol1*(Ki*(P1g - (F_obs - Km*kp*(x - xd))/(2*dA1)) \
+        #         + (dA1*v)/Km \
+        #         + (dA1x*v*(F_obs - Km*kp*(x - xd)))/(2*dA1**2) \
+        #         + (Km*kp*v)/(2*dA1) - (BETA_0*dA1*v)/vol1))/BETA_0
+
+        #     U2 = -(vol2*(Ki2*(P2g - (F_obs- Km*kp*(x - xd))/(2*dA2)) \
+        #         + (dA2*v)/Km \
+        #         + (dA2x*v*(F_obs - Km*kp*(x - xd)))/(2*dA2**2) \
+        #         +(Km*kp*v)/(2*dA2) - (BETA_0*dA2*v)/vol2))/BETA_0
 
         self.controlU[0] = U1
         self.controlU[1] = U2
@@ -297,10 +310,16 @@ class energyShaper():
 
 
     def traject(self, steps1_current, steps2_current, dt):
-        U1 = self.controlU[0]*MCUBE_TO_MMCUBE # in mm^3
+
+        STEPS_PER_MM = 400
+        A_SYRINGE = mt.pi*((13.25)**2) # m**2
+        # M_TO_MM = 1000
+        MCUBE_TO_MMCUBE = 1e9
+
+        U1 = self.controlU[0]*MCUBE_TO_MMCUBE # in mm**3
         U2 = self.controlU[1]*MCUBE_TO_MMCUBE
 
-        k_U = 3
+        k_U = 4
 
         self.x1_s_ast_p = steps1_current
         self.x2_s_ast_p = steps2_current

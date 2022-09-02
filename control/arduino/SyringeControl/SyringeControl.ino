@@ -12,12 +12,12 @@ Pressure control sketch for syringe pumps
 ////////////////////////////////////////////////////////
 // Handshake variables
 char shakeInput[5] = "KEY"; // 3 bit password to assign pump name/position
-char shakeKey[5] = "LHS"; //
+char shakeKey[5] = "RHS"; //
 
 ////////////////////////////////////////////////////////
 //uStepper S Lite Setup
-#define MAXACCELERATION 200       //Max acceleration in steps/s^2 (2000 = 5 mm/s^2)
-#define MAXVELOCITY 1500           //Max velocity in steps/s (2000 is 5 mm/s)
+#define MAXACCELERATION 50       //Max acceleration in steps/s^2 (2000 = 5 mm/s^2)
+#define MAXVELOCITY 1000           //Max velocity in steps/s (2000 is 5 mm/s)
 float SPEEDP_HIGH = 1000.0;
 float SPEEDP_LOW = 500.0;
 float STEPS_PER_REV = 3200.0;
@@ -38,6 +38,7 @@ bool pressFlag = true;
 char firstDigit = 0;  // For checking incoming communications
 // String flushInputBuffer;
 bool serErrorFlag = false;
+bool readDone = false;
 
 ////////////////////////////////////////////////////////
 // Pressure sensor variables
@@ -112,10 +113,10 @@ int minSteps = 0;
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void setup() {
   // uStepper S setup - 
-  stepper.setup(CLOSEDLOOP,200);
+  stepper.setup();
   stepper.setMaxAcceleration(MAXACCELERATION);
   stepper.setMaxVelocity(MAXVELOCITY);
-  stepper.setControlThreshold(15);
+  // stepper.setControlThreshold(7);
   // stepper.stop();
 
   Wire1.begin();
@@ -331,13 +332,13 @@ void readWriteSerial() {
       //   stepRecv[0] = '\0';
       //   return;
       // }
-      for (int k = 0; k <= strlen(stepRecv); k++){
-        if(isDigit(stepRecv[k])==false){
-          // serErrorFlag = true;
-          // Serial.println(k);
-          continue;
-        }
-      }
+      // for (int k = 0; k <= strlen(stepRecv); k++){
+      //   if(isDigit(stepRecv[k])==false){
+      //     // serErrorFlag = true;
+      //     // Serial.println(k);
+      //     continue;
+      //   }
+      // }
     }
     else {
       // flushInputBuffer = Serial.readStringUntil('\n');
@@ -357,6 +358,7 @@ void setPosition(){
   if (abs(prevStepIn - stepIn) > 250){
     stepIn = prevStepIn;
   }
+
   // Then keep between max and min
   if (stepIn > maxSteps){
     stepIn = maxSteps;
@@ -364,6 +366,7 @@ void setPosition(){
   else if (stepIn < minSteps){
     stepIn = prevStepIn;
   }
+
   // Then make sure no errors made during reading
   if(serErrorFlag == true){
     stepIn = prevStepIn;
@@ -371,6 +374,7 @@ void setPosition(){
   }
   else{
     prevStepIn = stepIn;
+    readDone = true;
   }
 
   angPos = DEG_PER_REV*(float(stepIn)/STEPS_PER_REV);
@@ -420,7 +424,7 @@ void loop() {
   // Hold here until time is right
   timeNow = micros();
   timeSinceStep = timeNow - timeAtStep;
-  while (timeSinceStep < 47500){
+  while (timeSinceStep < 47500){//47500
     timeNow = micros();
     timeSinceStep = timeNow - timeAtStep;
   }
@@ -441,10 +445,10 @@ void loop() {
     //Disconnection
     case 2:
       writeSerial('D');
-      stepper.setup(CLOSEDLOOP,200);
+      stepper.setup();
       stepper.setMaxAcceleration(MAXACCELERATION);
       stepper.setMaxVelocity(MAXVELOCITY);
-      stepper.setControlThreshold(15);
+      // stepper.setControlThreshold(7);
 
       disconFlag = false; // No not disconnected
       shakeFlag = false; // No not handshaken
@@ -493,8 +497,10 @@ void loop() {
       readWriteSerial(); 
       setPosition();
       //Send stepCount
-      writeSerial('S');
-
+      if (readDone == true){
+        writeSerial('S');
+        readDone = false;
+      }
       // Move to the desired position
       stepper.moveToAngle(angPos); // Could have problems with this - seems it is relative to current position, not zero position
       break;

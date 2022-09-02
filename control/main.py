@@ -33,7 +33,7 @@ from modules import energyShaping
 
 # from visual_navigation.cam_pose import PoseEstimator
 
-np.set_printoptions(suppress=True, precision = 2)
+# np.set_printoptions(suppress=True, precision = 2)
 ############################################################
 # Instantiate classes:
 sideLength = 30 # mm, from workspace2 model
@@ -411,7 +411,7 @@ try:
             
             StepNoL = StepNos[0]
             StepNoR = StepNos[1]
-            print("StepNos: ", StepNoL , StepNoR, cStepL, cStepR)
+            # print("StepNos: ", StepNoL , StepNoR, cStepL, cStepR)
             print('\n')
 
         else:
