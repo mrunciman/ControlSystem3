@@ -66,7 +66,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/spiralZ 2022-05-24 15-13-38 15mmRad30.0EqSide 97-5.csv', newline = '') as csvPath:
+    with open('control/paths/gridPath 2022-09-02 13-15-09 centre 15-8.66025 20x20grid 6x6spacing.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -114,14 +114,14 @@ targetZ = XYZPathCoords[2]
 # Create delay at start of any test
 delayCount = 0
 delayLim = 200
-delayEveryStep = False
+delayEveryStep = True
 delayFactor = 1
 firstMoveDelay = 0
 firstMoveDivider = 100
 initialXFlag = False
 initPressLogCount = 0
 initPressLogNum = 10
-useVisionFeedback = False
+useVisionFeedback = True
 visionFeedFlag = False
 
 # Fibre related variables
@@ -340,6 +340,7 @@ try:
             # pathCounter remains as it is
             if fibreConnected:
                 fibrebotLink.sendState("Stop")
+            print("Settling")
         elif delayCount == delayLim:
             # pathCounter remains as it is
             print("Fibrebot triggered, robot stationary")
@@ -353,7 +354,7 @@ try:
                 # Start gross motion again
                 if fibreConnected:
                     fibrebotLink.sendState("Stop")
-                print("Robot moving to next point and settling")
+                print("Robot moving to next point")
                 pauseVisFeedback = False
                 pathCounter += 1
                 # reset delayCount
@@ -516,7 +517,7 @@ try:
         prevTimeR = timeR
         prevTimeT = timeT
         prevPathCounter = pathCounter
-        pathCounter += 1
+        # pathCounter += 1
 
         # Close GUI if Esc hit
         # flagStop = False # Will close immediately 

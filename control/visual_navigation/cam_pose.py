@@ -1,11 +1,12 @@
 from pickle import TRUE
 from visual_navigation.cylmarker import load_data, save_data, keypoints
-# from cylmarker.pose_estimation import pose_estimation
-# from cylmarker.make_new_pattern_and_marker import create_new_pattern, create_new_marker
 from visual_navigation.cylmarker.pose_estimation import img_segmentation
+from visual_navigation.VideoCap import CameraSource
+# from cylmarker import load_data, keypoints
+# from cylmarker.pose_estimation import img_segmentation
+# from VideoCap import CameraSource
 # import argparse
 import cv2 as cv
-from visual_navigation.VideoCap import CameraSource
 import numpy as np
 import time
 
@@ -161,6 +162,10 @@ class PoseEstimator:
         pttrn = keypoints.find_keypoints(im, mask_marker_fg, self.config_file_data, self.sqnc_max_ind, self.sequence_length, self.data_pttrn, self.data_marker)
         # Estimate pose
         if pttrn is not None:
+
+            # if is_save:
+                # cv.imwrite("detect.png".format(time.time()),im)
+
             # Draw contours and lines (for visualization)
             # show_contours_and_lines_and_centroids(im, pttrn)
             pnts_3d_object, pnts_2d_image = pttrn.get_data_for_pnp_solver()
@@ -172,6 +177,7 @@ class PoseEstimator:
                 im = show_axis(im, rvec_pred, tvec_pred, self.cam_matrix, dist_coeff, 6, is_show)
                 rmat_pred, _ = cv.Rodrigues(rvec_pred)
             return homo(rmat_pred,tvec_pred)
+
         else:
             # print(im.shape)
             print("no pattern detected")

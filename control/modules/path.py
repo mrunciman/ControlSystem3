@@ -456,6 +456,7 @@ class pathGenerator:
 sideLength = 30.0 # mm, from workspace2 model
 noCycles = 1
 pathGen = pathGenerator(sideLength)
-pathGen.pointMatrix(15, 8.66025, 30, 30, 30, 30)
+Grid_size = 20
+pathGen.pointMatrix(15, 8.66025, Grid_size/3, Grid_size/3, Grid_size, Grid_size)
 # pathGen.spiralPath2(noCycles)
 pathGen.generatePath()
