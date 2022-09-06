@@ -31,7 +31,7 @@ import math as mt
 
 class energyShaper():
     def __init__(self):
-        self.F_hat = -1
+        self.F_hat = 0
         self.x_p = 0
         self.x_dotp = 0
         self.x_dotfp = 0
@@ -58,7 +58,7 @@ class energyShaper():
         # Map displacement of markers to coordinate system of energy shaping 
 
         # FRAMERATE = 1/120
-        ZEROPOINT = 121/1000       # distance between markers that I define as zero,  in m
+        ZEROPOINT = 114.25/1000       # distance between markers that I define as zero,  in m
 
         markers = markerData
         dataLen = len(markers)
@@ -82,7 +82,7 @@ class energyShaper():
                 self.first_flag = False
             else:
                 x_dot = (x_obs - self.x_p)/dt
-            x_dotf = 0.9391*self.x_dotfp + 0.03047*(x_dot+self.x_dotp)
+            x_dotf = 0.9391*self.x_dotfp + 0.03047*(x_dot + self.x_dotp)
             v_obs = x_dotf 
             self.x_p = x_obs
             self.x_dotp = x_dot
@@ -115,7 +115,7 @@ class energyShaper():
         ## model parameters
         L0 = 30/1000                 # length of the bellow [m]
         MAX_STROKE = L0/4
-        M_P = 0.5                    # payload in [kg]
+        M_P = 1.5                    # payload in [kg]
         EPSILON = 1/10**4 
         VOL_0 = 1/10**7              # dead volume of fluid (default)
         NUM_L = 3
@@ -137,9 +137,8 @@ class energyShaper():
             self.controlU[2] = 0
             return self.controlU
 
-        # x = -x
-        # xd = -xd
-        # offset0=-0.02
+        offset0=-0.02
+        k0=0
 
         # x = min(x, L0/4 - EPSILON)
         if abs(x) > MAX_STROKE:
@@ -202,19 +201,19 @@ class energyShaper():
             dA2x=(6**(1/2)*K_B*((L0 + 4*con2)/L0)**(1/2))/(4*L0**2) - (6**(1/2)*K_B*(380*L0**2 - 480*L0*con2 + 192*con2**2))/(384*L0**4*((L0 + 4*con2)/L0)**(3/2)) - (6**(1/2)*K_B*(480*L0 - 384*con2))/(384*L0**3*((L0 + 4*con2)/L0)**(1/2))
     
         elif lin_mode == 5:
-            vol1 = VOL_0 + (3**(1/2)*K_B*(1 - (8*x)/L0)**(1/2)*(443*L0**2 + 528*L0*x + 192*x**2))/(1536*L0**2)  # decreases with x
-            vol2 = VOL_0 + (3**(1/2)*K_B*((8*x)/L0 + 1)**(1/2)*(443*L0**2 - 528*L0*x + 192*x**2))/(1536*L0**2)  # inreases with x
-            dA1=(3**(1/2)*K_B*(528*L0 + 384*x)*(1 - (8*x)/L0)**(1/2))/(1536*L0**2) - (3**(1/2)*K_B*(443*L0**2 + 528*L0*x + 192*x**2))/(384*L0**3*(1 - (8*x)/L0)**(1/2))
-            dA2=(3**(1/2)*K_B*(443*L0**2 - 528*L0*x + 192*x**2))/(384*L0**3*((8*x)/L0 + 1)**(1/2)) - (3**(1/2)*K_B*(528*L0 - 384*x)*((8*x)/L0 + 1)**(1/2))/(1536*L0**2)
-            dA1x=(3**(1/2)*K_B*(1 - (8*x)/L0)**(1/2))/(4*L0**2) - (3**(1/2)*K_B*(443*L0**2 + 528*L0*x + 192*x**2))/(96*L0**4*(1 - (8*x)/L0)**(3/2)) - (3**(1/2)*K_B*(528*L0 + 384*x))/(192*L0**3*(1 - (8*x)/L0)**(1/2))
-            dA2x=(3**(1/2)*K_B*((8*x)/L0 + 1)**(1/2))/(4*L0**2) - (3**(1/2)*K_B*(443*L0**2 - 528*L0*x + 192*x**2))/(96*L0**4*((8*x)/L0 + 1)**(3/2)) - (3**(1/2)*K_B*(528*L0 - 384*x))/(192*L0**3*((8*x)/L0 + 1)**(1/2))
+            # vol1 = VOL_0 + (3**(1/2)*K_B*(1 - (8*x)/L0)**(1/2)*(443*L0**2 + 528*L0*x + 192*x**2))/(1536*L0**2)  # decreases with x
+            # vol2 = VOL_0 + (3**(1/2)*K_B*((8*x)/L0 + 1)**(1/2)*(443*L0**2 - 528*L0*x + 192*x**2))/(1536*L0**2)  # inreases with x
+            # dA1=(3**(1/2)*K_B*(528*L0 + 384*x)*(1 - (8*x)/L0)**(1/2))/(1536*L0**2) - (3**(1/2)*K_B*(443*L0**2 + 528*L0*x + 192*x**2))/(384*L0**3*(1 - (8*x)/L0)**(1/2))
+            # dA2=(3**(1/2)*K_B*(443*L0**2 - 528*L0*x + 192*x**2))/(384*L0**3*((8*x)/L0 + 1)**(1/2)) - (3**(1/2)*K_B*(528*L0 - 384*x)*((8*x)/L0 + 1)**(1/2))/(1536*L0**2)
+            # dA1x=(3**(1/2)*K_B*(1 - (8*x)/L0)**(1/2))/(4*L0**2) - (3**(1/2)*K_B*(443*L0**2 + 528*L0*x + 192*x**2))/(96*L0**4*(1 - (8*x)/L0)**(3/2)) - (3**(1/2)*K_B*(528*L0 + 384*x))/(192*L0**3*(1 - (8*x)/L0)**(1/2))
+            # dA2x=(3**(1/2)*K_B*((8*x)/L0 + 1)**(1/2))/(4*L0**2) - (3**(1/2)*K_B*(443*L0**2 - 528*L0*x + 192*x**2))/(96*L0**4*((8*x)/L0 + 1)**(3/2)) - (3**(1/2)*K_B*(528*L0 - 384*x))/(192*L0**3*((8*x)/L0 + 1)**(1/2))
 
-            # vol1 = VOL_0 + (K_B*(3 - (24*offset0 + 24*x)/L0)**(1/2)*(443*L0**2 + 528*L0*x + 192*x**2))/(1536*L0**2)
-            # vol2 = VOL_0 + (K_B*(3 - (24*offset0 - 24*x)/L0)**(1/2)*(443*L0**2 - 528*L0*x + 192*x**2))/(1536*L0**2)
-            # dA1=(K_B*(3 - (24*offset0 + 24*x)/L0)**(1/2)*(528*L0 + 384*x))/(1536*L0**2) - (K_B*(443*L0**2 + 528*L0*x + 192*x**2))/(128*L0**3*(3 - (24*offset0 + 24*x)/L0)**(1/2))
-            # dA2=(K_B*(443*L0**2 - 528*L0*x + 192*x**2))/(128*L0**3*(3 - (24*offset0 - 24*x)/L0)**(1/2)) - (K_B*(3 - (24*offset0 - 24*x)/L0)**(1/2)*(528*L0 - 384*x))/(1536*L0**2)
-            # dA1x=(K_B*(3 - (24*offset0 + 24*x)/L0)**(1/2))/(4*L0**2) - (K_B*(528*L0 + 384*x))/(64*L0**3*(3 - (24*offset0 + 24*x)/L0)**(1/2)) - (3*K_B*(443*L0**2 + 528*L0*x + 192*x**2))/(32*L0**4*(3 - (24*offset0 + 24*x)/L0)**(3/2))
-            # dA2x=(K_B*(3 - (24*offset0 - 24*x)/L0)**(1/2))/(4*L0**2) - (K_B*(528*L0 - 384*x))/(64*L0**3*(3 - (24*offset0 - 24*x)/L0)**(1/2)) - (3*K_B*(443*L0**2 - 528*L0*x + 192*x**2))/(32*L0**4*(3 - (24*offset0 - 24*x)/L0)**(3/2))
+            vol1 = VOL_0 + (K_B*(3 - (24*offset0 + 24*x)/L0)**(1/2)*(443*L0**2 + 528*L0*x + 192*x**2))/(1536*L0**2)
+            vol2 = VOL_0 + (K_B*(3 - (24*offset0 - 24*x)/L0)**(1/2)*(443*L0**2 - 528*L0*x + 192*x**2))/(1536*L0**2)
+            dA1=(K_B*(3 - (24*offset0 + 24*x)/L0)**(1/2)*(528*L0 + 384*x))/(1536*L0**2) - (K_B*(443*L0**2 + 528*L0*x + 192*x**2))/(128*L0**3*(3 - (24*offset0 + 24*x)/L0)**(1/2))
+            dA2=(K_B*(443*L0**2 - 528*L0*x + 192*x**2))/(128*L0**3*(3 - (24*offset0 - 24*x)/L0)**(1/2)) - (K_B*(3 - (24*offset0 - 24*x)/L0)**(1/2)*(528*L0 - 384*x))/(1536*L0**2)
+            dA1x=(K_B*(3 - (24*offset0 + 24*x)/L0)**(1/2))/(4*L0**2) - (K_B*(528*L0 + 384*x))/(64*L0**3*(3 - (24*offset0 + 24*x)/L0)**(1/2)) - (3*K_B*(443*L0**2 + 528*L0*x + 192*x**2))/(32*L0**4*(3 - (24*offset0 + 24*x)/L0)**(3/2))
+            dA2x=(K_B*(3 - (24*offset0 - 24*x)/L0)**(1/2))/(4*L0**2) - (K_B*(528*L0 - 384*x))/(64*L0**3*(3 - (24*offset0 - 24*x)/L0)**(1/2)) - (3*K_B*(443*L0**2 - 528*L0*x + 192*x**2))/(32*L0**4*(3 - (24*offset0 - 24*x)/L0)**(3/2))
 
 
 
@@ -222,8 +221,8 @@ class energyShaper():
         p0 = M*v
 
 
-        P1g = 0.1*(P1 - P_ATM)
-        P2g = 0.1*(P2 - P_ATM)
+        P1g = 1*(P1 - 109960)
+        P2g = 1*(P2 - 130290)
 
 
         ## tuning parameters
@@ -231,8 +230,8 @@ class energyShaper():
         kp = 4       # 1 or 2 (default)
         Ki = 10      # 10 (default) or 20
         Ki2 = 10     # 10 (default) or 20
-        K_obs = 30   # 10 (default) or 20
-        Km = 2       # 2 or 4 (default)
+        K_obs = 10   # 10 (default) or 20
+        Km = 4       # 2 or 4 (default)
 
 
         ## nonlinear observer
@@ -240,18 +239,31 @@ class energyShaper():
         if simple == True:
             dF_hat= K_obs*(self.F_hat + P1g - P2g - K_obs*p0)
         else:
-            dF_hat = K_obs*(P1g*dA1 - self.F_hat + P2g*dA2)+(p0*K_obs\
-                *(2*M_P**2*K_obs \
-                - 2*R*M_P + 2*RHO**2*vol1**2*K_obs \
-                + 2*RHO**2*vol2**2*K_obs \
-                - 2*R*RHO*vol1 \
-                - 2*R*RHO*vol2 \
-                + dA1*p0*RHO \
-                + dA2*p0*RHO \
-                + 4*RHO**2*vol1*vol2*K_obs \
-                + 4*M_P*RHO*vol1*K_obs \
-                + 4*M_P*RHO*vol2*K_obs))\
-                /(2*(M_P + RHO*vol1 + RHO*vol2)**2)
+            # dF_hat = K_obs*(P1g*dA1 - self.F_hat + P2g*dA2)+(p0*K_obs\
+            #     *(2*M_P**2*K_obs \
+            #     - 2*R*M_P + 2*RHO**2*vol1**2*K_obs \
+            #     + 2*RHO**2*vol2**2*K_obs \
+            #     - 2*R*RHO*vol1 \
+            #     - 2*R*RHO*vol2 \
+            #     + dA1*p0*RHO \
+            #     + dA2*p0*RHO \
+            #     + 4*RHO**2*vol1*vol2*K_obs \
+            #     + 4*M_P*RHO*vol1*K_obs \
+            #     + 4*M_P*RHO*vol2*K_obs))\
+            #     /(2*(M_P + RHO*vol1 + RHO*vol2)**2)
+
+            dF_hat=(K_obs*(\
+                2*P1g*dA1 \
+                - 2*self.F_hat \
+                + 2*P2g*dA2 \
+                - 2*R*v \
+                - 2*k0*x \
+                + dA1*RHO*v**2 \
+                + dA2*RHO*v**2 \
+                + 2*M_P*v*K_obs \
+                + 2*RHO*v*vol1*K_obs \
+                + 2*RHO*v*vol2*K_obs))/2
+
 
         self.F_hat = self.F_hat + dF_hat*dt
 
@@ -272,13 +284,22 @@ class energyShaper():
                 U2=-(Ki2*(P2g + F_obs*(mu - 1) + (kp*(x - xd))/2))/BETA_0
 
             else:
-                U1 = (dA1*p0)/(M_P + RHO*vol1 + RHO*vol2) \
-                    - (vol1*((Ki*(P1g*dA1 - F_obs + P2g*dA2 + Km*kp*(x - xd)))/dA1 \
-                    + (p0*(Km*(P1g*dA1x + P2g*dA2x + Km*kp) + 1))/(2*Km*dA1*(M_P + RHO*vol1 + RHO*vol2))))/BETA_0
+                # U1 = (dA1*p0)/(M_P + RHO*vol1 + RHO*vol2) \
+                #     - (vol1*((Ki*(P1g*dA1 - F_obs + P2g*dA2 + Km*kp*(x - xd)))/dA1 \
+                #     + (p0*(Km*(P1g*dA1x + P2g*dA2x + Km*kp) + 1))/(2*Km*dA1*(M_P + RHO*vol1 + RHO*vol2))))/BETA_0
 
-                U2 = (dA2*p0)/(M_P + RHO*vol1 + RHO*vol2) \
-                    - (vol2*((Ki2*(P1g*dA1 - F_obs + P2g*dA2 + Km*kp*(x - xd)))/dA2 \
-                    + (p0*(Km*(P1g*dA1x + P2g*dA2x + Km*kp) + 1))/(2*Km*dA2*(M_P + RHO*vol1 + RHO*vol2))))/BETA_0
+                # U2 = (dA2*p0)/(M_P + RHO*vol1 + RHO*vol2) \
+                #     - (vol2*((Ki2*(P1g*dA1 - F_obs + P2g*dA2 + Km*kp*(x - xd)))/dA2 \
+                #     + (p0*(Km*(P1g*dA1x + P2g*dA2x + Km*kp) + 1))/(2*Km*dA2*(M_P + RHO*vol1 + RHO*vol2))))/BETA_0
+
+                U1=(dA1*p0)/(M_P + RHO*vol1 + RHO*vol2) \
+                    - (vol1*((Ki*(P1g*dA1 - F_obs + P2g*dA2 - k0*x - Km*kp*1000*(x - xd)))/dA1\
+                    + (p0*(Km*(P1g*dA1x - k0 + P2g*dA2x + Km*kp) + 1))/(2*Km*dA1*(M_P + RHO*vol1 + RHO*vol2))))/BETA_0
+
+                U2=(dA2*p0)/(M_P + RHO*vol1 + RHO*vol2) \
+                    - (vol2*((Ki2*(P1g*dA1 - F_obs + P2g*dA2 - k0*x - Km*kp*1000*(x - xd)))/dA2 \
+                    + (p0*(Km*(P1g*dA1x - k0 + P2g*dA2x + Km*kp) + 1))/(2*Km*dA2*(M_P + RHO*vol1 + RHO*vol2))))/BETA_0    
+
 
         
         # elif Mode==2:
@@ -316,7 +337,7 @@ class energyShaper():
         # M_TO_MM = 1000
         MCUBE_TO_MMCUBE = 1e9
 
-        U1 = self.controlU[0]*MCUBE_TO_MMCUBE # in mm**3
+        U1 = self.controlU[0]*MCUBE_TO_MMCUBE # in mm**3/s
         U2 = self.controlU[1]*MCUBE_TO_MMCUBE
 
         k_U = 4
@@ -327,7 +348,21 @@ class energyShaper():
         delta_x1_s = k_U*((32*U1*dt)/(30*A_SYRINGE))*STEPS_PER_MM
         delta_x2_s = k_U*((32*U2*dt)/(30*A_SYRINGE))*STEPS_PER_MM
 
-        # print("Deltas: ", delta_x1_s, delta_x2_s)
+        print("Deltas: ", delta_x1_s, delta_x2_s)
+        deltas = [delta_x1_s, delta_x2_s]
+        for i in range(len(deltas)):
+            if abs(deltas[i]) > 0.1:
+                if deltas[i] > 0:
+                    newVal = max(deltas[i], 1)
+                    deltas[i] = newVal
+                else:
+                    newVal = -max(abs(deltas[i]), 1)
+                    deltas[i] = newVal
+
+        delta_x1_s = deltas[0]
+        delta_x2_s = deltas[1]
+
+        print("Deltas: ", delta_x1_s, delta_x2_s)
 
         self.x1_s_ast = self.x1_s_ast_p + delta_x1_s
         self.x2_s_ast = self.x2_s_ast_p + delta_x2_s
@@ -339,3 +374,10 @@ class energyShaper():
         step_2 = round(self.x2_s_ast)
 
         return step_1, step_2
+
+
+
+
+    def pressFilt(self, Pf_prev, P, P_prev):
+        Pf= 0.854*Pf_prev + 0.073*(P + P_prev)
+        return Pf

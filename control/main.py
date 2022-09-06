@@ -37,7 +37,7 @@ from modules import energyShaping
 ############################################################
 # Instantiate classes:
 sideLength = 30 # mm, from workspace2 model
-x_d = 0.5/1000   # in metres
+x_d = 0/1000   # in metres
 
 kineSolve = kinematics.kineSolver(sideLength)
 # mouseTrack = mouseGUI.mouseTracker(sideLength)
@@ -162,6 +162,7 @@ LStep, RStep, TStep, PStep = 0, 0, 0, 0
 pressL, pressR, pressT, pressP = 100000, 100000, 0, 0
 prevPressL, prevPressR, prevPressT, prevPressP = 0, 0, 0, 0
 pressLMed, pressRMed, pressTMed, pressPMed, pressAMed = 0, 0, 0, 0, 0
+pressFiltL, pressFiltR = 0, 0
 timeL, timeR, timeT, timeP = 0, 0, 0, 0
 prevTimeL, prevTimeR, prevTimeT, prevTimeP = 0, 0, 0, 0
 conLHS, conRHS, conTOP = 0, 0, 0
@@ -362,6 +363,8 @@ try:
 
         cableL, targetL = 18.75, 18.75
         cableR, targetR = 18.75, 18.75
+        # cableL, targetL = 20.25, 20.25
+        # cableR, targetR = 17.25, 17.25
         # Get volumes, volrates, syringe speeds, pulse freq & step counts estimate for each pump
         [tVolL, vDotL, dDotL, fStepL, tStepL, tSpeedL, LcRealL, angleL] = kineSolve.volRate(cVolL, cableL, targetL)
         [tVolR, vDotR, dDotR, fStepR, tStepR, tSpeedR, LcRealR, angleR] = kineSolve.volRate(cVolR, cableR, targetR)
@@ -390,7 +393,9 @@ try:
             print("Distance: ", round(pos_x*1000,3), " Velocity: ", round(vel_x*1000,3), "Error: ", round((pos_x - x_d)*1000,3))
 
         if energyFlag:
-            [controlInputs, vol_est_1, vol_est_2] = energyS.energyShape(pos_x, vel_x, pressL, pressR, x_d, dt, 5, 0, 1)
+            pressFiltL = energyS.pressFilt(prevFiltL, pressL, ardIntLHS.press1)
+            pressFiltR = energyS.pressFilt(prevFiltR, pressR, ardIntRHS.press1)
+            [controlInputs, vol_est_1, vol_est_2] = energyS.energyShape(pos_x, vel_x, pressFiltL, pressFiltR, x_d, dt, 5, 0, 1)
             # print("Predicted stepper pos: ", vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED, vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED)
             # target_1  = vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
             # target_2  = vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
@@ -457,8 +462,8 @@ try:
             ardIntRHS.sendStep(StepNoR)
 
             # Log values from arduinos
-            ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
-            ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
+            ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressFiltL, timeL)
+            ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressFiltR, timeR)
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
 
             # Get current pump position, pressure and times from arduinos
@@ -497,6 +502,8 @@ try:
         prevPressL = pressL
         prevPressR = pressR
         prevPressT = pressT
+        prevFiltL = pressFiltL
+        prevFiltR = pressFiltR
         prevTimeL = timeL
         prevTimeR = timeR
         prevTimeT = timeT
