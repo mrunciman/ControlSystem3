@@ -222,7 +222,7 @@ class energyShaper():
 
 
         P1g = 1*(P1 - 109960)
-        P2g = 1*(P2 - 130290)
+        P2g = 1*(P2 - 128290)
 
 
         ## tuning parameters
@@ -340,7 +340,7 @@ class energyShaper():
         U1 = self.controlU[0]*MCUBE_TO_MMCUBE # in mm**3/s
         U2 = self.controlU[1]*MCUBE_TO_MMCUBE
 
-        k_U = 4
+        k_U = 6
 
         self.x1_s_ast_p = steps1_current
         self.x2_s_ast_p = steps2_current
@@ -348,7 +348,7 @@ class energyShaper():
         delta_x1_s = k_U*((32*U1*dt)/(30*A_SYRINGE))*STEPS_PER_MM
         delta_x2_s = k_U*((32*U2*dt)/(30*A_SYRINGE))*STEPS_PER_MM
 
-        print("Deltas: ", delta_x1_s, delta_x2_s)
+        # print("Deltas: ", delta_x1_s, delta_x2_s)
         deltas = [delta_x1_s, delta_x2_s]
         for i in range(len(deltas)):
             if abs(deltas[i]) > 0.1:
@@ -362,7 +362,7 @@ class energyShaper():
         delta_x1_s = deltas[0]
         delta_x2_s = deltas[1]
 
-        print("Deltas: ", delta_x1_s, delta_x2_s)
+        # print("Deltas: ", delta_x1_s, delta_x2_s)
 
         self.x1_s_ast = self.x1_s_ast_p + delta_x1_s
         self.x2_s_ast = self.x2_s_ast_p + delta_x2_s

@@ -107,6 +107,9 @@ targetZ = XYZPathCoords[2]
 # Create delay at start of any test
 delayCount = 0
 delayLim = 100
+delayLim2 = 1000 + delayLim
+delayLim3 = 1000 + delayLim2
+delayLim4 = 1000 + delayLim3
 delayEveryStep = False
 delayFactor = 8
 firstMoveDelay = 0
@@ -444,8 +447,6 @@ try:
                 StepNoR = initStepNoR
                 print("StepNos: ", StepNoL , StepNoR, cStepL, cStepR)
             elif firstMoveDelay == firstMoveDivider:
-                x_d = 1/1000
-                posLogging.x_d = x_d
                 if delayCount < delayLim:
                     delayCount += 1
                     print("Pausing, StepNos: ", StepNoL , StepNoR, cStepL, cStepR)
@@ -453,10 +454,29 @@ try:
                     firstMoveDelay += 1
 
             else:
+                x_d = 1/1000
+                posLogging.x_d = x_d
+
                 if useVisionFeedback:
                     visionFeedFlag = 1
                 if useEnergyShaping:
                     energyFlag = True
+
+                # Put multi-step here
+                delayCount += 1
+                if delayCount < delayLim2:
+                    x_d = -1/1000
+                    posLogging.x_d = x_d
+                elif delayCount < delayLim3:
+                    x_d = 1/1000
+                    posLogging.x_d = x_d
+                elif delayCount < delayLim4:
+                    x_d = -2/1000
+                    posLogging.x_d = x_d
+                else:
+                    x_d = 0
+                    posLogging.x_d = x_d
+
                 # Send step number to arduinos:
             ardIntLHS.sendStep(StepNoL)
             ardIntRHS.sendStep(StepNoR)
