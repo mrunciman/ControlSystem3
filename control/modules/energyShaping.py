@@ -58,7 +58,7 @@ class energyShaper():
         # Map displacement of markers to coordinate system of energy shaping 
 
         # FRAMERATE = 1/120
-        ZEROPOINT = 114.25/1000       # distance between markers that I define as zero,  in m
+        ZEROPOINT = 117.5/1000       # distance between markers that I define as zero,  in m
 
         markers = markerData
         dataLen = len(markers)

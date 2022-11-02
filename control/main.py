@@ -232,11 +232,11 @@ pumpsConnected = False
 connectedL = False
 connectedR = False
 lhsSer = serial.Serial()
-lhsSer.port = 'COM17'
+lhsSer.port = 'COM24'
 lhsSer.baudrate = 115200
 lhsSer.timeout = 0
 rhsSer = serial.Serial()
-rhsSer.port = 'COM24'
+rhsSer.port = 'COM33'
 rhsSer.baudrate = 115200
 rhsSer.timeout = 0
 print(lhsSer)
@@ -364,10 +364,14 @@ try:
             targDir = cDir
         # print(targetL, targetR, targetT, LcRealP)
 
+        # if energyFlag == False:            
         cableL, targetL = 18.75, 18.75
         cableR, targetR = 18.75, 18.75
-        # cableL, targetL = 20.25, 20.25
-        # cableR, targetR = 17.25, 17.25
+        # elif energyFlag == True:
+        #     # cableL, targetL = 18.75, 18.75
+        #     # cableR, targetR = 18.75, 18.75
+        #     cableL, targetL = 22.35, 22.35
+        #     cableR, targetR = 15.15, 15.15        
         # Get volumes, volrates, syringe speeds, pulse freq & step counts estimate for each pump
         [tVolL, vDotL, dDotL, fStepL, tStepL, tSpeedL, LcRealL, angleL] = kineSolve.volRate(cVolL, cableL, targetL)
         [tVolR, vDotR, dDotR, fStepR, tStepR, tSpeedR, LcRealR, angleR] = kineSolve.volRate(cVolR, cableR, targetR)
@@ -402,7 +406,7 @@ try:
             # print("Predicted stepper pos: ", vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED, vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED)
             # target_1  = vol_est_1*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
             # target_2  = vol_est_2*kineSolve.M3_to_MM3*kineSolve.STEPS_PER_MMCUBED
-            print("U1: ", controlInputs[0], " U2: ", controlInputs[1], "F: ", controlInputs[2], "Fhat: ", controlInputs[3])
+            # print("U1: ", controlInputs[0], " U2: ", controlInputs[1], "F: ", controlInputs[2], "Fhat: ", controlInputs[3])
             # print("Pressures: ", pressL, pressR)
             # [StepNoL , StepNoR] = energyS.traject(int(realStepL), int(realStepR), dt)
             [StepNoLE , StepNoRE] = energyS.traject(StepNoL, StepNoR, dt)
@@ -445,11 +449,11 @@ try:
                 initStepNoR = int(StepNoR*(firstMoveDelay/firstMoveDivider))
                 StepNoL = initStepNoL
                 StepNoR = initStepNoR
-                print("StepNos: ", StepNoL , StepNoR, cStepL, cStepR)
+                print("StepNos: ", StepNoL , StepNoR)
             elif firstMoveDelay == firstMoveDivider:
                 if delayCount < delayLim:
                     delayCount += 1
-                    print("Pausing, StepNos: ", StepNoL , StepNoR, cStepL, cStepR)
+                    print("Pausing, StepNos: ", StepNoL , StepNoR)
                 else:
                     firstMoveDelay += 1
 
