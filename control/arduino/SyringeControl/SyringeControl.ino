@@ -20,7 +20,7 @@
 // Handshake variables
 bool shakeFlag = false;
 String shakeInput; // 3 bit password to assign pump name/position
-char shakeKey[5] = "LHS";
+char shakeKey[5] = "RHS";
 // TOP = 3, RHS = 6, LHS = 5
 // PRI = 13
 

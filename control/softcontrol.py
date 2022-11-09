@@ -66,7 +66,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/gridPath 2022-09-02 13-15-09 centre 15-8.66025 20x20grid 6x6spacing.csv', newline = '') as csvPath:
+    with open('control/paths/spiralZ 2022-05-24 15-13-38 15mmRad30.0EqSide 97-5.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -195,6 +195,7 @@ targetOpL, targetOpR, targetOpT, targetOpP = 0, 0, 0, 0
 useRigidBodies = True
 optiTrackConnected = False
 # optiTrackConnected = opTrack.optiConnect()
+# optiTrackConnected = True
 
 ###############################################################
 # Connect to Peripherals
@@ -266,7 +267,7 @@ try:
         calibP = False
 
         # Has the mechanism been calibrated/want to run without calibration?:
-        calibrated = False
+        calibrated = True
         # Perform calibration:
         print("Zeroing hydraulic actuators...")
         while (not calibrated):
@@ -340,7 +341,7 @@ try:
             # pathCounter remains as it is
             if fibreConnected:
                 fibrebotLink.sendState("Stop")
-            print("Settling")
+            # print("Settling")
         elif delayCount == delayLim:
             # pathCounter remains as it is
             print("Fibrebot triggered, robot stationary")
@@ -382,13 +383,13 @@ try:
                 realY = T_Rob_Inst_camera[1,3]
                 realZ = T_Rob_Inst_camera[2,3]
                 print("Open loop : ", targetXideal, targetYideal, targetOpP)
-                # print("Position", -realZ + 15, realY + 8.66, realX)
+                print("Position", -realZ + 15, realY + 8.66, realX)
                 [errCableL, errCableR, errCableT, errPrism] = kineSolve.cableError(actualX, actualY, scaleTargL, scaleTargR, scaleTargT, targetOpP, realX, realY, realZ)
                 print("OL cables : ", targetOpL, targetOpR, targetOpT, targetOpP)
                 print("Error LRTP: ", errCableL, errCableR, errCableT, errPrism)
 
             if visionFeedFlag:
-                print("Closed Loop active \n")
+                # print("Closed Loop active \n")
                 targetL = scaleTargL - errCableL
                 targetR = scaleTargR - errCableR
                 targetT = scaleTargT - errCableT
@@ -492,7 +493,7 @@ try:
             # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
 
             # Check for high pressure
-            if (max(pressL, pressR, pressT, pressL) > PRESS_MAX_KPA):
+            if (max(pressLMed, pressRMed, pressTMed, pressPMed) > PRESS_MAX_KPA):
                 print("Overpressure: ", max(pressL, pressR, pressT, pressL), " kPa")
                 flagStop = True
 
@@ -564,9 +565,6 @@ finally:
         else:
             opTrack.optiSave(opTrack.markerData)
 
-        # Send stop message to fibrebot
-        fibrebotLink.sendState("STOP")
-        fibrebotLink.fibreSerial.close()
 
         if 'ardIntLHS' in locals():
             if ardIntLHS.ser.is_open:
@@ -610,6 +608,11 @@ finally:
         
         if optiTrackConnected:
             opTrack.optiClose()
+
+        if fibreConnected:
+            # Send stop message to fibrebot
+            fibrebotLink.sendState("STOP")
+            fibrebotLink.fibreSerial.close()
 
     except TypeError as exTE:
         tb_linesTE = traceback.format_exception(exTE.__class__, exTE, exTE.__traceback__)

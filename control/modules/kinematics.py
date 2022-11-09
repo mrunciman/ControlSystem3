@@ -44,7 +44,7 @@ class kineSolver:
         # Real volume calc: there are numLs beams of length L0/numLs
         # self.FACT_V = ((self.ACT_WIDTH/1000)*(self.L_0/1000)**2)/(2*self.NUM_L)
         self.M3_to_MM3 = 1e9
-        self.VOL_FACTOR = 1.15 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
+        self.VOL_FACTOR = 1 #1.15 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
         self.CAL_FACTOR = 0.01 # % of max volume still in actuator after calibration
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
@@ -169,7 +169,7 @@ class kineSolver:
         # Extension/Retraction Geometry
         ###################################################################
         # Point that the shaft rotates around - COR of universal joint
-        self.CONT_ARC_S = 14 # mm continuum joint arc length
+        self.CONT_ARC_S = 15 # mm continuum joint arc length
         self.LEVER_BASE_Z = -37.75 # checked with sldasm
         self.LEVER_POINT = np.array([0.5*self.SIDE_LENGTH,\
             0.5*self.SIDE_LENGTH*mt.tan(mt.pi/6),\
@@ -180,14 +180,13 @@ class kineSolver:
         # Normal of end effector / parallel mechanism plane:
         self.N_PLANE = self.N_CROSS/la.norm(self.N_CROSS)
 
-        self.SHAFT_LENGTH_UJ = 88 # mm
+        self.SHAFT_LENGTH_UJ = 80 # mm
         self.SHAFT_LENGTH = self.SHAFT_LENGTH_UJ - self.CONT_ARC_S # mm     SHAFT_LENGTH_UJ - CONT_ARC
 
         # Set limits on shaft extension
         # self.minShaftExt = self.SHAFT_LENGTH + 1
         self.MIN_EXTEND = 0.5 # mm
-        self.MAX_EXTEND = 25 # mm
-
+        self.MAX_EXTEND = 35 # mm
         # Set limit when curvature of continuum joint is assumed zero
         self.MIN_CONT_RAD = 0.1 # mm 
 

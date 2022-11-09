@@ -116,7 +116,7 @@ class PoseEstimator:
 
         # translation_path = self.data_pttrn['translation_path']
         # translation_path =  'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45mm/data0721/'
-        translation_path =  'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/data_0801/'
+        translation_path =  'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/data_1108/'
         # translation_path =  './data_45mm/data0721/'
         if from_matlab:
             from scipy import io
@@ -130,10 +130,14 @@ class PoseEstimator:
             self.Y = XY['Y']
 
         # rotMatrixR = quat_to_rot_matrix(-0.006375742,0.008078535,-0.003986573,-0.999939084) # Previous value
-        rotMatrixR = quat_to_rot_matrix(-0.011488591, 0.014160476, -0.001230368, -0.999832988)
+        # rotMatrixR = quat_to_rot_matrix(-0.011488591, 0.014160476, -0.001230368, -0.999832988)
+        rotMatrixR = quat_to_rot_matrix(0.005187734, -0.014990916, -0.009014277, -0.999833584)
+
         
         # posR=[-0.110181898,0.029305253,0.133816868] # Previous value
-        posR=[-0.112173915, 0.02704691, 0.082323581]
+        # posR=[-0.112173915, 0.02704691, 0.082323581]
+        posR = [0.095438123, 0.033289835, 0.160581827] # 08/11/22
+
 
         T_W_Rob = np.block([[rotMatrixR[0, :], self.M_TO_MM*posR[0]],\
                                 [rotMatrixR[1, :], self.M_TO_MM*posR[1]],\
