@@ -378,6 +378,7 @@ try:
 
         if useVisionFeedback == True:
             T_Rob_Inst_camera = pose_est.tip_pose()#4x4 homo matrix in MM
+            pose_est.logPose(T_Rob_Inst_camera)
             if T_Rob_Inst_camera is not None:
                 realX = T_Rob_Inst_camera[0,3]
                 realY = T_Rob_Inst_camera[1,3]
@@ -385,8 +386,8 @@ try:
                 print("Open loop : ", targetXideal, targetYideal, targetOpP)
                 print("Position", -realZ + 15, realY + 8.66, realX)
                 [errCableL, errCableR, errCableT, errPrism] = kineSolve.cableError(actualX, actualY, scaleTargL, scaleTargR, scaleTargT, targetOpP, realX, realY, realZ)
-                print("OL cables : ", targetOpL, targetOpR, targetOpT, targetOpP)
-                print("Error LRTP: ", errCableL, errCableR, errCableT, errPrism)
+                # print("OL cables : ", targetOpL, targetOpR, targetOpT, targetOpP)
+                # print("Error LRTP: ", errCableL, errCableR, errCableT, errPrism)
 
             if visionFeedFlag:
                 # print("Closed Loop active \n")
@@ -558,12 +559,15 @@ finally:
         #Save position data
         posLogging.posSave()
 
+        #Save pose estimation data
+        pose_est.savePose()
+
         # #Save optitrack data
-        # if optiTrackConnected:
-        if useRigidBodies:
-            opTrack.optiSave(opTrack.rigidData)
-        else:
-            opTrack.optiSave(opTrack.markerData)
+        if optiTrackConnected:
+            if useRigidBodies:
+                opTrack.optiSave(opTrack.rigidData)
+            else:
+                opTrack.optiSave(opTrack.markerData)
 
 
         if 'ardIntLHS' in locals():

@@ -547,12 +547,12 @@ class kineSolver:
         # Based on estimated tip position in 3D space, find point of intersection (POI)
         # of shaft with parallel mech plane
         [estPOIX, estPOIY, estP, inclin, azimuth] = self.intersect(realX, realY, realZ) 
-        print("X, Y, P   : ", estPOIX, estPOIY, estP)
-        print("Position i: ", realX, realY, realZ)
+        # print("X, Y, P   : ", estPOIX, estPOIY, estP)
+        # print("Position, local: ", realX, realY, realZ)
 
         # Estimate the true cable lengths based on vision system
         [estL, estR, estT, cJaco, cJpinv] = self.cableLengths(idealX, idealY, estPOIX, estPOIY)
-        print("Est cables: ", estL, estR, estT, estP)
+        # print("Est cables: ", estL, estR, estT, estP)
        
         # Error between observed and open-loop targets
         errCableL =  estL - targetL

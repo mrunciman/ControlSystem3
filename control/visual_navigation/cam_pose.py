@@ -10,6 +10,18 @@ import cv2 as cv
 import numpy as np
 import time
 
+import csv
+import os
+
+location = os.path.dirname(__file__)
+parent = os.path.dirname(location)
+logTime = time.strftime("%Y-%m-%d %H-%M-%S")
+relative = "logs/pose/pose " + logTime + ".csv"
+fileName = os.path.join(parent, relative)
+with open(fileName, mode ='w', newline='') as poseLog1: 
+    logger1 = csv.writer(poseLog1)
+    logger1.writerow(['X_est', 'Y_est', 'Z_est', 'w', 'i', 'j', 'k', 'Timestamp', time.time()])
+
 def quat_to_rot_matrix(i, j, k, w): 
     #requires quaternions in  w, i, j, k order
     q0 = w
@@ -99,6 +111,8 @@ class PoseEstimator:
     def __init__(self, config_path):
         self.config_path = config_path
         self.M_TO_MM = 1000
+        self.poseData = []
+        self.rotVect = [0,0,0]
 
     def initialize(self,from_matlab=True):
         self.config_file_data, cam_calib_data = load_data.load_config_and_cam_calib_data(self.config_path)
@@ -114,10 +128,8 @@ class PoseEstimator:
         dist_coeff_data = cam_calib_data['dist_coeff']['data']
         self.dist_coeff = np.array(dist_coeff_data)
 
-        # translation_path = self.data_pttrn['translation_path']
-        # translation_path =  'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45mm/data0721/'
         translation_path =  'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/data_1108/'
-        # translation_path =  './data_45mm/data0721/'
+
         if from_matlab:
             from scipy import io
             mat_path = translation_path+'XY.mat'
@@ -129,20 +141,14 @@ class PoseEstimator:
             self.X = XY['X']
             self.Y = XY['Y']
 
-        # rotMatrixR = quat_to_rot_matrix(-0.006375742,0.008078535,-0.003986573,-0.999939084) # Previous value
-        # rotMatrixR = quat_to_rot_matrix(-0.011488591, 0.014160476, -0.001230368, -0.999832988)
         rotMatrixR = quat_to_rot_matrix(0.005187734, -0.014990916, -0.009014277, -0.999833584)
 
-        
-        # posR=[-0.110181898,0.029305253,0.133816868] # Previous value
-        # posR=[-0.112173915, 0.02704691, 0.082323581]
         posR = [0.095438123, 0.033289835, 0.160581827] # 08/11/22
 
-
         T_W_Rob = np.block([[rotMatrixR[0, :], self.M_TO_MM*posR[0]],\
-                                [rotMatrixR[1, :], self.M_TO_MM*posR[1]],\
-                                [rotMatrixR[2, :], self.M_TO_MM*posR[2]],\
-                                [0, 0, 0, 1]])
+                            [rotMatrixR[1, :], self.M_TO_MM*posR[1]],\
+                            [rotMatrixR[2, :], self.M_TO_MM*posR[2]],\
+                            [0, 0, 0, 1]])
         self.T_Rob_W = np.linalg.pinv(T_W_Rob)
         # print(T_W_Rob)
 
@@ -178,6 +184,7 @@ class PoseEstimator:
             valid, rvec_pred, tvec_pred, inliers = cv.solvePnPRansac(pnts_3d_object, pnts_2d_image, self.cam_matrix, dist_coeff, None, None, False, 1000, 3.0, 0.9999, None, cv.SOLVEPNP_EPNP)
             # valid, rvec_pred, tvec_pred, inliers = cv.solvePnPRansac(pnts_3d_object, pnts_2d_image, cam_matrix, dist_coeff, None, None, False, 1000, 3.0, 0.9999, None, cv.SOLVEPNP_SQPNP)
             if valid:
+                self.rotVect = rvec_pred
                 im = show_axis(im, rvec_pred, tvec_pred, self.cam_matrix, dist_coeff, 6, is_show)
                 rmat_pred, _ = cv.Rodrigues(rvec_pred)
             return homo(rmat_pred,tvec_pred)
@@ -192,6 +199,8 @@ class PoseEstimator:
             if is_save:
                 cv.imwrite("nodetect.png".format(time.time()),im)
             return None
+
+
     def send_pose(self):
         h1 = self.pose_estimate()# Pattern to Camera
         if h1 is not None:
@@ -204,6 +213,8 @@ class PoseEstimator:
             return temp1# Estimated World to Instrument Pose
         else:
             return None
+
+
     def tip_pose(self):
         # Method to get tip pose with respect to robot base
         T_W_Inst = self.send_pose()# Estimated World to Instrument Pose
@@ -214,5 +225,26 @@ class PoseEstimator:
             return T_Rob_Inst
         else:
             return None
+
+
+
+    def logPose(self, T_Rob_Inst_Est):
+        if T_Rob_Inst_Est is None:
+            self.poseData.append([' '] + [' '] + [' '] + [' '] + [' '] + [' '] + [time.time()])
+        else:
+            [R, T] = unpack_homo(T_Rob_Inst_Est)
+            # realX = T_Rob_Inst_Est[0,3]
+            # realY = T_Rob_Inst_Est[1,3]
+            # realZ = T_Rob_Inst_Est[2,3]
+            # print("Position", -realZ + 15, realY + 8.66, realX)
+            R9 = R.reshape(1,9)
+
+            self.poseData.append([T[0]] + [T[1]] + [T[2]] + [float(self.rotVect[0])] + [float(self.rotVect[1])] + [float(self.rotVect[2])] + [time.time()])
+
+    def savePose(self):
+        with open(fileName, 'a', newline='') as posLog2:
+            positionLog2 = csv.writer(posLog2)
+            for i in range(len(self.poseData)):
+                positionLog2.writerow(self.poseData[i])
     
 

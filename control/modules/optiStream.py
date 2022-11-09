@@ -17,7 +17,7 @@ fileName = os.path.join(parent, relative)
 with open(fileName, mode ='w', newline='') as optiLog0: 
     optiLog1 = csv.writer(optiLog0)
     optiLog1.writerow(['time stamp', 'cumulative time', 'ID', 'X', 'Y', 'Z', 'Y angle', 'Z angle', 'X angle', 'w', 'i', 'j', 'k',\
-        'ID', 'X', 'Y', 'Z', 'Y angle', 'Z angle', 'X angle', 'i', 'j', 'k', 'w'])
+        'ID', 'X', 'Y', 'Z', 'Y angle', 'Z angle', 'X angle','w', 'i', 'j', 'k'])
 
 class optiTracker:
 
