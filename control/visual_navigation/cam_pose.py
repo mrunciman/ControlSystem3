@@ -228,9 +228,12 @@ class PoseEstimator:
 
 
 
-    def logPose(self, T_Rob_Inst_Est):
+    def logPose(self, T_Rob_Inst_Est, msClassification):
+        if msClassification is None:
+            msClassification = ' '
+
         if T_Rob_Inst_Est is None:
-            self.poseData.append([' '] + [' '] + [' '] + [' '] + [' '] + [' '] + [time.time()])
+            self.poseData.append([' '] + [' '] + [' '] + [' '] + [' '] + [' '] + [msClassification] + [time.time()])
         else:
             [R, T] = unpack_homo(T_Rob_Inst_Est)
             # realX = T_Rob_Inst_Est[0,3]
@@ -239,7 +242,7 @@ class PoseEstimator:
             # print("Position", -realZ + 15, realY + 8.66, realX)
             R9 = R.reshape(1,9)
 
-            self.poseData.append([T[0]] + [T[1]] + [T[2]] + [float(self.rotVect[0])] + [float(self.rotVect[1])] + [float(self.rotVect[2])] + [time.time()])
+            self.poseData.append([T[0]] + [T[1]] + [T[2]] + [float(self.rotVect[0])] + [float(self.rotVect[1])] + [float(self.rotVect[2])] + [msClassification] + [time.time()])
 
     def savePose(self):
         with open(fileName, 'a', newline='') as posLog2:

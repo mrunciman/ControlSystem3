@@ -23,6 +23,7 @@ import numpy as np
 
 from modules import arduinoInterface
 from modules import fibrebotInterface
+from modules import massSpecInterface
 from modules import kinematics
 # from modules import mouseGUI
 from modules import pumpLog
@@ -213,6 +214,12 @@ if fibreConnected:
     fibrebotLink.sendState("Stop")
     print(fibrebotLink.fibreSerial)
 
+massSpecLink = massSpecInterface.massSpec()
+msCOM = 'COM5'
+msConnected = massSpecLink.connect(msCOM)
+if msConnected:
+    print("Mass spec serial connection established")
+
 if useVisionFeedback:
     config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
     pose_est = PoseEstimator(config_path)
@@ -331,8 +338,12 @@ try:
 
         if fibreConnected:
             fibreDone = fibrebotLink.receiveState()
+            #TODO Forward kinematic model of fibre
             # if fibreDone is not None:
                 # print(fibreDone)
+
+        if msConnected:
+            msClass = massSpecLink.receiveState()
 
         # Stay at given coord for number of cycles
         if delayCount < delayLim:
@@ -378,7 +389,7 @@ try:
 
         if useVisionFeedback == True:
             T_Rob_Inst_camera = pose_est.tip_pose()#4x4 homo matrix in MM
-            pose_est.logPose(T_Rob_Inst_camera)
+            pose_est.logPose(T_Rob_Inst_camera, msClass) #TODO log transformation of the fibre tip, not hydraulic one
             if T_Rob_Inst_camera is not None:
                 realX = T_Rob_Inst_camera[0,3]
                 realY = T_Rob_Inst_camera[1,3]
