@@ -38,8 +38,12 @@ class fibreBot:
             stateIndicator = 1
         elif state == "Last":
             stateIndicator = 2
+        elif state == "Raster":
+            stateIndicator = 3
         elif state == "STOP":
             stateIndicator = 9
+        else:
+            stateIndicator = state # pass through the direction of motion
 
         # Encode and send to fibrebot DAQ
         message = str(stateIndicator) + "\n"

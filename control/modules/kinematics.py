@@ -493,6 +493,13 @@ class kineSolver:
         vEuclidXY = vEuclid[0:2]
         tVx = vEuclidXY[0]
         tVy = vEuclidXY[1]
+        dirAngle = np.arctan2(tVy, tVx)
+        if dirAngle < 0:
+            dirAngle = 2*np.pi + dirAngle
+            perpAngle = dirAngle + np.pi/2
+            if perpAngle > np.pi*2:
+                perpAngle = perpAngle - 2*np.pi
+
         vMagScaled = mt.sqrt(tVx**2 + tVy**2)
         # print(vEuclidXY)
 
@@ -511,7 +518,7 @@ class kineSolver:
         # print(actX, actY)
         
 
-        return lhsSpeed, rhsSpeed, topSpeed, actX, actY
+        return lhsSpeed, rhsSpeed, topSpeed, actX, actY, dirAngle
 
 
     def collisionAngle(self, dL, dR, dT, conL, conR, conT):

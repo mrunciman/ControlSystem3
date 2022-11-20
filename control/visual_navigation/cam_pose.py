@@ -10,17 +10,7 @@ import cv2 as cv
 import numpy as np
 import time
 
-import csv
-import os
 
-location = os.path.dirname(__file__)
-parent = os.path.dirname(location)
-logTime = time.strftime("%Y-%m-%d %H-%M-%S")
-relative = "logs/pose/pose " + logTime + ".csv"
-fileName = os.path.join(parent, relative)
-with open(fileName, mode ='w', newline='') as poseLog1: 
-    logger1 = csv.writer(poseLog1)
-    logger1.writerow(['X_est', 'Y_est', 'Z_est', 'w', 'i', 'j', 'k', 'Timestamp', time.time()])
 
 def quat_to_rot_matrix(i, j, k, w): 
     #requires quaternions in  w, i, j, k order
@@ -111,14 +101,14 @@ class PoseEstimator:
     def __init__(self, config_path):
         self.config_path = config_path
         self.M_TO_MM = 1000
-        self.poseData = []
         self.rotVect = [0,0,0]
+        self.camConnected = False
 
     def initialize(self,from_matlab=True):
         self.config_file_data, cam_calib_data = load_data.load_config_and_cam_calib_data(self.config_path)
         self.data_pttrn, self.data_marker = load_data.load_pttrn_and_marker_data(self.config_path)
         self.camera = CameraSource(self.config_file_data['cam_idx'],self.config_file_data['width'],self.config_file_data['height'])
-        self.camera.initialize()
+        self.camConnected = self.camera.initialize()
         ## Load pattern data
         self.sqnc_max_ind = len(self.data_pttrn) - 1
         self.sequence_length = len(self.data_pttrn['sequence_0']['code']) # TODO: hardcoded
@@ -228,26 +218,6 @@ class PoseEstimator:
 
 
 
-    def logPose(self, T_Rob_Inst_Est, msClassification):
-        if msClassification is None:
-            msClassification = ' '
 
-        if T_Rob_Inst_Est is None:
-            self.poseData.append([' '] + [' '] + [' '] + [' '] + [' '] + [' '] + [msClassification] + [time.time()])
-        else:
-            [R, T] = unpack_homo(T_Rob_Inst_Est)
-            # realX = T_Rob_Inst_Est[0,3]
-            # realY = T_Rob_Inst_Est[1,3]
-            # realZ = T_Rob_Inst_Est[2,3]
-            # print("Position", -realZ + 15, realY + 8.66, realX)
-            R9 = R.reshape(1,9)
-
-            self.poseData.append([T[0]] + [T[1]] + [T[2]] + [float(self.rotVect[0])] + [float(self.rotVect[1])] + [float(self.rotVect[2])] + [msClassification] + [time.time()])
-
-    def savePose(self):
-        with open(fileName, 'a', newline='') as posLog2:
-            positionLog2 = csv.writer(posLog2)
-            for i in range(len(self.poseData)):
-                positionLog2.writerow(self.poseData[i])
     
 

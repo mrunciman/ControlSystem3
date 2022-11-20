@@ -15,13 +15,18 @@ class CameraSource:
 
     def initialize(self):
         if not self.cap.isOpened():
-            raise IOError("Cannot open left webcam")
+            return False
+            # raise IOError("Cannot open left webcam")
+        else:
+            return True
+
     def receive_img(self):
         ret, frame = self.cap.read()
         if not ret:
             print("Can't receive frame (stream end?). Exiting ...")
             return None
         return frame
+        
     def end(self):
         self.cap.release()
         cv2.destroyAllWindows()
