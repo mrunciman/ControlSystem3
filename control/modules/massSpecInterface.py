@@ -39,7 +39,7 @@ class massSpec:
         self.msSerial = serial.Serial()
         self.poseData = []
         self.msClass = 0
-        self.doAblationAlgorithm = True
+        self.doAblationAlgorithm = False
         self.miniRaster = []
 
         self.rasterNumber = 0

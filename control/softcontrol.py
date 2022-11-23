@@ -129,6 +129,8 @@ visionFeedFlag = False
 fibreDone = False
 pauseVisFeedback = False
 
+MSCounter = 0
+
 # Initialise cable length variables at home position
 cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
 cableL, cableR, cableT = kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH
@@ -211,7 +213,6 @@ fibrebotLink = fibrebotInterface.fibreBot()
 fibreConnected = fibrebotLink.connect(pumpSer, COMlist)
 if fibreConnected:
     print("Fibrebot connected.")
-    fibrebotLink.sendState("Stop")
     print(fibrebotLink.fibreSerial)
 
 massSpecLink = massSpecInterface.massSpec()
@@ -275,7 +276,7 @@ try:
         calibP = False
 
         # Has the mechanism been calibrated/want to run without calibration?:
-        calibrated = True
+        calibrated = False
         # Perform calibration:
         print("Zeroing hydraulic actuators...")
         while (not calibrated):
@@ -317,6 +318,7 @@ try:
 
     print("Calibration done.")
     print("Beginning path following task.")
+    fibrebotLink.sendState("Run")
     
 
     ################################################################
@@ -326,8 +328,9 @@ try:
         if not omni_connected:
         # Go sequentially through path coordinates
             # End test when last coords reached
-            if pathCounter >= len(xPath):
-                break
+            if pathCounter >= len(xPath)/2:
+                massSpecLink.doAblationAlgorithm = True
+                # break
             else:
                 XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
             # print(XYZPathCoords)
@@ -337,37 +340,54 @@ try:
             [xMap, yMap, zMap] = phntmOmni.omniMap()
             XYZPathCoords = [xMap, yMap, zMap]
 
-        if fibreConnected:
-            fibreDone = fibrebotLink.receiveState()
-            #TODO Receive forward kinematic model of fibre
-            # if fibreDone is not None:
-                # print(fibreDone)
+
+        T_Inst_Fibre = fibrebotLink.receiveState(fibreConnected)
+
 
         if msConnected:
             massSpecLink.receiveState()
-            if massSpecLink.msClass == 1:
-                massSpecLink.doAblationAlgorithm = True
+            # if massSpecLink.msClass == 1:
+            #     massSpecLink.doAblationAlgorithm = True
+            # elif MSCounter == 20:
+            #     massSpecLink.doAblationAlgorithm = True
+            #     MSCounter += 1
 
+
+        if pose_est.camConnected == True:
+            T_Rob_Inst = pose_est.tip_pose()#4x4 homo matrix in mm
+        else:
+            T_Rob_Inst = None
+            
+        if T_Rob_Inst is not None:
+            T_Rob_Fibre = T_Rob_Inst*T_Inst_Fibre
+        else:
+            T_Rob_Fibre = T_Inst_Fibre # TODO change to None after testing
+        massSpecLink.logPose(T_Rob_Fibre, pose_est.rotVect) #log transformation of the fibre tip
         
         if massSpecLink.doAblationAlgorithm == True:
             # Alter desired coordinates (XYZPathCoords) based on mass spec data
-            print(massSpecLink.msClass)
-            unhealthyCoords = XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2]#hydraulic robot pose from where fibre robot picked up signal
+
+            unhealthyCoords = [xPath[int(pathCounter/2)], yPath[int(pathCounter/2)], zPath[int(pathCounter/2)]]
+            # unhealthyCoords = XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2]#hydraulic robot pose from where fibre robot picked up signal
             [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(unhealthyCoords[0], unhealthyCoords[1], unhealthyCoords[2])
             # Return target cable lengths at target coords and jacobian at current coords
             [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
             # Get cable speeds using Jacobian at current point and calculation of input speed
-            [lhsV, rhsV, topV, actualX, actualY, dirPlane] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
-            # fibrebotLink.sendState("Raster") # TODO tell fibre to do mini raster scane
+            [lhsV, rhsV, topV, actualX, actualY, perpAngle] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
+            # Tell fibre to do mini raster scan
+            if fibreConnected: fibrebotLink.sendState("Raster") 
             # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
             [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
 
-            massSpecLink.logMiniScan([1,2,3,4,5,6,7,8,9,10,11,12,13,14,16], [3,2,1])
+            massSpecLink.logMiniScan(T_Inst_Fibre, [3,2,1])
 
-            #reset massSpecLink.doAblationAlgorithm when complete
-            massSpecLink.doAblationAlgorithm = False
-            massSpecLink.saveMiniScan()
-            #TODO Save individual mini raster scan data so gross positioning system can move to centroid/extremum and execute further mini scans
+            #Reset massSpecLink.doAblationAlgorithm when complete
+            if fibrebotLink.miniScanDone:
+                massSpecLink.doAblationAlgorithm = False
+                #Save individual mini raster scan data so gross positioning system can move to centroid/extremum and execute further mini scans
+                massSpecLink.saveMiniScan()
+                break
+                
 
         else: # Line scan following gross raster pattern
             pathCounter += 1
@@ -381,22 +401,24 @@ try:
 
             # Get cable speeds using Jacobian at current point and calculation of input speed
             [lhsV, rhsV, topV, actualX, actualY, perpAngle] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
-            print(perpAngle)
-            if fibreConnected: fibrebotLink.sendState(perpAngle)
+            fibrebotLink.lineAngle = perpAngle
+            if fibreConnected: fibrebotLink.sendState("Line")
+            time.sleep(0.05)
             # print(lhsV, rhsV, topV, actualX, actualY)
             # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
             [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
 
         if pose_est.camConnected == True:
-            T_Rob_Inst_camera = pose_est.tip_pose()#4x4 homo matrix in MM
-            massSpecLink.logPose(T_Rob_Inst_camera, pose_est.rotVect) #TODO log transformation of the fibre tip, not hydraulic one
-            if T_Rob_Inst_camera is not None:
-                realX = T_Rob_Inst_camera[0,3]
-                realY = T_Rob_Inst_camera[1,3]
-                realZ = T_Rob_Inst_camera[2,3]
-                print("Open loop : ", targetXideal, targetYideal, targetOpP)
-                print("Position", -realZ + 15, realY + 8.66, realX)
+            # T_Rob_Inst = pose_est.tip_pose()#4x4 homo matrix in MM
+            # T_Rob_Fibre = T_Rob_Inst*T_Inst_Fibre
+            # massSpecLink.logPose(T_Rob_Fibre, pose_est.rotVect) #log transformation of the fibre tip, not hydraulic one
+            if T_Rob_Inst is not None:
+                realX = T_Rob_Inst[0,3]
+                realY = T_Rob_Inst[1,3]
+                realZ = T_Rob_Inst[2,3]
                 [errCableL, errCableR, errCableT, errPrism] = kineSolve.cableError(actualX, actualY, scaleTargL, scaleTargR, scaleTargT, targetOpP, realX, realY, realZ)
+                # print("Open loop : ", targetXideal, targetYideal, targetOpP)
+                # print("Position", -realZ + 15, realY + 8.66, realX)
                 # print("OL cables : ", targetOpL, targetOpR, targetOpT, targetOpP)
                 # print("Error LRTP: ", errCableL, errCableR, errCableT, errPrism)
 

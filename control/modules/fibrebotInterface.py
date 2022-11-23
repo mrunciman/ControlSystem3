@@ -1,5 +1,6 @@
 import serial
 import serial.tools.list_ports
+import numpy as np
 
 
 # serInfo = serial.tools.list_ports.comports()
@@ -8,10 +9,19 @@ import serial.tools.list_ports
 
 # FIBRE_NAME = "ASRL1::INSTR"
 
+
+startByte = "<"
+endByte = ">"
+completeMessage = '999'
+
 class fibreBot:
 # Make a serial connection to the NI controller of the fibrebot
     def __init__(self):
         self.fibreSerial = serial.Serial()
+        self.fibreLength = 80
+        self.rasterSize = 5
+        self.miniScanDone = False
+        self.lineAngle = 0
 
     # Connect
     def connect(self, pumpSer, COMlist):
@@ -33,34 +43,81 @@ class fibreBot:
 
     def sendState(self, state):
         if state == "Stop":
-            stateIndicator = 0
+            stateIndicator = "S"
         elif state == "Run":
-            stateIndicator = 1
-        elif state == "Last":
-            stateIndicator = 2
+            stateIndicator = "T"
         elif state == "Raster":
-            stateIndicator = 3
-        elif state == "STOP":
-            stateIndicator = 9
+            stateIndicator = "R" + str(self.rasterSize)
+        # elif state == "STOP":
+        #     stateIndicator = 9
         else:
-            stateIndicator = state # pass through the direction of motion
+            # stateIndicator = "L" + str(float(self.angle)) # pass through the direction of motion
+            stateIndicator = "L" + "{angle:.3f}".format(angle = self.lineAngle) # pass through the direction of motion
+            # print(stateIndicator)
 
         # Encode and send to fibrebot DAQ
         message = str(stateIndicator) + "\n"
         message = message.encode('utf-8')
         self.fibreSerial.write(message)
 
-    def receiveState(self):
-        if self.fibreSerial.in_waiting > 0:
-            reply = self.fibreSerial.readline().strip()
-            self.fibreSerial.reset_input_buffer()
-            reply = reply.decode('ascii')
-            print(reply)
-            if reply == "B":
-                #Fibrebot motion complete
-                return True
+    def receiveState(self, isConnected):
+        # This flag will trigger analysis/imaging of mini raster data:
+        self.miniScanDone = False
+        if isConnected:
+            if self.fibreSerial.in_waiting > 0:
+                #Receive forward kinematic model of fibre
+                #  - tip position received will be XY 
+                reply = self.fibreSerial.readline().strip()
+                self.fibreSerial.reset_input_buffer()
+                # self.fibreSerial.reset_output_buffer()
+                reply = reply.decode('ascii')
+                startOK = False
+                endOK = False
+
+                if reply.startswith("<"):
+                    startOK = True
+                
+                if reply.endswith(">"):
+                    endOK = True
+                
+                reply = reply.strip('<>')
+
+                fibreXY = reply.split(',')
+                # print(reply)
+                # if reply == "B":
+                #     #Fibrebot motion complete
+                #     return True
+                if startOK and endOK:
+                    filtX = filter(str.isdigit, fibreXY[0])
+                    filtY = filter(str.isdigit, fibreXY[1])
+                    fibreX = "".join(filtX)
+                    fibreY = "".join(filtY)
+                    if fibreX == "":
+                        fibreX = 0
+                    if fibreY == "":
+                        fibreY = 0
+                    if fibreX == completeMessage:
+                        if fibreY == completeMessage:
+                            self.miniScanDone = True
+                    print("FibreX: " + fibreX + "    FibreY: " + fibreY)
+                else:
+                    fibreX = 0
+                    fibreY = 0
             else:
-                return False
+                fibreX = 0
+                fibreY = 0
+        else:
+            fibreX = 0
+            fibreY = 0
+
+        fibreZ = self.fibreLength
+
+        T_tip_fibre = np.block([[1, 0, 0, fibreX],\
+                                [0, 1, 0, fibreY],\
+                                [0, 0, 1, fibreZ],\
+                                [0, 0, 0, 1]])
+            
+        return T_tip_fibre
 
         
 
