@@ -53,7 +53,7 @@ class fibreBot:
         else:
             # stateIndicator = "L" + str(float(self.angle)) # pass through the direction of motion
             stateIndicator = "L" + "{angle:.3f}".format(angle = self.lineAngle) # pass through the direction of motion
-            # print(stateIndicator)
+        print(stateIndicator)
 
         # Encode and send to fibrebot DAQ
         message = str(stateIndicator) + "\n"
@@ -68,38 +68,68 @@ class fibreBot:
                 #Receive forward kinematic model of fibre
                 #  - tip position received will be XY 
                 reply = self.fibreSerial.readline().strip()
-                self.fibreSerial.reset_input_buffer()
                 # self.fibreSerial.reset_output_buffer()
                 reply = reply.decode('ascii')
+                self.fibreSerial.reset_input_buffer()
                 startOK = False
                 endOK = False
+                startIndex = 0
+                endIndex = 0
 
-                if reply.startswith("<"):
+                # if reply.startswith(startByte):
+                #     startOK = True
+
+                if startByte in reply:
                     startOK = True
-                
-                if reply.endswith(">"):
-                    endOK = True
-                
-                reply = reply.strip('<>')
+                    startIndex = reply.index(startByte)
 
-                fibreXY = reply.split(',')
+                
+                # if reply.endswith(">"):
+                #     endOK = True
+
+                if endByte in reply:
+                    endOK = True
+                    endIndex = reply.index(endByte)
+                
+                # stripped = reply.strip('<>')
+
+                # fibreXY = stripped.split(',')
                 # print(reply)
                 # if reply == "B":
                 #     #Fibrebot motion complete
                 #     return True
-                if startOK and endOK:
+                signX = 0
+                signY = 0
+                if (startOK and endOK) and (startIndex < endIndex):
+                    fibreXY = reply[startIndex+1:endIndex].split(',')
+                # if startOK and endOK:
+                    # try:
                     filtX = filter(str.isdigit, fibreXY[0])
                     filtY = filter(str.isdigit, fibreXY[1])
-                    fibreX = "".join(filtX)
+                    fibreX = "".join(filtX) # TODO interpret as float and multiply with sign
                     fibreY = "".join(filtY)
                     if fibreX == "":
                         fibreX = 0
+                    else:
+                        fibreX = float(fibreXY[0])
+
                     if fibreY == "":
                         fibreY = 0
-                    if fibreX == completeMessage:
-                        if fibreY == completeMessage:
+                    else:
+                        fibreY = float(fibreXY[1])
+                    # except:
+                        # if fibreXY[0].startswith("-"): signX = -1
+                        # if fibreXY[1].startswith("-"): signY = -1
+                        # filtX = filter(str.isdigit, fibreXY[0])
+                        # filtY = filter(str.isdigit, fibreXY[1])
+                        # fibreX = "".join(filtX) # TODO interpret as float and multiply with sign
+                        # fibreY = "".join(filtY)
+
+                    if fibreXY[0] == completeMessage:
+                        if fibreXY[1] == completeMessage:
                             self.miniScanDone = True
-                    print("FibreX: " + fibreX + "    FibreY: " + fibreY)
+                    # print(fibreX)
+                    # print(fibreY)
                 else:
                     fibreX = 0
                     fibreY = 0

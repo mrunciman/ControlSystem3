@@ -191,7 +191,7 @@ pneuPress = 2000
 ############################################################################
 # Visual servoing variables
 targetOpL, targetOpR, targetOpT, targetOpP = 0, 0, 0, 0
-
+errCableL, errCableR, errCableT, errPrism = 0, 0, 0, 0
 
 ############################################################################
 # Optitrack connection
@@ -328,7 +328,9 @@ try:
         if not omni_connected:
         # Go sequentially through path coordinates
             # End test when last coords reached
-            if pathCounter >= len(xPath)/2:
+            if pathCounter >= len(xPath)/18:
+                #TODO cluster mass spec data, find bounding boxes, list centres of bounding boxes
+                # doBoundaryFinding
                 massSpecLink.doAblationAlgorithm = True
                 # break
             else:
@@ -366,7 +368,7 @@ try:
         
         if massSpecLink.doAblationAlgorithm == True:
             # Alter desired coordinates (XYZPathCoords) based on mass spec data
-
+            print("Executing mini raster")
             unhealthyCoords = [xPath[int(pathCounter/2)], yPath[int(pathCounter/2)], zPath[int(pathCounter/2)]]
             # unhealthyCoords = XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2]#hydraulic robot pose from where fibre robot picked up signal
             [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(unhealthyCoords[0], unhealthyCoords[1], unhealthyCoords[2])
@@ -403,7 +405,7 @@ try:
             [lhsV, rhsV, topV, actualX, actualY, perpAngle] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
             fibrebotLink.lineAngle = perpAngle
             if fibreConnected: fibrebotLink.sendState("Line")
-            time.sleep(0.05)
+            # time.sleep(0.05)
             # print(lhsV, rhsV, topV, actualX, actualY)
             # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
             [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)

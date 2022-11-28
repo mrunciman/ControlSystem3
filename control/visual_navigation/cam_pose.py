@@ -181,7 +181,7 @@ class PoseEstimator:
 
         else:
             # print(im.shape)
-            print("no pattern detected")
+            # print("no pattern detected")
             if is_show:
                 cv.imshow("image", mask_marker_bg)
                 # cv.imshow("image", im)
