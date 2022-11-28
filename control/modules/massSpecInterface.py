@@ -100,16 +100,16 @@ class massSpec:
                 return None
 
 
-    def logMiniScan(self, T_Rob_Inst_Est, rotVect):
+    def logMiniScan(self, T_Rob_Inst_Est):
         if self.msClass is None:
             msClassification = ' '
         else:
             msClassification = self.msClass
 
         if type(T_Rob_Inst_Est) is list:
-            self.miniRaster.append([T_Rob_Inst_Est[0]] + [T_Rob_Inst_Est[1]] + [T_Rob_Inst_Est[2]] + [float(rotVect[0])] + [float(rotVect[1])] + [float(rotVect[2])] + [msClassification] + [time.time()])
+            self.miniRaster.append([T_Rob_Inst_Est[0]] + [T_Rob_Inst_Est[1]] + [T_Rob_Inst_Est[2]] + [msClassification] + [time.time()])
         elif T_Rob_Inst_Est is None:
-            self.miniRaster.append([' '] + [' '] + [' '] + [' '] + [' '] + [' '] + [msClassification] + [time.time()])
+            self.miniRaster.append([' '] + [' '] + [' '] + [msClassification] + [time.time()])
         else:
             # [R, T] = unpack_homo(T_Rob_Inst_Est)
             T = [T_Rob_Inst_Est[0,3], T_Rob_Inst_Est[1,3], T_Rob_Inst_Est[2,3]]
@@ -119,7 +119,7 @@ class massSpec:
             # print("Position", -realZ + 15, realY + 8.66, realX)
             # R9 = R.reshape(1,9)
 
-            self.miniRaster.append([T[0]] + [T[1]] + [T[2]] + [float(rotVect[0])] + [float(rotVect[1])] + [float(rotVect[2])] + [msClassification] + [time.time()])
+            self.miniRaster.append([T[0]] + [T[1]] + [T[2]] + [msClassification] + [time.time()])
 
 
     def saveMiniScan(self):

@@ -30,6 +30,7 @@ from modules import pumpLog
 from modules import positionInput
 from modules import optiStream
 from modules import omniStream
+from modules import clusterData
 
 from visual_navigation.cam_pose import PoseEstimator
 
@@ -44,7 +45,7 @@ ardLogging = pumpLog.ardLogger()
 posLogging = positionInput.posLogger()
 opTrack = optiStream.optiTracker()
 phntmOmni = omniStream.omniStreamer()
-
+dataClust = clusterData()
 
 ############################################################
 pathCounter = 0
@@ -128,6 +129,8 @@ visionFeedFlag = False
 # Fibre related variables
 fibreDone = False
 pauseVisFeedback = False
+
+behaviourState = 1
 
 MSCounter = 0
 
@@ -326,13 +329,28 @@ try:
     while(flagStop == False):
 
         if not omni_connected:
-        # Go sequentially through path coordinates
-            # End test when last coords reached
+        # CHOOSE WHICH BEHAVIOUR TO EXECUTE
+            # Gross raster until end of path
             if pathCounter >= len(xPath)/18:
-                #TODO cluster mass spec data, find bounding boxes, list centres of bounding boxes
-                # doBoundaryFinding
-                massSpecLink.doAblationAlgorithm = True
                 # break
+                # Cluster, find bounding boxes, find centres of bounding boxes:
+                # TODO cluster mass spec data, find bounding boxes, list centres of bounding boxes
+
+                # After completed scan, take combined pose + mass spec data and adjust for delay / noise
+                # Keep only points with +ve classification
+                dataClust.cancelNoise()
+                # Use DBSCAN (or other) clustering technique
+                # Find bounding boxes / centre
+                dataClust.clusterBlobs()
+
+
+                # Do boundary finding on each bounding box
+                # if boundary finding done on each bounding box:
+                    # behaviourState = 3
+                # else:
+                    # behaviourState = 2 # Boundary finding
+                behaviourState = 2
+
             else:
                 XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
             # print(XYZPathCoords)
@@ -366,7 +384,7 @@ try:
             T_Rob_Fibre = T_Inst_Fibre # TODO change to None after testing
         massSpecLink.logPose(T_Rob_Fibre, pose_est.rotVect) #log transformation of the fibre tip
         
-        if massSpecLink.doAblationAlgorithm == True:
+        if behaviourState == 3: # Behaviour 3: mini raster
             # Alter desired coordinates (XYZPathCoords) based on mass spec data
             print("Executing mini raster")
             unhealthyCoords = [xPath[int(pathCounter/2)], yPath[int(pathCounter/2)], zPath[int(pathCounter/2)]]
@@ -381,7 +399,7 @@ try:
             # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
             [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
 
-            massSpecLink.logMiniScan(T_Inst_Fibre, [3,2,1])
+            massSpecLink.logMiniScan(T_Inst_Fibre)
 
             #Reset massSpecLink.doAblationAlgorithm when complete
             if fibrebotLink.miniScanDone:
@@ -389,9 +407,27 @@ try:
                 #Save individual mini raster scan data so gross positioning system can move to centroid/extremum and execute further mini scans
                 massSpecLink.saveMiniScan()
                 break
-                
+        
+        elif behaviourState == 2:
+            # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
+            # XYZPathCoords are desired coords in 3D.
+            [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
+            # print("Open loop : ", targetXideal, targetYideal, targetOpP)
 
-        else: # Line scan following gross raster pattern
+            # Return target cable lengths at target coords and jacobian at current coords
+            [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
+
+            # Get cable speeds using Jacobian at current point and calculation of input speed
+            [lhsV, rhsV, topV, actualX, actualY, perpAngle] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
+            fibrebotLink.lineAngle = perpAngle
+            if fibreConnected: fibrebotLink.sendState("Line")
+            # time.sleep(0.05)
+            # print(lhsV, rhsV, topV, actualX, actualY)
+            # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
+            [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
+
+
+        elif behaviourState == 1: # Behaviour 1: Line scan following gross raster pattern
             pathCounter += 1
             # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
             # XYZPathCoords are desired coords in 3D.
