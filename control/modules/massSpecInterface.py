@@ -41,6 +41,7 @@ class massSpec:
         self.msClass = 0
         self.doAblationAlgorithm = False
         self.miniRaster = []
+        self.grossScanName = None
 
         self.rasterNumber = 0
         self.miniScanRelative = miniScanDirectory + "/raster" + str(self.rasterNumber) + ".csv"
@@ -155,6 +156,7 @@ class massSpec:
             self.poseData.append([T[0]] + [T[1]] + [T[2]] + [float(rotVect[0])] + [float(rotVect[1])] + [float(rotVect[2])] + [msClassification] + [time.time()])
 
     def savePoseMassSpec(self):
+        self.grossScanName = fileName
         with open(fileName, 'a', newline='') as posLog2:
             positionLog2 = csv.writer(posLog2)
             for i in range(len(self.poseData)):

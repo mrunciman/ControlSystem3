@@ -45,7 +45,7 @@ ardLogging = pumpLog.ardLogger()
 posLogging = positionInput.posLogger()
 opTrack = optiStream.optiTracker()
 phntmOmni = omniStream.omniStreamer()
-dataClust = clusterData()
+dataClust = clusterData.dataClustering()
 
 ############################################################
 pathCounter = 0
@@ -332,12 +332,14 @@ try:
         # CHOOSE WHICH BEHAVIOUR TO EXECUTE
             # Gross raster until end of path
             if pathCounter >= len(xPath)/18:
+                massSpecLink.savePoseMassSpec()
                 # break
                 # Cluster, find bounding boxes, find centres of bounding boxes:
                 # TODO cluster mass spec data, find bounding boxes, list centres of bounding boxes
 
                 # After completed scan, take combined pose + mass spec data and adjust for delay / noise
                 # Keep only points with +ve classification
+                dataClust.loadData(massSpecLink.grossScanName)
                 dataClust.cancelNoise()
                 # Use DBSCAN (or other) clustering technique
                 # Find bounding boxes / centre
