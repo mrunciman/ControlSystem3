@@ -37,8 +37,14 @@ class dataClustering:
         self.yData = []
         self.zData = []
         self.msData = []
+        self.allData = np.array([])
+        self.xDataUnhealthy = []
+        self.yDataUnhealthy = []
+        self.zDataUnhealthy = []
+        self.msDataUnhealthy = []
         self.dbInput = np.array([])
         self.dbInputScaled = np.array([])
+        self.bboxValues = np.array([])
 
 
     def loadData(self, filePath):
@@ -50,17 +56,44 @@ class dataClustering:
             # Discard values if no pose info present?
             for row in dataReader:
                 if i == 0:
-                    i += 1 # Skip the first row
+                    i += 1 # Skip the first row 
                 else:
-                    if (int(row[6]) == 1) and (row[0] != ' '):
-                        self.xData.append(float(row[0]) if row[0] != ' ' else repVal)
-                        self.yData.append(float(row[1]) if row[1] != ' ' else repVal)
-                        self.zData.append(float(row[2]) if row[2] != ' ' else repVal)
-                        self.msData.append(float(row[6]) if row[6] != ' ' else repVal)
+                    self.xData.append(float(row[0]) if row[0] != ' ' else 0)
+                    self.yData.append(float(row[1]) if row[1] != ' ' else 0)
+                    self.zData.append(float(row[2]) if row[2] != ' ' else 0)
+                    self.msData.append(int(row[6]) if row[6] != ' ' else 0)
 
-        self.dbInput = np.column_stack((self.xData, self.yData, self.zData, self.msData))
-        self.dbInputScaled = StandardScaler().fit_transform(self.dbInput)
-        return self.dbInput
+            self.allData = np.column_stack((self.xData, self.yData, self.zData, self.msData))
+            fig0 = plt.figure()
+            ax0 = fig0.add_subplot(projection='3d')
+            ax0.scatter(
+                self.allData[:, 0],
+                self.allData[:, 1],
+                self.allData[:,2],
+                marker = 'o',
+                color= [0, 0, 0, 1]
+                )
+            ax0.set_xlabel('X')
+            ax0.set_ylabel('Y')
+            ax0.set_zlabel('Z')
+
+            for i in range(len(self.xData)):
+                pointIsUnhealthy = bool(self.msData[i])
+                poseDataPresent = False if self.xData[i] == ' ' else True
+                if pointIsUnhealthy and poseDataPresent:
+                    self.xDataUnhealthy.append(self.xData[i])
+                    self.yDataUnhealthy.append(self.yData[i])
+                    self.zDataUnhealthy.append(self.zData[i])
+                    self.msDataUnhealthy.append(self.msData[i])
+
+
+        if len(self.xDataUnhealthy) > 0:
+            self.dbInput = np.column_stack((self.xDataUnhealthy, self.yDataUnhealthy, self.zDataUnhealthy, self.msDataUnhealthy))
+            self.dbInputScaled = StandardScaler().fit_transform(self.dbInput)
+            return self.dbInputScaled
+        else:
+            return None
+        
 
 
     def shiftSamples(self, arr, num, fill_value):
@@ -82,69 +115,91 @@ class dataClustering:
 
 # CLustering might frst be done just finding incices where msClass == 1
 
-    def clusterBlobs(self):
-        # db = DBSCAN(eps=0.3, min_samples=10).fit(self.dbInputScaled[:,3].reshape(-1, 1))
-        db = DBSCAN(eps=0.3, min_samples=10).fit(self.dbInputScaled[:,0:2])
-        core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
-        core_samples_mask[db.core_sample_indices_] = True 
-        labels = db.labels_
+    def clusterBlobs(self, fileNamePath):
+        dbInputScaled = self.loadData(fileNamePath)
+        if dbInputScaled is not None:
+            # db = DBSCAN(eps=0.3, min_samples=10).fit(self.dbInputScaled[:,3].reshape(-1, 1))
+            db = DBSCAN(eps=0.3, min_samples=10).fit(dbInputScaled[:,0:2])
+            core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
+            core_samples_mask[db.core_sample_indices_] = True 
+            labels = db.labels_
 
-        # Number of clusters in labels, ignoring noise if present.
-        n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-        n_noise_ = list(labels).count(-1)
-
-
-        # Black removed and is used for noise instead.
-        unique_labels = set(labels)
-        trueMask = labels == 1
-        # print(len(self.dbInput[trueMask])) # Use labels to create masks
-        colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]
-        fig = plt.figure()
-        ax = fig.add_subplot(projection='3d')
-        for k, col in zip(unique_labels, colors):
-            if k == -1:
-                # Black used for noise.
-                col = [0, 0, 0, 1]
-
-            class_member_mask = labels == k
-
-            xy = self.dbInput[class_member_mask & core_samples_mask]
-            # plt.plot(
-            ax.scatter(
-                xy[:, 0],
-                xy[:, 1],
-                xy[:,2],
-                marker = 'o',
-                c=list(col)
-                # markerfacecolor=tuple(col),
-                # markeredgecolor="k",
-                # markersize=14,
-            )
-
-            xy = self.dbInput[class_member_mask & ~core_samples_mask]
-            # plt.plot(
-            ax.scatter(
-                xy[:, 0],
-                xy[:, 1],
-                xy[:,2],
-                marker = '.',
-                c=list(col)
-                # markerfacecolor=tuple(col),
-                # markeredgecolor="k",
-                # markersize=6,
-            )
-
-        plt.title("Estimated number of clusters: %d" % n_clusters_)
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.set_zlabel('Z')
-        plt.show()
+            # Number of clusters in labels, ignoring noise if present.
+            n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+            n_noise_ = list(labels).count(-1)
 
 
+            # Black removed and is used for noise instead.
+            unique_labels = set(labels)
+            # trueMask = labels == 0
+            # print(len(self.dbInput[trueMask])) # Use labels to create masks ZERO INDEXED
+            bboxRanges = np.zeros((n_clusters_, 6)) 
+            colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]
+            fig1 = plt.figure()
+            ax1 = fig1.add_subplot(projection='3d')
+            for k, col in zip(unique_labels, colors):
 
-fileNamePath = 'control/logs/Pose_and_MS_Test_data_-_pose 2022-11-14 16-05-03 (1).csv'
+                class_member_mask = labels == k
 
-dataClust = dataClustering()
+                xyz = self.dbInput[class_member_mask & core_samples_mask]
 
-dataClust.loadData(fileNamePath)
-dataClust.clusterBlobs()
+                if k == -1:
+                    # Black colour used for noise.
+                    col = [0, 0, 0, 1]
+                else:
+                    bboxRanges[k,0] = min(xyz[:,0])
+                    bboxRanges[k,1] = max(xyz[:,0])
+                    bboxRanges[k,2] = min(xyz[:,1])
+                    bboxRanges[k,3] = max(xyz[:,1])
+                    bboxRanges[k,4] = min(xyz[:,2])
+                    bboxRanges[k,5] = max(xyz[:,2])
+
+                ax1.scatter(
+                    xyz[:, 0],
+                    xyz[:, 1],
+                    xyz[:,2],
+                    marker = 'o',
+                    color=col
+                    # markerfacecolor=tuple(col),
+                    # markeredgecolor="k",
+                    # markersize=14,
+                )
+
+                # Plot members that are not likely to belong to class
+                xyzNOT = self.dbInput[class_member_mask & ~core_samples_mask]
+                ax1.scatter(
+                    xyzNOT[:, 0],
+                    xyzNOT[:, 1],
+                    xyzNOT[:,2],
+                    marker = '.',
+                    color=col
+                    # markerfacecolor=tuple(col),
+                    # markeredgecolor="k",
+                    # markersize=6,
+                )
+            # print(bboxRanges)
+            self.bboxValues = bboxRanges
+            plt.title("Estimated number of clusters: %d" % n_clusters_)
+            ax1.set_xlabel('X')
+            ax1.set_ylabel('Y')
+            ax1.set_zlabel('Z')
+            plt.show()
+            return True
+
+        return False
+
+
+
+    def findStartPoints(self):
+        if len(self.bboxValues) > 0:
+            print(self.bboxValues)
+
+
+
+if __name__ == '__main__':
+    fileNamePath = 'control/logs/Pose_and_MS_Test_data_-_pose 2022-11-14 16-05-03 (1).csv'
+
+    dataClust = dataClustering()
+
+    # dataClust.loadData(fileNamePath)
+    dataClust.clusterBlobs(fileNamePath)

@@ -279,7 +279,7 @@ try:
         calibP = False
 
         # Has the mechanism been calibrated/want to run without calibration?:
-        calibrated = False
+        calibrated = True
         # Perform calibration:
         print("Zeroing hydraulic actuators...")
         while (not calibrated):
@@ -321,7 +321,7 @@ try:
 
     print("Calibration done.")
     print("Beginning path following task.")
-    fibrebotLink.sendState("Run")
+    if fibreConnected: fibrebotLink.sendState("Run")
     
 
     ################################################################
@@ -332,18 +332,25 @@ try:
         # CHOOSE WHICH BEHAVIOUR TO EXECUTE
             # Gross raster until end of path
             if pathCounter >= len(xPath)/18:
-                massSpecLink.savePoseMassSpec()
+                if not massSpecLink.grossSaved: 
+                    massSpecLink.savePoseMassSpec()
+                    massSpecLink.grossSaved = True
+                    print(massSpecLink.grossScanName)
+                    dataClust.clusterBlobs(massSpecLink.grossScanName)
+                    # Find start points to pass to behaviour 2/3
+                    dataClust.findStartPoints()
+                behaviourState = 3
                 # break
                 # Cluster, find bounding boxes, find centres of bounding boxes:
                 # TODO cluster mass spec data, find bounding boxes, list centres of bounding boxes
 
                 # After completed scan, take combined pose + mass spec data and adjust for delay / noise
                 # Keep only points with +ve classification
-                dataClust.loadData(massSpecLink.grossScanName)
-                dataClust.cancelNoise()
+                # dataClust.loadData(massSpecLink.grossScanName)
+                # dataClust.cancelNoise()
                 # Use DBSCAN (or other) clustering technique
                 # Find bounding boxes / centre
-                dataClust.clusterBlobs()
+
 
 
                 # Do boundary finding on each bounding box
@@ -351,7 +358,7 @@ try:
                     # behaviourState = 3
                 # else:
                     # behaviourState = 2 # Boundary finding
-                behaviourState = 2
+                
 
             else:
                 XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
@@ -384,7 +391,7 @@ try:
             T_Rob_Fibre = T_Rob_Inst*T_Inst_Fibre
         else:
             T_Rob_Fibre = T_Inst_Fibre # TODO change to None after testing
-        massSpecLink.logPose(T_Rob_Fibre, pose_est.rotVect) #log transformation of the fibre tip
+        
         
         if behaviourState == 3: # Behaviour 3: mini raster
             # Alter desired coordinates (XYZPathCoords) based on mass spec data
@@ -447,6 +454,7 @@ try:
             # print(lhsV, rhsV, topV, actualX, actualY)
             # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
             [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
+            massSpecLink.logPose(T_Rob_Fibre, pose_est.rotVect) #log transformation of the fibre tip
 
         if pose_est.camConnected == True:
             # T_Rob_Inst = pose_est.tip_pose()#4x4 homo matrix in MM
@@ -689,7 +697,7 @@ finally:
 
         if fibreConnected:
             # Send stop message to fibrebot
-            fibrebotLink.sendState("STOP")
+            fibrebotLink.sendState("Stop")
             fibrebotLink.fibreSerial.close()
 
     except TypeError as exTE:

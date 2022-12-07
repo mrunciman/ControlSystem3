@@ -33,6 +33,12 @@ def unpack_homo(homo):
     t = homo[:,-1][:3]
     return R,t
 
+
+
+startByte = "<"
+endByte = ">"
+
+
 class massSpec:
 # Make a serial connection to mass spec computer
     def __init__(self):
@@ -41,6 +47,7 @@ class massSpec:
         self.msClass = 0
         self.doAblationAlgorithm = False
         self.miniRaster = []
+        self.grossSaved = False
         self.grossScanName = None
 
         self.rasterNumber = 0
@@ -89,16 +96,29 @@ class massSpec:
             self.msSerial.reset_input_buffer()
             result = reply.decode('ascii')
             # print(reply)
+            startIndex = 0
+            endIndex = 0
 
             # Check received message for start and end bytes "<>"
             # process result to extract classification, timestamp
+
+            if startByte in reply:
+                startOK = True
+                startIndex = reply.index(startByte)
+
+
+            if endByte in reply:
+                endOK = True
+                endIndex = reply.index(endByte)
+            
+            if (startOK and endOK) and (startIndex < endIndex):
+                msgMS = reply[startIndex+1:endIndex].split(',')
+                self.msClass = msgMS[0]
+                timeStamp = msgMS[1]
+            
+            return self.msClass
+        return None
         
-            if result == "B":
-                #Fibrebot motion complete
-                self.msClass = result
-                return result
-            else:
-                return None
 
 
     def logMiniScan(self, T_Rob_Inst_Est):
