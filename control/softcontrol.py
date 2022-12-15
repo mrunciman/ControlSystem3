@@ -335,11 +335,14 @@ try:
                 if not massSpecLink.grossSaved: 
                     massSpecLink.savePoseMassSpec()
                     massSpecLink.grossSaved = True
-                    print(massSpecLink.grossScanName)
-                    dataClust.clusterBlobs(massSpecLink.grossScanName)
+                    # Use test filename for now
+                    massSpecLink.grossScanName = 'control/logs/Pose_and_MS_Test_data_-_pose 2022-11-14 16-05-03 (1).csv'
+                    plotScans = False
+                    numClusters = dataClust.clusterBlobs(massSpecLink.grossScanName, plotScans)
+                    miniPathCounter = 0
                     # Find start points to pass to behaviour 2/3
-                    dataClust.findStartPoints()
-                behaviourState = 3
+                    behaviourState = 3
+                
                 # break
                 # Cluster, find bounding boxes, find centres of bounding boxes:
                 # TODO cluster mass spec data, find bounding boxes, list centres of bounding boxes
@@ -396,7 +399,7 @@ try:
         if behaviourState == 3: # Behaviour 3: mini raster
             # Alter desired coordinates (XYZPathCoords) based on mass spec data
             print("Executing mini raster")
-            unhealthyCoords = [xPath[int(pathCounter/2)], yPath[int(pathCounter/2)], zPath[int(pathCounter/2)]]
+            unhealthyCoords = [dataClust.centres[miniPathCounter,0], dataClust.centres[miniPathCounter,0], dataClust.centres[miniPathCounter,0]]
             # unhealthyCoords = XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2]#hydraulic robot pose from where fibre robot picked up signal
             [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(unhealthyCoords[0], unhealthyCoords[1], unhealthyCoords[2])
             # Return target cable lengths at target coords and jacobian at current coords
@@ -408,14 +411,16 @@ try:
             # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
             [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
 
-            massSpecLink.logMiniScan(T_Inst_Fibre)
+            # massSpecLink.logMiniScan(T_Inst_Fibre)
 
             #Reset massSpecLink.doAblationAlgorithm when complete
             if fibrebotLink.miniScanDone:
-                massSpecLink.doAblationAlgorithm = False
+                # massSpecLink.doAblationAlgorithm = False
                 #Save individual mini raster scan data so gross positioning system can move to centroid/extremum and execute further mini scans
                 massSpecLink.saveMiniScan()
-                break
+                miniPathCounter += 1
+                if miniPathCounter > numClusters:
+                    break
         
         elif behaviourState == 2:
             # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.

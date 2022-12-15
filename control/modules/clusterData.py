@@ -44,7 +44,7 @@ class dataClustering:
         self.msDataUnhealthy = []
         self.dbInput = np.array([])
         self.dbInputScaled = np.array([])
-        self.bboxValues = np.array([])
+        self.centres = np.array([])
 
 
     def loadData(self, filePath):
@@ -57,11 +57,17 @@ class dataClustering:
             for row in dataReader:
                 if i == 0:
                     i += 1 # Skip the first row 
-                else:
-                    self.xData.append(float(row[0]) if row[0] != ' ' else 0)
-                    self.yData.append(float(row[1]) if row[1] != ' ' else 0)
-                    self.zData.append(float(row[2]) if row[2] != ' ' else 0)
-                    self.msData.append(int(row[6]) if row[6] != ' ' else 0)
+                elif (row[0] != ' ') and (row[6] != ' '):
+                    self.xData.append(float(row[0]))
+                    self.yData.append(float(row[1]))
+                    self.zData.append(float(row[2]))
+                    self.msData.append(int(row[6]))
+                # PRESERVE ALL DATA
+                # else:      
+                #     self.xData.append(float(row[0]) if row[0] != ' ' else 0)
+                #     self.yData.append(float(row[1]) if row[1] != ' ' else 0)
+                #     self.zData.append(float(row[2]) if row[2] != ' ' else 0)
+                #     self.msData.append(int(row[6]) if row[6] != ' ' else 0)
 
             self.allData = np.column_stack((self.xData, self.yData, self.zData, self.msData))
             fig0 = plt.figure()
@@ -115,7 +121,7 @@ class dataClustering:
 
 # CLustering might frst be done just finding incices where msClass == 1
 
-    def clusterBlobs(self, fileNamePath):
+    def clusterBlobs(self, fileNamePath, plotScans):
         dbInputScaled = self.loadData(fileNamePath)
         if dbInputScaled is not None:
             # db = DBSCAN(eps=0.3, min_samples=10).fit(self.dbInputScaled[:,3].reshape(-1, 1))
@@ -134,65 +140,83 @@ class dataClustering:
             # trueMask = labels == 0
             # print(len(self.dbInput[trueMask])) # Use labels to create masks ZERO INDEXED
             bboxRanges = np.zeros((n_clusters_, 6)) 
-            colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]
-            fig1 = plt.figure()
-            ax1 = fig1.add_subplot(projection='3d')
-            for k, col in zip(unique_labels, colors):
+            centres = np.zeros((n_clusters_, 3)) 
 
-                class_member_mask = labels == k
+            for cluster in unique_labels:
+
+                class_member_mask = labels == cluster
 
                 xyz = self.dbInput[class_member_mask & core_samples_mask]
 
-                if k == -1:
-                    # Black colour used for noise.
-                    col = [0, 0, 0, 1]
-                else:
-                    bboxRanges[k,0] = min(xyz[:,0])
-                    bboxRanges[k,1] = max(xyz[:,0])
-                    bboxRanges[k,2] = min(xyz[:,1])
-                    bboxRanges[k,3] = max(xyz[:,1])
-                    bboxRanges[k,4] = min(xyz[:,2])
-                    bboxRanges[k,5] = max(xyz[:,2])
+                # Find bounding boxes and their centres
+                if cluster != -1: # ignore noise
+                    bboxRanges[cluster,0] = min(xyz[:,0])
+                    bboxRanges[cluster,1] = max(xyz[:,0])
+                    bboxRanges[cluster,2] = min(xyz[:,1])
+                    bboxRanges[cluster,3] = max(xyz[:,1])
+                    bboxRanges[cluster,4] = min(xyz[:,2])
+                    bboxRanges[cluster,5] = max(xyz[:,2])
+                    centres[cluster,0] = ((bboxRanges[cluster,1] - bboxRanges[cluster,0])/2) + bboxRanges[cluster,0]
+                    centres[cluster,1] = (bboxRanges[cluster,3] - bboxRanges[cluster,2])/2 + bboxRanges[cluster,2]
+                    centres[cluster,2] = (bboxRanges[cluster,5] - bboxRanges[cluster,4])/2 + bboxRanges[cluster,4]
 
-                ax1.scatter(
-                    xyz[:, 0],
-                    xyz[:, 1],
-                    xyz[:,2],
-                    marker = 'o',
-                    color=col
-                    # markerfacecolor=tuple(col),
-                    # markeredgecolor="k",
-                    # markersize=14,
-                )
+            # self.bboxValues = bboxRanges
+            self.centres = centres
+            print(centres)
+            if plotScans:
+                self.plotClusters(unique_labels, labels, core_samples_mask, n_clusters_, centres)
 
-                # Plot members that are not likely to belong to class
-                xyzNOT = self.dbInput[class_member_mask & ~core_samples_mask]
-                ax1.scatter(
-                    xyzNOT[:, 0],
-                    xyzNOT[:, 1],
-                    xyzNOT[:,2],
-                    marker = '.',
-                    color=col
-                    # markerfacecolor=tuple(col),
-                    # markeredgecolor="k",
-                    # markersize=6,
-                )
-            # print(bboxRanges)
-            self.bboxValues = bboxRanges
-            plt.title("Estimated number of clusters: %d" % n_clusters_)
-            ax1.set_xlabel('X')
-            ax1.set_ylabel('Y')
-            ax1.set_zlabel('Z')
-            plt.show()
-            return True
-
-        return False
+            return n_clusters_
+        else:
+            return None
 
 
+    def plotClusters(self, unLabels, allLabels, coreMask, numClusters, centres):
+        fig1 = plt.figure()
+        ax1 = fig1.add_subplot(projection='3d')
+        colourList = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unLabels))]
+        for cluster, col in zip(unLabels, colourList):
 
-    def findStartPoints(self):
-        if len(self.bboxValues) > 0:
-            print(self.bboxValues)
+            classMask = allLabels == cluster
+
+            xyz = self.dbInput[classMask & coreMask]
+
+            if cluster == -1:
+                # Black colour used for noise.
+                col = [0, 0, 0, 1]
+
+            ax1.scatter(
+                xyz[:, 0],
+                xyz[:, 1],
+                xyz[:,2],
+                marker = 'o',
+                color = col
+            )
+
+            # Plot members that are not likely to belong to class
+            # xyzNOT = self.dbInput[classMask & ~coreMask]
+            # ax1.scatter(
+            #     xyzNOT[:, 0],
+            #     xyzNOT[:, 1],
+            #     xyzNOT[:,2],
+            #     marker = '.',
+            #     color = col
+            # )
+        ax1.scatter(
+            centres[:,0],
+            centres[:,1],
+            centres[:,2],
+            marker = '+',
+            color = [0, 0, 0, 1],
+            s = 64
+        )
+
+        plt.title("Estimated number of clusters: %d" % numClusters)
+        ax1.set_xlabel('X')
+        ax1.set_ylabel('Y')
+        ax1.set_zlabel('Z')
+        plt.show()
+
 
 
 
