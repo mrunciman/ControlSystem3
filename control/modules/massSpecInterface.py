@@ -39,6 +39,10 @@ class massSpec:
         self.msSerial = serial.Serial()
         self.poseData = []
         self.msClass = 0
+        self.msTime = 0
+        self.unknownData = 0
+        self.className = 0
+        self.classAcc = 0
         self.doAblationAlgorithm = False
         self.miniRaster = []
         self.grossScanName = None
@@ -85,20 +89,35 @@ class massSpec:
 
     def receiveState(self):
         if self.msSerial.in_waiting > 0:
+            # process result to extract classification, timestamp, etc
+
+            # classification number, HH-MM-SS-mmm, unknown, class name, accuracy, end with line feed (decimal 10, hex 0x0A, '\n')
+            # Space between data (decimal 32, hex 0x20)
+            # e.g:
+            # "3 03-02-08-033 M"
+            # "ed 96.98."
             reply = self.msSerial.readline().strip()
             self.msSerial.reset_input_buffer()
-            result = reply.decode('ascii')
-            # print(reply)
-
-            # Check received message for start and end bytes "<>"
-            # process result to extract classification, timestamp
-        
-            if result == "B":
-                #Fibrebot motion complete
-                self.msClass = result
-                return result
+            decoded = reply.decode('ascii')
+            data = decoded.split(' ')
+            if len(data) != 5:
+                self.msClass = None
+                self.msTime = ' '
             else:
-                return None
+                self.msClass = data[0]
+                self.msTime = data[1]
+                self.unknownData = data[2]
+                self.className = data[3]
+                self.classAcc = data[4]
+
+
+        
+            # if result == "B":
+            #     # Update class object 
+            #     self.msClass = result
+            #     return result
+            # else:
+            #     return None
 
 
     def logMiniScan(self, T_Rob_Inst_Est):
@@ -108,9 +127,9 @@ class massSpec:
             msClassification = self.msClass
 
         if type(T_Rob_Inst_Est) is list:
-            self.miniRaster.append([T_Rob_Inst_Est[0]] + [T_Rob_Inst_Est[1]] + [T_Rob_Inst_Est[2]] + [msClassification] + [time.time()])
+            self.miniRaster.append([T_Rob_Inst_Est[0]] + [T_Rob_Inst_Est[1]] + [T_Rob_Inst_Est[2]] + [msClassification] + [time.time()] + [self.msTime])
         elif T_Rob_Inst_Est is None:
-            self.miniRaster.append([' '] + [' '] + [' '] + [msClassification] + [time.time()])
+            self.miniRaster.append([' '] + [' '] + [' '] + [msClassification] + [time.time()] + [self.msTime])
         else:
             # [R, T] = unpack_homo(T_Rob_Inst_Est)
             T = [T_Rob_Inst_Est[0,3], T_Rob_Inst_Est[1,3], T_Rob_Inst_Est[2,3]]
