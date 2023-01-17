@@ -53,7 +53,7 @@ class fibreBot:
         else:
             # stateIndicator = "L" + str(float(self.angle)) # pass through the direction of motion
             stateIndicator = "L" + "{angle:.3f}".format(angle = self.lineAngle) # pass through the direction of motion
-        print(stateIndicator)
+        # print(stateIndicator)
 
         # Encode and send to fibrebot DAQ
         message = str(stateIndicator) + "\n"
