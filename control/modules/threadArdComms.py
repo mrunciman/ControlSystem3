@@ -9,6 +9,13 @@ startByte = "<"
 endByte = ">"
 CORRECT_LENGTH = 13
 
+CALIBRATION_MODE = 0
+HOLD_MODE = 1
+ACTIVE_MODE = 2
+INFLATION_MODE = 0
+DEFLATION_MODE = 1
+SET_PRESS_MODE = 3
+
 
 class ardThreader:
 

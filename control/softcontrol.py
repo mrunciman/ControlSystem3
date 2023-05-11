@@ -31,6 +31,7 @@ from modules import positionInput
 from modules import optiStream
 from modules import omniStream
 from modules import clusterData
+from modules import threadArdComms
 
 from visual_navigation.cam_pose import PoseEstimator
 
@@ -46,6 +47,16 @@ posLogging = positionInput.posLogger()
 opTrack = optiStream.optiTracker()
 phntmOmni = omniStream.omniStreamer()
 dataClust = clusterData.dataClustering()
+
+pumpController = threadArdComms.ardThreader()
+
+CALIBRATION_MODE = 0
+HOLD_MODE = 1
+ACTIVE_MODE = 2
+INFLATION_MODE = 0
+DEFLATION_MODE = 1
+SET_PRESS_MODE = 3
+
 
 ############################################################
 pathCounter = 0
@@ -103,6 +114,9 @@ print("Start point: ", XYZPathCoords)
 SAMP_FREQ = 1/kineSolve.TIMESTEP
 PRESS_MAX_KPA = 190000
 flagStop = False
+
+# Desired pressure in pneumatic structure
+regulatorPressure = 100
 
 # Target must be cast as immutable type (float, in this case) so that 
 # the current position doesn't update at same time as target
@@ -207,13 +221,16 @@ optiTrackConnected = False
 # Connect to Peripherals
 
 # Create function to find available COM ports, listen to replies, and assign COM ports based on replies
-print("Connecting to syringe pumps...")
-pumpsConnected = False
-[pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
-print(pumpCOMS)
+print("Connecting to controller...")
+pumpsConnected = pumpController.connected
+# startThreader opens the serial connection and starts the communication thread
+pumpController.startThreader()
+pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
+# [pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
+# print(pumpCOMS)
 
 fibrebotLink = fibrebotInterface.fibreBot()
-fibreConnected = fibrebotLink.connect(pumpSer, COMlist)
+fibreConnected = fibrebotLink.connect()
 if fibreConnected:
     print("Fibrebot connected.")
     print(fibrebotLink.fibreSerial)
@@ -231,20 +248,20 @@ if useVisionFeedback:
     print("Use camera?", pose_est.camConnected)
 
 # Set COM port for each pump by using its handshake key
-if len(pumpCOMS) == 4:
-    pumpsConnected = True
-    print("...")
-    lhsCOM = pumpCOMS[pumpNames[0]]
-    rhsCOM = pumpCOMS[pumpNames[1]]
-    topCOM = pumpCOMS[pumpNames[2]]
-    priCOM = pumpCOMS[pumpNames[3]]
-    # pneuCOM = pumpCOMS[pumpNames[4]]
+# if len(pumpCOMS) == 4:
+#     pumpsConnected = True
+#     print("...")
+#     lhsCOM = pumpCOMS[pumpNames[0]]
+#     rhsCOM = pumpCOMS[pumpNames[1]]
+#     topCOM = pumpCOMS[pumpNames[2]]
+#     priCOM = pumpCOMS[pumpNames[3]]
+#     # pneuCOM = pumpCOMS[pumpNames[4]]
 
-    lhsSer = pumpSer[lhsCOM]
-    rhsSer = pumpSer[rhsCOM]
-    topSer = pumpSer[topCOM]
-    priSer = pumpSer[priCOM]
-    # pneuSer = pumpSer[pneuCOM]
+#     lhsSer = pumpSer[lhsCOM]
+#     rhsSer = pumpSer[rhsCOM]
+#     topSer = pumpSer[topCOM]
+#     priSer = pumpSer[priCOM]
+#     #pneuSer = pumpSer[pneuCOM]
 # else:
     # use data from file
     # pass
@@ -253,19 +270,19 @@ CLOSEMESSAGE = "Closed"
 
 try:
     if pumpsConnected:
-        print("Pumps connected: ")
-        ardIntLHS = arduinoInterface.ardInterfacer(pumpNames[0], lhsSer)
-        reply = ardIntLHS.connect()
-        print(reply)
-        ardIntRHS = arduinoInterface.ardInterfacer(pumpNames[1], rhsSer)
-        reply = ardIntRHS.connect()
-        print(reply)
-        ardIntTOP = arduinoInterface.ardInterfacer(pumpNames[2], topSer)
-        reply = ardIntTOP.connect()
-        print(reply)
-        ardIntPRI = arduinoInterface.ardInterfacer(pumpNames[3], priSer)
-        reply = ardIntPRI.connect()
-        print(reply)
+        # print("Pumps connected: ")
+        # ardIntLHS = arduinoInterface.ardInterfacer(pumpNames[0], lhsSer)
+        # reply = ardIntLHS.connect()
+        # print(reply)
+        # ardIntRHS = arduinoInterface.ardInterfacer(pumpNames[1], rhsSer)
+        # reply = ardIntRHS.connect()
+        # print(reply)
+        # ardIntTOP = arduinoInterface.ardInterfacer(pumpNames[2], topSer)
+        # reply = ardIntTOP.connect()
+        # print(reply)
+        # ardIntPRI = arduinoInterface.ardInterfacer(pumpNames[3], priSer)
+        # reply = ardIntPRI.connect()
+        # print(reply)
 
         # ardIntPNEU = arduinoInterface.ardInterfacer(pumpNames[4], pneuSer)
         # reply = ardIntPNEU.connect()
@@ -273,35 +290,37 @@ try:
 
         #############################################################
         # Calibrate arduinos for zero volume - maintain negative pressure for 4 seconds
-        calibL = False
-        calibR = False
-        calibT = False
-        calibP = False
+        # calibL = False
+        # calibR = False
+        # calibT = False
+        # calibP = False
 
         # Has the mechanism been calibrated/want to run without calibration?:
         calibrated = True
         # Perform calibration:
         print("Zeroing hydraulic actuators...")
         while (not calibrated):
-            [realStepL, pressL, timeL] = ardIntLHS.listenZero(calibL, pressL, timeL)
-            print(realStepL, pressL)
-            [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
-            print(realStepR, pressR)
-            [realStepT, pressT, timeT] = ardIntTOP.listenZero(calibT, pressT, timeT)
-            print(realStepT, pressT)
-            [realStepP, pressP, timeP] = ardIntPRI.listenZero(calibP, pressP, timeP)
-            print(realStepP, calibP)
+            # [realStepL, pressL, timeL] = ardIntLHS.listenZero(calibL, pressL, timeL)
+            # print(realStepL, pressL)
+            # [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
+            # print(realStepR, pressR)
+            # [realStepT, pressT, timeT] = ardIntTOP.listenZero(calibT, pressT, timeT)
+            # print(realStepT, pressT)
+            # [realStepP, pressP, timeP] = ardIntPRI.listenZero(calibP, pressP, timeP)
+            # print(realStepP, calibP)
 
-            if (realStepL == "000000LHS"):
-                calibL = True
-            if (realStepR == "000000RHS"):
-                calibR = True
-            if (realStepT == "000000TOP"):
-                calibT = True
-            if (realStepP == "0200PRI"):
-                calibP = True
+            # if (realStepL == "000000LHS"):
+            #     calibL = True
+            # if (realStepR == "000000RHS"):
+            #     calibR = True
+            # if (realStepT == "000000TOP"):
+            #     calibT = True
+            # if (realStepP == "0200PRI"):
+            #     calibP = True
 
-            if (calibL * calibR * calibT * calibP == 1):
+            pumpController.getData()
+
+            if (pumpController.calibrationFlag == 'Y'):
                 calibrated = True
                 # Send 0s instead of StepNo and pressMed as signal that calibration done
                 StepNoL, StepNoR, StepNoT, StepNoP, StepNoA = 0, 0, 0, 0, 0
@@ -535,34 +554,37 @@ try:
                 initStepNoT = int(StepNoT*(firstMoveDelay/firstMoveDivider))
                 initStepNoP = int(StepNoP*(firstMoveDelay/firstMoveDivider))
                 # Send scaled step number to arduinos:
-                ardIntLHS.sendStep(initStepNoL)
-                ardIntRHS.sendStep(initStepNoR)
-                ardIntTOP.sendStep(initStepNoT)
-                ardIntPRI.sendStep(StepNoP)
+                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
+                # ardIntLHS.sendStep(initStepNoL)
+                # ardIntRHS.sendStep(initStepNoR)
+                # ardIntTOP.sendStep(initStepNoT)
+                # ardIntPRI.sendStep(StepNoP)
             elif pauseVisFeedback == True:
                 #Send previous values
-                ardIntLHS.sendStep(cStepL)
-                ardIntRHS.sendStep(cStepR)
-                ardIntTOP.sendStep(cStepT)
-                ardIntPRI.sendStep(cStepP)
+                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
+                # ardIntLHS.sendStep(cStepL)
+                # ardIntRHS.sendStep(cStepR)
+                # ardIntTOP.sendStep(cStepT)
+                # ardIntPRI.sendStep(cStepP)
             else:
                 if useVisionFeedback:
                     visionFeedFlag = 1
                 # Send step number to arduinos:
-                ardIntLHS.sendStep(StepNoL)
-                ardIntRHS.sendStep(StepNoR)
-                ardIntTOP.sendStep(StepNoT)
-                ardIntPRI.sendStep(StepNoP)
+                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
+                # ardIntLHS.sendStep(StepNoL)
+                # ardIntRHS.sendStep(StepNoR)
+                # ardIntTOP.sendStep(StepNoT)
+                # ardIntPRI.sendStep(StepNoP)
 
-            # Calculate median pressure over 10 samples:
-            pressLMed = ardIntLHS.newPressMed(pressL)
-            pressRMed = ardIntRHS.newPressMed(pressR)
-            pressTMed = ardIntTOP.newPressMed(pressT)
-            # pressAMed = ardIntPNEU.newPressMed(pressA)
-            [conLHS, dLHS] = ardIntLHS.derivPress(timeL, prevTimeL)
-            [conRHS, dRHS] = ardIntRHS.derivPress(timeR, prevTimeR)
-            [conTOP, dTOP] = ardIntTOP.derivPress(timeT, prevTimeT)
-            collisionAngle = kineSolve.collisionAngle(dLHS, dRHS, dTOP, conLHS, conRHS, conTOP)
+            # # Calculate median pressure over 10 samples:
+            # pressLMed = ardIntLHS.newPressMed(pressL)
+            # pressRMed = ardIntRHS.newPressMed(pressR)
+            # pressTMed = ardIntTOP.newPressMed(pressT)
+            # # pressAMed = ardIntPNEU.newPressMed(pressA)
+            # [conLHS, dLHS] = ardIntLHS.derivPress(timeL, prevTimeL)
+            # [conRHS, dRHS] = ardIntRHS.derivPress(timeR, prevTimeR)
+            # [conTOP, dTOP] = ardIntTOP.derivPress(timeT, prevTimeT)
+            # collisionAngle = kineSolve.collisionAngle(dLHS, dRHS, dTOP, conLHS, conRHS, conTOP)
 
             # Log values from arduinos
             ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
@@ -573,10 +595,11 @@ try:
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
 
             # Get current pump position, pressure and times from arduinos
-            [realStepL, pressL, timeL] = ardIntLHS.listenReply()
-            [realStepR, pressR, timeR] = ardIntRHS.listenReply()
-            [realStepT, pressT, timeT] = ardIntTOP.listenReply()
-            [realStepP, pressP, timeP] = ardIntPRI.listenReply()
+            pumpController.getData()
+            # [realStepL, pressL, timeL] = ardIntLHS.listenReply()
+            # [realStepR, pressR, timeR] = ardIntRHS.listenReply()
+            # [realStepT, pressT, timeT] = ardIntTOP.listenReply()
+            # [realStepP, pressP, timeP] = ardIntPRI.listenReply()
             # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
 
             # Check for high pressure
@@ -657,44 +680,48 @@ finally:
                 opTrack.optiSave(opTrack.markerData)
 
 
-        if 'ardIntLHS' in locals():
-            if ardIntLHS.ser.is_open:
-                ardIntLHS.sendStep(CLOSEMESSAGE)
+        if 'pumpController' in locals():
+            pumpController.stopThreader()
+            time.sleep(0.2)
+            pumpController.getData()
+            pumpController.closeSerial()
+            # if ardIntLHS.ser.is_open:
+            #     ardIntLHS.sendStep(CLOSEMESSAGE)
 
-            if ardIntRHS.ser.is_open:
-                ardIntRHS.sendStep(CLOSEMESSAGE)
+            # if ardIntRHS.ser.is_open:
+            #     ardIntRHS.sendStep(CLOSEMESSAGE)
             
-            if ardIntTOP.ser.is_open:
-                ardIntTOP.sendStep(CLOSEMESSAGE)
+            # if ardIntTOP.ser.is_open:
+            #     ardIntTOP.sendStep(CLOSEMESSAGE)
 
-            if ardIntPRI.ser.is_open:
-                ardIntPRI.sendStep(CLOSEMESSAGE)
+            # if ardIntPRI.ser.is_open:
+            #     ardIntPRI.sendStep(CLOSEMESSAGE)
 
             # if ardIntPNEU.ser.is_open:
             #     ardIntPNEU.sendStep(CLOSEMESSAGE)
 
-            time.sleep(0.2)
-            [realStepL, pressL, timeL] = ardIntLHS.listenReply()
+            # time.sleep(0.2)
+            # [realStepL, pressL, timeL] = ardIntLHS.listenReply()
             print(realStepL, pressL, timeL)
-            time.sleep(0.2)
-            [realStepR, pressR, timeR] = ardIntRHS.listenReply()
+            # time.sleep(0.2)
+            # [realStepR, pressR, timeR] = ardIntRHS.listenReply()
             print(realStepR, pressR, timeR)
-            time.sleep(0.2)
-            [realStepT, pressT, timeT] = ardIntTOP.listenReply()
+            # time.sleep(0.2)
+            # [realStepT, pressT, timeT] = ardIntTOP.listenReply()
             print(realStepT, pressT, timeT)
-            time.sleep(0.2)
-            [realStepP, pressP, timeP] = ardIntPRI.listenReply()
+            # time.sleep(0.2)
+            # [realStepP, pressP, timeP] = ardIntPRI.listenReply()
             print(realStepP, pressP, timeP)
-            time.sleep(0.2)
+            # time.sleep(0.2)
             # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
             # print(realStepA, pressA, timeA)
 
 
             # Close serial connections
-            ardIntLHS.ser.close()
-            ardIntRHS.ser.close()
-            ardIntTOP.ser.close()
-            ardIntPRI.ser.close()
+            # ardIntLHS.ser.close()
+            # ardIntRHS.ser.close()
+            # ardIntTOP.ser.close()
+            # ardIntPRI.ser.close()
             # ardIntPNEU.ser.close()
         
         if optiTrackConnected:
