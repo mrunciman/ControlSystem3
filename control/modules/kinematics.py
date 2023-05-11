@@ -388,7 +388,10 @@ class kineSolver:
         return volComp, cableSpeed, stepCountComp, self.L_c, thetaApprox
 
 
-
+    def volToAngle(self, volume):
+        desiredAngle = volume/(self.A_SYRINGE*self.LEAD)
+        return desiredAngle
+    
 
     def volRate(self, cVol, cCable, tCable):
         """

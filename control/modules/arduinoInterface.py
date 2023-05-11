@@ -122,7 +122,7 @@ class ardInterfacer:
 
 
 
-    def sendStep(self, stepNumber):
+    def sendStep(self, stepNumber, controlState = None, inflationState = None):
         """
         This function sends ideal position (stepNumber) then receives
         the real step count (stepCount) from arduino.
@@ -132,11 +132,40 @@ class ardInterfacer:
             stepString = "{:06d}".format(stepNumber)
         else:
             stepString = stepNumber
-        message = "S" + stepString + "\n"
+        # If we are sending the extra state variables, alter the 
+        # output message appropriately
+        if controlState is not None:
+            msg = self.setState(controlState, inflationState)
+            message = msg + stepString + "\n"
+        else:
+            message = "S" + stepString + "\n"
         # print("Message: ", repr(message))
         message = message.encode('utf-8')
         self.ser.write(message)
         return
+    
+    def setState(self, controlState, inflationState):
+        # Choice of control states of C, H, or S
+        # calibration state is C
+        # Hold state is H
+        # Active mode is S
+        if controlState == 1:
+            msg = "C"
+        elif controlState == 2:
+            msg = "H"
+        elif controlState == 3:
+            msg = "S"
+        # Choice of inflation states of I or D
+        # inflated state is I
+        # deflated is D
+        if inflationState == 0:
+            msg = msg + "I"
+        elif inflationState == 1:
+            msg = msg + "D"
+        else:
+            msg = msg + "_" # Decimal 95
+        return msg
+
 
 
 
