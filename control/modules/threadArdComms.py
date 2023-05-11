@@ -1,7 +1,7 @@
 import threading
 import serial 
 import serial.tools.list_ports
-from serial.threaded import LineReader, Protocol, Packetizer
+from serial.threaded import LineReader
 import time
 
 
@@ -14,9 +14,19 @@ class ardThreader:
 
     def __init__(self):
         self.ser = serial.Serial()
-        self.ser.port = 'COM10'
+        self.ser.port = 'COM7'
         self.ser.baudrate = 115200
         self.ser.timeout = 1
+        self.connected = False
+        self.t = None
+
+        self.positionData = [0.0, 0.0, 0.0, 0.0]
+        self.pressData = [0, 0, 0, 0, 0]
+        self.ardTime = 0
+        self.calibrationFlag = 'N'
+
+
+    def startThreader(self):
         try:
             self.ser.open()
             self.ser.reset_input_buffer()
@@ -25,50 +35,42 @@ class ardThreader:
             self.connected = False
             print(e)
 
-
         #LocalReaderThread is the transport, SerialReaderProtocolLine is the protocol
         self.t = LocalReaderThread(self.ser, SerialReaderProtocolLine)
-        print(self.t)
-
-        self.positionData = [0.0, 0.0, 0.0, 0.0]
-        self.pressData = [0, 0, 0, 0, 0]
-        self.ardTime = 0
-
-    def startThreader(self):
+        # print(self.t)
         self.t.start()
         transport, self.protocol = self.t.connect()
 
  
-    def sendStep(self, stepNumber, controlState = None, inflationState = None):
+    # The pump controller takes the desired angles (from zero volume)
+    def sendStep(self, stepNumber1, stepNumber2, stepNumber3, stepNumber4, desiredPressure, controlState = None, inflationState = None):
         """
         This function sends ideal position (stepNumber) then receives
         the real step count (stepCount) from arduino.
         steps = sendStep(serialConnection, stepNumber)
         """
-        if type(stepNumber) != str:
-            stepString = "{:06d}".format(stepNumber)
-        else:
-            stepString = stepNumber
+        inputList = [stepNumber1, stepNumber2, stepNumber3, stepNumber4, desiredPressure]
+        stringList = ['', '', '', '', '']
+
+        for i in range(len(inputList)):
+            if type(inputList[i]) != str:
+                stringList[i] = "{:06d}".format(inputList[i])
+            else:
+                stringList[i] = inputList[i]
+
         # If we are sending the extra state variables, alter the 
         # output message appropriately
         if controlState is not None:
             msg = self.setState(controlState, inflationState)
-            message = msg + stepString + ',' + stepString + ',' + stepString + ',' + stepString + ',' + stepString + "\n"
         else:
-            message = "S" + stepString + "\n"
+            msg = 'SI'
+        message = msg + stringList[0] + ',' + stringList[1] + ',' + stringList[2] + ',' + stringList[3] + ',' + stringList[4] + "\n"
         print("Message: ", repr(message))
-        # message = message.encode('utf-8')
-        self.protocol.write_line(message)
+        message = message.encode('utf-8', 'replace')
+        numBytes = self.t.write(message)
+        # numBytes = self.protocol.write_line(message)
+        # print(numBytes)
         return
-    
-
-    def getData(self):
-        self.positionData = self.t.positionD
-        self.pressData = self.t.pressD
-        self.ardTime = self.t.ardT
-        print(self.positionData)
-        print(self.pressData)
-        print(self.ardTime)
     
 
 
@@ -77,11 +79,11 @@ class ardThreader:
         # calibration state is C
         # Hold state is H
         # Active mode is S
-        if controlState == 1:
+        if controlState == 0:
             msg = "C"
-        elif controlState == 2:
+        elif controlState == 1:
             msg = "H"
-        elif controlState == 3:
+        elif controlState == 2:
             msg = "S"
         # Choice of inflation states of I or D
         # inflated state is I
@@ -95,6 +97,22 @@ class ardThreader:
         return msg
 
 
+
+    def getData(self):
+        self.positionData = self.t.positionD
+        self.pressData = self.t.pressD
+        self.ardTime = self.t.ardT
+        self.calibrationFlag = self.t.caliFlag
+        print("Motor angles: ", self.positionData)
+        print("Pressures: ",self.pressData)
+        print("Time: ",self.ardTime)
+    
+
+    def stopThreader(self):
+        self.t.stop()
+
+    def closeSerial(self):
+        self.ser.close
 
 
 
@@ -126,7 +144,7 @@ class LocalReaderThread(threading.Thread):
         self._lock = threading.Lock()
         self._connection_made = threading.Event()
         self.protocol = None
-        self.calibrationFlag = 'N'
+        self.caliFlag = 'N'
 
         self.positionD = [0.0, 0.0, 0.0, 0.0]
         self.pressD = [0, 0, 0, 0, 0]
@@ -159,7 +177,8 @@ class LocalReaderThread(threading.Thread):
                 # read all that is there or wait for one byte (blocking)
                 data = self.serial.read(self.serial.in_waiting or 1)
                 print(data)
-                data = b'<,1.23, 2.34, 3.45, 4.56, -00075.9, -48.4, -31.4, -21.3, -88.0,13001,N,>\n'
+                # Dummy data for testing string manipulation:
+                # data = b'<,1.23, 2.34, 3.45, 4.56, -00075.9, -48.4, -31.4, -21.3, -88.0,13001,N,>\n'
             except serial.SerialException as e:
                 # probably some I/O problem such as disconnected USB serial
                 # adapters -> exit
@@ -176,8 +195,6 @@ class LocalReaderThread(threading.Thread):
                     except Exception as e:
                         error = e
                         break
-                else:
-                    print("empty")
         self.alive = False
         self.protocol.connection_lost(error)
         self.protocol = None
@@ -185,8 +202,9 @@ class LocalReaderThread(threading.Thread):
     def write(self, data):
         """Thread safe writing (uses lock)"""
         with self._lock:
-            return self.serial.write(data)
-
+            numBytes = self.serial.write(data)
+            return numBytes
+        
     def close(self):
         """Close the serial port and exit reader thread (uses lock)"""
         # use the lock to let other threads finish writing
@@ -285,7 +303,7 @@ class SerialReaderProtocolLine(LineReader):
             self.transport.ardT = int(stepPress[10])
             # print(self.transport.ardT)
 
-            self.transport.calibrationFlag = stepPress[11]
+            self.transport.caliFlag = stepPress[11]
             # print(self.transport.calibrationFlag)
 
 
@@ -302,19 +320,19 @@ class SerialReaderProtocolLine(LineReader):
 if __name__ == '__main__':
 
     ardThread = ardThreader()
-    limit = 30
+    limit = 150
     count = 0
+
+    ardThread.startThreader()
     if ardThread.connected:
-        # ardThread.sendStep(34, 3, 0)
-        print("Before while")
-        ardThread.startThreader()
-        print("After thread started")
+        ardThread.sendStep(23, 34, 45, 56, 67, 0, 0)
         while(count < limit):
-            time.sleep(0.05)
+            time.sleep(0.1)
             count = count + 1
-            # ardThread.sendStep(34, 3, 0)
+            ardThread.sendStep(23, 34, 45, 56, 67, 0, 0)
             ardThread.getData()
-            print("Here")
+            print()
+
 
     ardThread.t.stop()
     ardThread.ser.close

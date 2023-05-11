@@ -24,20 +24,22 @@ class fibreBot:
         self.lineAngle = 0
 
     # Connect
-    def connect(self, pumpSer, COMlist):
+    # def connect(self, pumpSer, COMlist):
+    def connect(self):
         connected = False
-        remainingCOM = str(set(COMlist) - set(pumpSer)).strip("{}'")
-        if remainingCOM != 'set()':
-            try:
-                self.fibreSerial.port = remainingCOM
-                self.fibreSerial.baudrate = 9600
-                self.fibreSerial.timeout = 0
-                self.fibreSerial.open()
-                self.fibreSerial.reset_input_buffer()
-                connected = True
-            except serial.SerialException:
-                connected = False
-                return connected
+        # remainingCOM = str(set(COMlist) - set(pumpSer)).strip("{}'")
+        # if remainingCOM != 'set()':
+        remainingCOM = 'COM4'
+        try:
+            self.fibreSerial.port = remainingCOM
+            self.fibreSerial.baudrate = 9600
+            self.fibreSerial.timeout = 0
+            self.fibreSerial.open()
+            self.fibreSerial.reset_input_buffer()
+            connected = True
+        except serial.SerialException:
+            connected = False
+            return connected
         return connected
         
 
