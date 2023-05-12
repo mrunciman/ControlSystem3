@@ -79,7 +79,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/spiralZ 2022-05-24 15-13-38 15mmRad30.0EqSide 97-5.csv', newline = '') as csvPath:
+    with open('control/paths/gridPath 2022-05-12 11-04-35 10x10grid 1x1spacing.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -137,7 +137,7 @@ firstMoveDivider = 100
 initialXFlag = False
 initPressLogCount = 0
 initPressLogNum = 10
-useVisionFeedback = True
+useVisionFeedback = False
 visionFeedFlag = False
 
 # Fibre related variables
@@ -222,9 +222,9 @@ optiTrackConnected = False
 
 # Create function to find available COM ports, listen to replies, and assign COM ports based on replies
 print("Connecting to controller...")
-pumpsConnected = pumpController.connected
 # startThreader opens the serial connection and starts the communication thread
 pumpController.startThreader()
+pumpsConnected = pumpController.connected
 pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
 # [pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
 # print(pumpCOMS)
@@ -241,11 +241,15 @@ msConnected = massSpecLink.connect(msCOM)
 if msConnected:
     print("Mass spec serial connection established")
 
+config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
+pose_est = PoseEstimator(config_path)
 if useVisionFeedback:
-    config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
-    pose_est = PoseEstimator(config_path)
+    # config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
+    # pose_est = PoseEstimator(config_path)
     pose_est.initialize()
     print("Use camera?", pose_est.camConnected)
+else:
+    pose_est.camConnected = False
 
 # Set COM port for each pump by using its handshake key
 # if len(pumpCOMS) == 4:
@@ -350,6 +354,7 @@ try:
         if not omni_connected:
         # CHOOSE WHICH BEHAVIOUR TO EXECUTE
             # Gross raster until end of path
+            behaviourState = 2
             if pathCounter >= len(xPath)/18:
                 if not massSpecLink.grossSaved: 
                     massSpecLink.savePoseMassSpec()
@@ -381,7 +386,6 @@ try:
                 # else:
                     # behaviourState = 2 # Boundary finding
                 
-
             else:
                 XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
             # print(XYZPathCoords)
@@ -417,7 +421,7 @@ try:
         
         if behaviourState == 3: # Behaviour 3: mini raster
             # Alter desired coordinates (XYZPathCoords) based on mass spec data
-            print("Executing mini raster")
+            # print("Executing mini raster")
             unhealthyCoords = [dataClust.centres[miniPathCounter,0], dataClust.centres[miniPathCounter,0], dataClust.centres[miniPathCounter,0]]
             # unhealthyCoords = XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2]#hydraulic robot pose from where fibre robot picked up signal
             [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(unhealthyCoords[0], unhealthyCoords[1], unhealthyCoords[2])
