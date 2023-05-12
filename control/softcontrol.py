@@ -79,7 +79,7 @@ omni_connected = phntmOmni.connectOmni()
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
-    with open('control/paths/gridPath 2022-05-12 11-04-35 10x10grid 1x1spacing.csv', newline = '') as csvPath:
+    with open('control/paths/gridPath 2023-03-03 16-29-08 centre 15-8.66025 30x15.0grid 0.048x1.5spacing.csv', newline = '') as csvPath:
         coordReader = csv.reader(csvPath)
         for row in coordReader:
             xPath.append(float(row[0]))
@@ -117,6 +117,7 @@ flagStop = False
 
 # Desired pressure in pneumatic structure
 regulatorPressure = 100
+regulatorSensor = 0
 
 # Target must be cast as immutable type (float, in this case) so that 
 # the current position doesn't update at same time as target
@@ -147,6 +148,8 @@ pauseVisFeedback = False
 behaviourState = 1
 
 MSCounter = 0
+miniPathCounter = 0
+numClusters = 0
 
 # Initialise cable length variables at home position
 cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
@@ -221,25 +224,28 @@ optiTrackConnected = False
 # Connect to Peripherals
 
 # Create function to find available COM ports, listen to replies, and assign COM ports based on replies
-print("Connecting to controller...")
+
 # startThreader opens the serial connection and starts the communication thread
 pumpController.startThreader()
 pumpsConnected = pumpController.connected
-pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
+print("Connected to controller? ", pumpsConnected)
+
+if pumpsConnected:
+    pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
 # [pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
 # print(pumpCOMS)
 
 fibrebotLink = fibrebotInterface.fibreBot()
 fibreConnected = fibrebotLink.connect()
-if fibreConnected:
-    print("Fibrebot connected.")
-    print(fibrebotLink.fibreSerial)
+# if fibreConnected:
+print("Fibrebot connected? ", fibreConnected)
+    # print(fibrebotLink.fibreSerial)
 
 massSpecLink = massSpecInterface.massSpec()
 msCOM = 'COM5'
 msConnected = massSpecLink.connect(msCOM)
-if msConnected:
-    print("Mass spec serial connection established")
+# if msConnected:
+print("Mass spec serial connected? ", msConnected)
 
 config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
 pose_est = PoseEstimator(config_path)
@@ -247,9 +253,9 @@ if useVisionFeedback:
     # config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
     # pose_est = PoseEstimator(config_path)
     pose_est.initialize()
-    print("Use camera?", pose_est.camConnected)
 else:
     pose_est.camConnected = False
+print("Use camera?", pose_est.camConnected)
 
 # Set COM port for each pump by using its handshake key
 # if len(pumpCOMS) == 4:
@@ -299,10 +305,17 @@ try:
         # calibT = False
         # calibP = False
 
+        #  Inflate structure and give some time to stabilise:
+        print("Inflating structure...")
+        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, INFLATION_MODE)
+        time.sleep(3)
+
         # Has the mechanism been calibrated/want to run without calibration?:
         calibrated = True
         # Perform calibration:
         print("Zeroing hydraulic actuators...")
+        if (not calibrated):
+            pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, INFLATION_MODE)
         while (not calibrated):
             # [realStepL, pressL, timeL] = ardIntLHS.listenZero(calibL, pressL, timeL)
             # print(realStepL, pressL)
@@ -321,8 +334,9 @@ try:
             #     calibT = True
             # if (realStepP == "0200PRI"):
             #     calibP = True
-
-            pumpController.getData()
+            time.sleep(0.007)
+            [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
+            [timeL, timeR, timeT, timeP] = [timeL]*4
 
             if (pumpController.calibrationFlag == 'Y'):
                 calibrated = True
@@ -338,11 +352,11 @@ try:
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
             # Ensure same number of rows in position log file
             posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
+        print("Calibration done.")
 
     else:
-        print("PUMPS NOT CONNECTED. RUNNING WITHOUT PUMPS.")
+        print("PUMP CONTROLLER NOT CONNECTED. RUNNING WITHOUT PUMPS.")
 
-    print("Calibration done.")
     print("Beginning path following task.")
     if fibreConnected: fibrebotLink.sendState("Run")
     
@@ -354,8 +368,9 @@ try:
         if not omni_connected:
         # CHOOSE WHICH BEHAVIOUR TO EXECUTE
             # Gross raster until end of path
-            behaviourState = 2
+            behaviourState = 1
             if pathCounter >= len(xPath)/18:
+                break
                 if not massSpecLink.grossSaved: 
                     massSpecLink.savePoseMassSpec()
                     massSpecLink.grossSaved = True
@@ -558,14 +573,14 @@ try:
                 initStepNoT = int(StepNoT*(firstMoveDelay/firstMoveDivider))
                 initStepNoP = int(StepNoP*(firstMoveDelay/firstMoveDivider))
                 # Send scaled step number to arduinos:
-                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
+                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, ACTIVE_MODE, INFLATION_MODE)
                 # ardIntLHS.sendStep(initStepNoL)
                 # ardIntRHS.sendStep(initStepNoR)
                 # ardIntTOP.sendStep(initStepNoT)
                 # ardIntPRI.sendStep(StepNoP)
             elif pauseVisFeedback == True:
                 #Send previous values
-                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
+                pumpController.sendStep(cStepL, cStepR, cStepT, cStepP, regulatorPressure, ACTIVE_MODE, INFLATION_MODE)
                 # ardIntLHS.sendStep(cStepL)
                 # ardIntRHS.sendStep(cStepR)
                 # ardIntTOP.sendStep(cStepT)
@@ -574,7 +589,7 @@ try:
                 if useVisionFeedback:
                     visionFeedFlag = 1
                 # Send step number to arduinos:
-                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
+                pumpController.sendStep(StepNoL, StepNoR, StepNoT, StepNoP, regulatorPressure, ACTIVE_MODE, INFLATION_MODE)
                 # ardIntLHS.sendStep(StepNoL)
                 # ardIntRHS.sendStep(StepNoR)
                 # ardIntTOP.sendStep(StepNoT)
@@ -599,7 +614,8 @@ try:
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
 
             # Get current pump position, pressure and times from arduinos
-            pumpController.getData()
+            [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
+            [timeL, timeR, timeT, timeP] = [timeL]*4
             # [realStepL, pressL, timeL] = ardIntLHS.listenReply()
             # [realStepR, pressR, timeR] = ardIntRHS.listenReply()
             # [realStepT, pressT, timeT] = ardIntTOP.listenReply()
@@ -684,11 +700,14 @@ finally:
                 opTrack.optiSave(opTrack.markerData)
 
 
-        if 'pumpController' in locals():
+        if pumpsConnected:
+            pumpController.sendStep(cStepL, cStepR, cStepT, cStepP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
             pumpController.stopThreader()
             time.sleep(0.2)
-            pumpController.getData()
+            [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
+            [timeL, timeR, timeT, timeP] = [timeL]*4
             pumpController.closeSerial()
+            print("Connection to pump controller closed.")
             # if ardIntLHS.ser.is_open:
             #     ardIntLHS.sendStep(CLOSEMESSAGE)
 

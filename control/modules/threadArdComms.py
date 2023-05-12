@@ -21,7 +21,7 @@ class ardThreader:
 
     def __init__(self):
         self.ser = serial.Serial()
-        self.ser.port = 'COM7'
+        self.ser.port = 'COM6'
         self.ser.baudrate = 115200
         self.ser.timeout = 1
         self.connected = False
@@ -40,7 +40,8 @@ class ardThreader:
             self.connected = True
         except serial.SerialException as e:
             self.connected = False
-            print(e)
+            return self.connected
+
 
         #LocalReaderThread is the transport, SerialReaderProtocolLine is the protocol
         self.t = LocalReaderThread(self.ser, SerialReaderProtocolLine)
@@ -72,10 +73,9 @@ class ardThreader:
         else:
             msg = 'SI'
         message = msg + stringList[0] + ',' + stringList[1] + ',' + stringList[2] + ',' + stringList[3] + ',' + stringList[4] + "\n"
-        print("Message: ", repr(message))
+        # print("Message: ", repr(message))
         message = message.encode('utf-8', 'replace')
         numBytes = self.t.write(message)
-        # numBytes = self.protocol.write_line(message)
         # print(numBytes)
         return
     
@@ -110,9 +110,11 @@ class ardThreader:
         self.pressData = self.t.pressD
         self.ardTime = self.t.ardT
         self.calibrationFlag = self.t.caliFlag
-        print("Motor angles: ", self.positionData)
-        print("Pressures: ",self.pressData)
-        print("Time: ",self.ardTime)
+        # print("Motor angles: ", self.positionData)
+        # print("Pressures: ",self.pressData)
+        # print("Time: ",self.ardTime)
+        # print("Calibration completed? ", self.calibrationFlag)
+        return self.positionData, self.pressData, self.ardTime
     
 
     def stopThreader(self):
@@ -183,7 +185,7 @@ class LocalReaderThread(threading.Thread):
             try:
                 # read all that is there or wait for one byte (blocking)
                 data = self.serial.read(self.serial.in_waiting or 1)
-                print(data)
+                # print(data)
                 # Dummy data for testing string manipulation:
                 # data = b'<,1.23, 2.34, 3.45, 4.56, -00075.9, -48.4, -31.4, -21.3, -88.0,13001,N,>\n'
             except serial.SerialException as e:
