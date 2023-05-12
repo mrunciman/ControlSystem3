@@ -76,6 +76,7 @@ yPath = []
 zPath = []
 
 omni_connected = phntmOmni.connectOmni()
+print("Haptic device connected? ", omni_connected)
 
 # Try to connect to phantom omni. If not connected, use pre-determined coords.
 if not omni_connected:
@@ -369,6 +370,7 @@ try:
         # CHOOSE WHICH BEHAVIOUR TO EXECUTE
             # Gross raster until end of path
             behaviourState = 1
+
             if pathCounter >= len(xPath)/18:
                 break
                 if not massSpecLink.grossSaved: 
@@ -409,6 +411,7 @@ try:
             phntmOmni.getOmniCoords()
             [xMap, yMap, zMap] = phntmOmni.omniMap()
             XYZPathCoords = [xMap, yMap, zMap]
+            print(XYZPathCoords)
 
 
         T_Inst_Fibre = fibrebotLink.receiveState(fibreConnected)
