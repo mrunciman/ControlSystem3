@@ -1,12 +1,16 @@
-#!/usr/bin/env python3
-
 import socket
 import time
 import subprocess
 import numpy as np
+import os
 # from ctypes import *
 np.set_printoptions(suppress=True, precision = 2)
 
+location = os.path.dirname(__file__)
+parent = os.path.dirname(location)
+relative = "modules\HelloHapticDevice.exe"
+fileName = os.path.join(parent, relative)
+# fileName should be: 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/modules/HelloHapticDevice.exe'
 
 
 class omniStreamer():
@@ -21,13 +25,8 @@ class omniStreamer():
 
     def connectOmni(self):
         # problem with this was that it waited for program to terminate, which never happens, but stdin=None, stdout=None, stderr=None argumetns sorted this
-        omniServer = subprocess.run('C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/modules/HelloHapticDevice.exe',\
+        omniServer = subprocess.run(fileName,\
             check=True, capture_output=True, stdin=None, stdout=None, stderr=None)
-        # omniServer = subprocess.run([r"C:\OpenHaptics\Developer\3.5.0\examples\HD\console\HelloHapticDevice\Win32\Debug\HelloHapticDevice.exe"],\
-        #     check=True, capture_output=True, text=True)
-        # print("stdout:", omniServer.stdout)
-        # print("stdout:", omniServer.stderr)
-
         try:
             self.sock.connect(self.server_addr)
             # self.sock.setblocking(0)
