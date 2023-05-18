@@ -9,8 +9,8 @@ np.set_printoptions(suppress=True, precision = 2)
 location = os.path.dirname(__file__)
 parent = os.path.dirname(location)
 relative = "modules\HelloHapticDevice.exe"
-fileName = os.path.join(parent, relative)
-# fileName should be: 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/modules/HelloHapticDevice.exe'
+fileName = os.path.join(parent, relative).replace('\\', '/') # For subprocess it looks like we need forward slashes in path
+# fileName = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/modules/HelloHapticDevice.exe'
 
 
 class omniStreamer():
@@ -21,16 +21,17 @@ class omniStreamer():
         self.omniY = 0.0
         self.omniZ = 0.0
         self.tMatrix = []
-
+        self.omniServer = None
 
     def connectOmni(self):
         # problem with this was that it waited for program to terminate, which never happens, but stdin=None, stdout=None, stderr=None argumetns sorted this
-        omniServer = subprocess.run(fileName,\
-            check=True, capture_output=True, stdin=None, stdout=None, stderr=None)
+        # print(fileName)
+        self.omniServer = subprocess.run(fileName,\
+            check=True, capture_output=True, stdin=subprocess.DEVNULL, stdout=None, stderr=None)
         try:
             self.sock.connect(self.server_addr)
             # self.sock.setblocking(0)
-            self.sock.settimeout(0.024)
+            self.sock.settimeout(0.01)
             print("Connected to {:s}".format(repr(self.server_addr)))
             print(self.sock)
             return True
@@ -63,18 +64,18 @@ class omniStreamer():
                     self.omniX = float(numdata[13])
                     self.omniY = float(numdata[14])
                     self.omniZ = float(numdata[15])
-                    print("x: ", self.omniX, ", y: ", self.omniY, ", z: ", self.omniZ)
+                    # print("x: ", self.omniX, ", y: ", self.omniY, ", z: ", self.omniZ)
                     # matrix is the transformation matrix of device tip, listed by columns
                     matrix = numdata[1:17]
                     # convert to floats
                     fltMatrix = [float(i) for i in matrix]
-                    print(fltMatrix)
+                    # print(fltMatrix)
 
                     self.tMatrix = np.array([[fltMatrix[0], fltMatrix[4], fltMatrix[8], fltMatrix[12]],\
                                             [fltMatrix[1], fltMatrix[5], fltMatrix[9], fltMatrix[13]],\
                                             [fltMatrix[2], fltMatrix[6], fltMatrix[10], fltMatrix[14]],\
                                             [fltMatrix[3], fltMatrix[7], fltMatrix[11], fltMatrix[15]]])
-                    print(self.tMatrix)
+                    # print(self.tMatrix)
 
             # count = 1
             # for i in numdata:
@@ -150,10 +151,11 @@ if __name__ == "__main__":
     omni_connected = phntmOmni.connectOmni()
     print("Haptic device connected? ", omni_connected)
     count = 0
-    limit = 30
+    limit = 20
     while (count < limit):
         phntmOmni.getOmniCoords()
         [xMap, yMap, zMap] = phntmOmni.omniMap()
         print(xMap, yMap, zMap)
-        time.sleep(0.5)
+        time.sleep(0.05)
         count += 1
+    phntmOmni.omniClose()

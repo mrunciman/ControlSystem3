@@ -411,7 +411,7 @@ try:
             phntmOmni.getOmniCoords()
             [xMap, yMap, zMap] = phntmOmni.omniMap()
             XYZPathCoords = [xMap, yMap, zMap]
-            print(XYZPathCoords)
+            # print(XYZPathCoords)
 
 
         T_Inst_Fibre = fibrebotLink.receiveState(fibreConnected)
@@ -757,6 +757,9 @@ finally:
             # Send stop message to fibrebot
             fibrebotLink.sendState("Stop")
             fibrebotLink.fibreSerial.close()
+
+        if omni_connected:
+            phntmOmni.omniClose()
 
     except TypeError as exTE:
         tb_linesTE = traceback.format_exception(exTE.__class__, exTE, exTE.__traceback__)
