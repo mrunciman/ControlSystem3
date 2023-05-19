@@ -22,6 +22,7 @@ class omniStreamer():
         self.omniZ = 0.0
         self.tMatrix = []
         self.omniServer = None
+        self.omniButton = 0 # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
 
     def connectOmni(self):
         # problem with this was that it waited for program to terminate, which never happens, but stdin=None, stdout=None, stderr=None argumetns sorted this
@@ -60,11 +61,14 @@ class omniStreamer():
             if ('S' in numdata):
                 startIndex = numdata.index('S')
                 # print("start index: ", startIndex)
-                if ((startIndex == 0) & (len(numdata) == 18)):
+                if ((startIndex == 0) & (len(numdata) == 19)):
                     self.omniX = float(numdata[13])
                     self.omniY = float(numdata[14])
                     self.omniZ = float(numdata[15])
+                    self.omniButton = int(numdata[17])
+                    # print(self.omniButton)
                     # print("x: ", self.omniX, ", y: ", self.omniY, ", z: ", self.omniZ)
+                    
                     # matrix is the transformation matrix of device tip, listed by columns
                     matrix = numdata[1:17]
                     # convert to floats
@@ -151,11 +155,11 @@ if __name__ == "__main__":
     omni_connected = phntmOmni.connectOmni()
     print("Haptic device connected? ", omni_connected)
     count = 0
-    limit = 20
+    limit = 200
     while (count < limit):
         phntmOmni.getOmniCoords()
         [xMap, yMap, zMap] = phntmOmni.omniMap()
-        print(xMap, yMap, zMap)
+        # print(xMap, yMap, zMap)
         time.sleep(0.05)
         count += 1
     phntmOmni.omniClose()
