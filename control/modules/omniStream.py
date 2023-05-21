@@ -126,9 +126,49 @@ class omniStreamer():
         #     self.omniZ = 0
 
 
-        xMapped = -(self.omniX*((46-(-46))/440)) + 9.455 # abs just for test
-        yMapped = (self.omniY*((55-(-35))/310))  + 5.4591
-        zMapped = -(self.omniZ*((75-30)/215))*2 + 10 # Omni direction is opposite to real direction
+        #Calibrated position in inkwell
+        homeX = 0.0
+        homeY = -65.51071
+        homeZ = -88.11420
+
+        offsetX = 0
+        offsetY = homeY
+        offsetZ = homeZ
+
+        # 160 W x 120 H x 70 D mm    From datasheet
+        rangeXOmni = 160
+        rangeYOmni = 120
+        rangeZOmni = 70
+
+        xUnit = (self.omniX - homeX + offsetX)/(rangeXOmni/2)
+        yUnit = (self.omniY - homeY + offsetY)/(rangeYOmni/2)
+        zUnit = (self.omniZ - homeZ + offsetZ)/(rangeZOmni/2)
+        print(xUnit, yUnit, zUnit)
+
+        sensX = 1
+        sensY = 1
+        sensZ = 1
+
+        signX = -1
+        signY = 1
+        signZ = -1
+
+        rangeXWorkspace = 50
+        rangeYWorkspace = 50
+        rangeZWorkspace = 38.5
+
+        # Assuming coords from Omni go from -0.5*range to 0.5 range
+        xMapped = signX * sensX * xUnit * rangeXWorkspace
+        yMapped = signY * sensY * yUnit * rangeYWorkspace
+        zMapped = signZ * sensZ * zUnit * rangeZWorkspace
+        print(xMapped, yMapped, zMapped)
+        print()
+
+
+
+        xMapped = -1*(self.omniX*((46-(-46))/440)) + 9.455 # abs just for test       approx 0.2093
+        yMapped = 1*(self.omniY*((55-(-35))/310))  + 5.4591 #                        approx 0.2903
+        zMapped = -1*(self.omniZ*((75-30)/215))*2 + 10 # Omni direction is opposite to real direction     approx 0.2091
         # if (xMapped < 0):
         #     xMapped = 0
         # if (yMapped < 0):
