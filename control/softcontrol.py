@@ -548,18 +548,20 @@ try:
         [tVolT, vDotT, dDotT, fStepT, tStepT, tSpeedT, LcRealT, angleT] = kineSolve.volRate(cVolT, cableT, targetT)
         # print(LcRealL, LcRealR, LcRealT, LcRealP)
 
-        # CALCULATE FREQS FROM VALID STEP NUMBER
-        # tStepL is target pump position, cStepL is current, speed controlled position.
-        fStepL = (tStepL - cStepL)*SAMP_FREQ
-        fStepR = (tStepR - cStepR)*SAMP_FREQ
-        fStepT = (tStepT - cStepT)*SAMP_FREQ
-        fStepP = (tStepP - cStepP)*SAMP_FREQ
-        [LStep, RStep, TStep, PStep] = kineSolve.freqScale(fStepL, fStepR, fStepT, fStepP)
-        # RStep = dStepR scaled for speed (w rounding differences)
-        StepNoL += LStep
-        StepNoR += RStep 
-        StepNoT += TStep
-        StepNoP += PStep
+        [tVolL, tVolR, tVolT] = kineSolve.volRateScale(tVolL, tVolR, tVolT, cVolL, cVolR, cVolT)
+
+        # # CALCULATE FREQS FROM VALID STEP NUMBER
+        # # tStepL is target pump position, cStepL is current, speed controlled position.
+        # fStepL = (tStepL - cStepL)*SAMP_FREQ
+        # fStepR = (tStepR - cStepR)*SAMP_FREQ
+        # fStepT = (tStepT - cStepT)*SAMP_FREQ
+        # fStepP = (tStepP - cStepP)*SAMP_FREQ
+        # [LStep, RStep, TStep, PStep] = kineSolve.freqScale(fStepL, fStepR, fStepT, fStepP)
+        # # RStep = dStepR scaled for speed (w rounding differences)
+        # StepNoL += LStep
+        # StepNoR += RStep 
+        # StepNoT += TStep
+        # StepNoP += PStep
 
         # print(StepNoL, StepNoR, StepNoT, StepNoP)
 
