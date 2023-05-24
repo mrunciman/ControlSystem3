@@ -356,24 +356,25 @@ try:
         # If stopped, preserve previous direction as target direction: 
         elif tStepP == cStepP:
             targDir = cDir
-        # print(targetL, targetR, targetT, LcRealP)
+        # print("\n",targetL, targetR, targetT, targetP, "\n")
         # print(lhsV, rhsV, topV, actualX, actualY)
-        # print(cVolL, cVolR, cVolT)    
+        # print(cVolL, cVolR, cVolT)
 
         # Get volumes, volrates, syringe speeds, pulse freq & step counts estimate for each pump
         # Use current volume, current cable length and target cable length
         [tVolL, vDotL, dDotL, fStepL, tStepL, tSpeedL, LcRealL, angleL] = kineSolve.volRate(cVolL, cableL, targetL)
         [tVolR, vDotR, dDotR, fStepR, tStepR, tSpeedR, LcRealR, angleR] = kineSolve.volRate(cVolR, cableR, targetR)
         [tVolT, vDotT, dDotT, fStepT, tStepT, tSpeedT, LcRealT, angleT] = kineSolve.volRate(cVolT, cableT, targetT)
-        # print(tVolL, tVolR, tVolT)
+        # print("\n",tStepL, tStepR, tStepT, "\n")
+        # print("\nVolumes in ml: ",tVolL/1000, tVolR/1000, tVolT/1000, "\n")
+
+        [tVolL, tVolR, tVolT] = kineSolve.volRateScale(tVolL, tVolR, tVolT, cVolL, cVolR, cVolT)
 
         desiredThetaL = kineSolve.volToAngle(tVolL)
         desiredThetaR = kineSolve.volToAngle(tVolR)
         desiredThetaT = kineSolve.volToAngle(tVolT)
         desiredThetaP = 360.0*targetOpP/kineSolve.LEAD
-        print(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP)
-
-        [tVolL, tVolR, tVolT] = kineSolve.volRateScale(tVolL, tVolR, tVolT, cVolL, cVolR, cVolT)
+        # print(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP)
 
         # # CALCULATE FREQS FROM VALID STEP NUMBER
         # # tStepL is target pump position, cStepL is current, speed controlled position.
@@ -420,6 +421,7 @@ try:
             # Get current pump position, pressure and times from arduinos
             [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
             [timeL, timeR, timeT, timeP] = [timeL]*4
+            print(regulatorSensor)
 
 
 
@@ -436,7 +438,7 @@ try:
             # print((timeL - prevTimeL)/1000)
         else:
             pumpDataUpdated = False
-            kineSolve.TIMESTEP = 6/125
+            kineSolve.TIMESTEP = 0.01
 
         # Update current position, cable lengths, and volumes as previous targets
         currentX = actualX
