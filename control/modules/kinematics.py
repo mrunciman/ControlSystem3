@@ -53,7 +53,7 @@ class kineSolver:
         print(self.MAX_VOL)
         self.DEAD_VOL = self.CAL_FACTOR*self.MAX_VOL
         # print(self.MAX_VOL)
-        self.MAX_VOL_RATE = 10 # mm^3/s
+        self.MAX_VOL_RATE = 1000 # mm^3/s
         
         # For step count:
         # Mapping from step to 1 revolution = 200 steps
@@ -396,7 +396,7 @@ class kineSolver:
 
 
     def volToAngle(self, volume):
-        desiredAngle = volume/(self.A_SYRINGE*self.LEAD)
+        desiredAngle = 360*(volume/self.A_SYRINGE)/self.LEAD
         return desiredAngle
     
 
