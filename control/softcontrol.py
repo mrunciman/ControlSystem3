@@ -38,7 +38,7 @@ from visual_navigation.cam_pose import PoseEstimator
 np.set_printoptions(suppress=True, precision = 2)
 ############################################################
 # Instantiate classes:
-sideLength = 30 # mm, from workspace2 model
+sideLength = 40 # mm, from workspace2 model
 
 kineSolve = kinematics.kineSolver(sideLength)
 # mouseTrack = mouseGUI.mouseTracker(sideLength)
@@ -49,6 +49,7 @@ phntmOmni = omniStream.omniStreamer()
 dataClust = clusterData.dataClustering()
 
 pumpController = threadArdComms.ardThreader()
+pumpDataUpdated = False
 
 CALIBRATION_MODE = 0
 HOLD_MODE = 1
@@ -89,7 +90,7 @@ if not omni_connected:
         xMap, yMap, zMap = xPath[0], yPath[0], zPath[0]
 else:
     # omniX, omniY, omniZ = 0.0, 0.0, 0.0
-    phntmOmni.getOmniCoords()
+    omniDataReceived = phntmOmni.getOmniCoords()
     [xMap, yMap, zMap] = phntmOmni.omniMap()
 
 # xPath[0], yPath[0], zPath[0] = 15, 8.66, 20
@@ -258,53 +259,12 @@ else:
     pose_est.camConnected = False
 print("Use camera?", pose_est.camConnected)
 
-# Set COM port for each pump by using its handshake key
-# if len(pumpCOMS) == 4:
-#     pumpsConnected = True
-#     print("...")
-#     lhsCOM = pumpCOMS[pumpNames[0]]
-#     rhsCOM = pumpCOMS[pumpNames[1]]
-#     topCOM = pumpCOMS[pumpNames[2]]
-#     priCOM = pumpCOMS[pumpNames[3]]
-#     # pneuCOM = pumpCOMS[pumpNames[4]]
 
-#     lhsSer = pumpSer[lhsCOM]
-#     rhsSer = pumpSer[rhsCOM]
-#     topSer = pumpSer[topCOM]
-#     priSer = pumpSer[priCOM]
-#     #pneuSer = pumpSer[pneuCOM]
-# else:
-    # use data from file
-    # pass
 
 CLOSEMESSAGE = "Closed"
 
 try:
     if pumpsConnected:
-        # print("Pumps connected: ")
-        # ardIntLHS = arduinoInterface.ardInterfacer(pumpNames[0], lhsSer)
-        # reply = ardIntLHS.connect()
-        # print(reply)
-        # ardIntRHS = arduinoInterface.ardInterfacer(pumpNames[1], rhsSer)
-        # reply = ardIntRHS.connect()
-        # print(reply)
-        # ardIntTOP = arduinoInterface.ardInterfacer(pumpNames[2], topSer)
-        # reply = ardIntTOP.connect()
-        # print(reply)
-        # ardIntPRI = arduinoInterface.ardInterfacer(pumpNames[3], priSer)
-        # reply = ardIntPRI.connect()
-        # print(reply)
-
-        # ardIntPNEU = arduinoInterface.ardInterfacer(pumpNames[4], pneuSer)
-        # reply = ardIntPNEU.connect()
-        # print(reply)
-
-        #############################################################
-        # Calibrate arduinos for zero volume - maintain negative pressure for 4 seconds
-        # calibL = False
-        # calibR = False
-        # calibT = False
-        # calibP = False
 
         #  Inflate structure and give some time to stabilise:
         print("Inflating structure...")
@@ -318,23 +278,7 @@ try:
         if (not calibrated):
             pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, INFLATION_MODE)
         while (not calibrated):
-            # [realStepL, pressL, timeL] = ardIntLHS.listenZero(calibL, pressL, timeL)
-            # print(realStepL, pressL)
-            # [realStepR, pressR, timeR] = ardIntRHS.listenZero(calibR, pressR, timeR)
-            # print(realStepR, pressR)
-            # [realStepT, pressT, timeT] = ardIntTOP.listenZero(calibT, pressT, timeT)
-            # print(realStepT, pressT)
-            # [realStepP, pressP, timeP] = ardIntPRI.listenZero(calibP, pressP, timeP)
-            # print(realStepP, calibP)
 
-            # if (realStepL == "000000LHS"):
-            #     calibL = True
-            # if (realStepR == "000000RHS"):
-            #     calibR = True
-            # if (realStepT == "000000TOP"):
-            #     calibT = True
-            # if (realStepP == "0200PRI"):
-            #     calibP = True
             time.sleep(0.007)
             [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
             [timeL, timeR, timeT, timeP] = [timeL]*4
@@ -369,165 +313,37 @@ try:
         if not omni_connected:
         # CHOOSE WHICH BEHAVIOUR TO EXECUTE
             # Gross raster until end of path
-            behaviourState = 1
-
             if pathCounter >= len(xPath)/18:
-                break
-                if not massSpecLink.grossSaved: 
-                    massSpecLink.savePoseMassSpec()
-                    massSpecLink.grossSaved = True
-                    # Use test filename for now
-                    massSpecLink.grossScanName = 'control/logs/Pose_and_MS_Test_data_-_pose 2022-11-14 16-05-03 (1).csv'
-                    plotScans = False
-                    numClusters = dataClust.clusterBlobs(massSpecLink.grossScanName, plotScans)
-                    miniPathCounter = 0
-                    # Find start points to pass to behaviour 2/3
-                    behaviourState = 3
-                
-                # break
-                # Cluster, find bounding boxes, find centres of bounding boxes:
-                # TODO cluster mass spec data, find bounding boxes, list centres of bounding boxes
-
-                # After completed scan, take combined pose + mass spec data and adjust for delay / noise
-                # Keep only points with +ve classification
-                # dataClust.loadData(massSpecLink.grossScanName)
-                # dataClust.cancelNoise()
-                # Use DBSCAN (or other) clustering technique
-                # Find bounding boxes / centre
-
-
-
-                # Do boundary finding on each bounding box
-                # if boundary finding done on each bounding box:
-                    # behaviourState = 3
-                # else:
-                    # behaviourState = 2 # Boundary finding
-                
+                break               
             else:
                 XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
-            # print(XYZPathCoords)
-            # XYZPathCoords = [15, 8.66025, 20]
+                # print(XYZPathCoords)
         else:
-            phntmOmni.getOmniCoords()
+            omniDataReceived = phntmOmni.getOmniCoords()
+            # if not omniDataReceived: break
             [xMap, yMap, zMap] = phntmOmni.omniMap()
             XYZPathCoords = [xMap, yMap, zMap]
             # print(XYZPathCoords)
+         
+        # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
+        # XYZPathCoords are desired coords in 3D.
+        [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
+        # print("Open loop : ", targetXideal, targetYideal, targetOpP)
 
+        # Return target cable lengths at target coords and jacobian at current coords
+        [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
 
-        T_Inst_Fibre = fibrebotLink.receiveState(fibreConnected)
+        # Get cable speeds using Jacobian at current point and calculation of input speed
+        [lhsV, rhsV, topV, actualX, actualY, perpAngle] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
+        fibrebotLink.lineAngle = perpAngle
 
+        # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
+        [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
 
-        if msConnected:
-            massSpecLink.receiveState()
-            # if massSpecLink.msClass == 1:
-            #     massSpecLink.doAblationAlgorithm = True
-            # elif MSCounter == 20:
-            #     massSpecLink.doAblationAlgorithm = True
-            #     MSCounter += 1
-
-
-        if pose_est.camConnected == True:
-            T_Rob_Inst = pose_est.tip_pose()#4x4 homo matrix in mm
-        else:
-            T_Rob_Inst = None
-            
-        if T_Rob_Inst is not None:
-            T_Rob_Fibre = T_Rob_Inst*T_Inst_Fibre
-        else:
-            T_Rob_Fibre = T_Inst_Fibre # TODO change to None after testing
-        
-        
-        if behaviourState == 3: # Behaviour 3: mini raster
-            # Alter desired coordinates (XYZPathCoords) based on mass spec data
-            # print("Executing mini raster")
-            unhealthyCoords = [dataClust.centres[miniPathCounter,0], dataClust.centres[miniPathCounter,0], dataClust.centres[miniPathCounter,0]]
-            # unhealthyCoords = XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2]#hydraulic robot pose from where fibre robot picked up signal
-            [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(unhealthyCoords[0], unhealthyCoords[1], unhealthyCoords[2])
-            # Return target cable lengths at target coords and jacobian at current coords
-            [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
-            # Get cable speeds using Jacobian at current point and calculation of input speed
-            [lhsV, rhsV, topV, actualX, actualY, perpAngle] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
-            # Tell fibre to do mini raster scan
-            if fibreConnected: fibrebotLink.sendState("Raster") 
-            # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
-            [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
-
-            # massSpecLink.logMiniScan(T_Inst_Fibre)
-
-            #Reset massSpecLink.doAblationAlgorithm when complete
-            if fibrebotLink.miniScanDone:
-                # massSpecLink.doAblationAlgorithm = False
-                #Save individual mini raster scan data so gross positioning system can move to centroid/extremum and execute further mini scans
-                massSpecLink.saveMiniScan()
-                miniPathCounter += 1
-                if miniPathCounter > numClusters:
-                    break
-        
-        elif behaviourState == 2:
-            # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
-            # XYZPathCoords are desired coords in 3D.
-            [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
-            # print("Open loop : ", targetXideal, targetYideal, targetOpP)
-
-            # Return target cable lengths at target coords and jacobian at current coords
-            [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
-
-            # Get cable speeds using Jacobian at current point and calculation of input speed
-            [lhsV, rhsV, topV, actualX, actualY, perpAngle] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
-            fibrebotLink.lineAngle = perpAngle
-            if fibreConnected: fibrebotLink.sendState("Line")
-            # time.sleep(0.05)
-            # print(lhsV, rhsV, topV, actualX, actualY)
-            # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
-            [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
-
-
-        elif behaviourState == 1: # Behaviour 1: Line scan following gross raster pattern
-            pathCounter += 1
-            # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
-            # XYZPathCoords are desired coords in 3D.
-            [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
-            # print("Open loop : ", targetXideal, targetYideal, targetOpP)
-
-            # Return target cable lengths at target coords and jacobian at current coords
-            [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
-
-            # Get cable speeds using Jacobian at current point and calculation of input speed
-            [lhsV, rhsV, topV, actualX, actualY, perpAngle] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
-            fibrebotLink.lineAngle = perpAngle
-            if fibreConnected: fibrebotLink.sendState("Line")
-            # time.sleep(0.05)
-            # print(lhsV, rhsV, topV, actualX, actualY)
-            # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
-            [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
-            massSpecLink.logPose(T_Rob_Fibre, pose_est.rotVect) #log transformation of the fibre tip
-
-        if pose_est.camConnected == True:
-            # T_Rob_Inst = pose_est.tip_pose()#4x4 homo matrix in MM
-            # T_Rob_Fibre = T_Rob_Inst*T_Inst_Fibre
-            # massSpecLink.logPose(T_Rob_Fibre, pose_est.rotVect) #log transformation of the fibre tip, not hydraulic one
-            if T_Rob_Inst is not None:
-                realX = T_Rob_Inst[0,3]
-                realY = T_Rob_Inst[1,3]
-                realZ = T_Rob_Inst[2,3]
-                [errCableL, errCableR, errCableT, errPrism] = kineSolve.cableError(actualX, actualY, scaleTargL, scaleTargR, scaleTargT, targetOpP, realX, realY, realZ)
-                # print("Open loop : ", targetXideal, targetYideal, targetOpP)
-                # print("Position", -realZ + 15, realY + 8.66, realX)
-                # print("OL cables : ", targetOpL, targetOpR, targetOpT, targetOpP)
-                # print("Error LRTP: ", errCableL, errCableR, errCableT, errPrism)
-
-            if visionFeedFlag:
-                # print("Closed Loop active \n")
-                targetL = scaleTargL - errCableL
-                targetR = scaleTargR - errCableR
-                targetT = scaleTargT - errCableT
-                targetP = targetOpP - errPrism
-
-        else:
-            targetL = scaleTargL
-            targetR = scaleTargR 
-            targetT = scaleTargT
-            targetP = targetOpP
+        targetL = scaleTargL
+        targetR = scaleTargR 
+        targetT = scaleTargT
+        targetP = targetOpP
 
         tStepP = int(targetP*kineSolve.STEPS_PER_MM_PRI)
         tStepP += targDir*antiHystSteps
@@ -541,12 +357,21 @@ try:
         elif tStepP == cStepP:
             targDir = cDir
         # print(targetL, targetR, targetT, LcRealP)
+        # print(lhsV, rhsV, topV, actualX, actualY)
+        # print(cVolL, cVolR, cVolT)    
 
         # Get volumes, volrates, syringe speeds, pulse freq & step counts estimate for each pump
+        # Use current volume, current cable length and target cable length
         [tVolL, vDotL, dDotL, fStepL, tStepL, tSpeedL, LcRealL, angleL] = kineSolve.volRate(cVolL, cableL, targetL)
         [tVolR, vDotR, dDotR, fStepR, tStepR, tSpeedR, LcRealR, angleR] = kineSolve.volRate(cVolR, cableR, targetR)
         [tVolT, vDotT, dDotT, fStepT, tStepT, tSpeedT, LcRealT, angleT] = kineSolve.volRate(cVolT, cableT, targetT)
-        # print(LcRealL, LcRealR, LcRealT, LcRealP)
+        # print(tVolL, tVolR, tVolT)
+
+        desiredThetaL = kineSolve.volToAngle(tVolL)
+        desiredThetaR = kineSolve.volToAngle(tVolR)
+        desiredThetaT = kineSolve.volToAngle(tVolT)
+        desiredThetaP = 360.0*targetOpP/kineSolve.LEAD
+        print(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP)
 
         # CALCULATE FREQS FROM VALID STEP NUMBER
         # tStepL is target pump position, cStepL is current, speed controlled position.
@@ -560,7 +385,6 @@ try:
         StepNoR += RStep 
         StepNoT += TStep
         StepNoP += PStep
-
         # print(StepNoL, StepNoR, StepNoT, StepNoP)
 
         # Log deisred position at 
@@ -571,64 +395,46 @@ try:
             if firstMoveDelay < firstMoveDivider:
                 firstMoveDelay += 1
                 # RStep = dStepR scaled for speed (w rounding differences)
-                initStepNoL = int(StepNoL*(firstMoveDelay/firstMoveDivider))
-                initStepNoR = int(StepNoR*(firstMoveDelay/firstMoveDivider))
-                initStepNoT = int(StepNoT*(firstMoveDelay/firstMoveDivider))
-                initStepNoP = int(StepNoP*(firstMoveDelay/firstMoveDivider))
+                initStepNoL = int(desiredThetaL*(firstMoveDelay/firstMoveDivider))
+                initStepNoR = int(desiredThetaR*(firstMoveDelay/firstMoveDivider))
+                initStepNoT = int(desiredThetaT*(firstMoveDelay/firstMoveDivider))
+                initStepNoP = int(desiredThetaP*(firstMoveDelay/firstMoveDivider))
+                # TODO change sendStep args to desiredAngleL etc
                 # Send scaled step number to arduinos:
-                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, ACTIVE_MODE, INFLATION_MODE)
-                # ardIntLHS.sendStep(initStepNoL)
-                # ardIntRHS.sendStep(initStepNoR)
-                # ardIntTOP.sendStep(initStepNoT)
-                # ardIntPRI.sendStep(StepNoP)
-            elif pauseVisFeedback == True:
-                #Send previous values
-                pumpController.sendStep(cStepL, cStepR, cStepT, cStepP, regulatorPressure, ACTIVE_MODE, INFLATION_MODE)
-                # ardIntLHS.sendStep(cStepL)
-                # ardIntRHS.sendStep(cStepR)
-                # ardIntTOP.sendStep(cStepT)
-                # ardIntPRI.sendStep(cStepP)
+                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, initStepNoP, regulatorPressure, ACTIVE_MODE, INFLATION_MODE)
             else:
-                if useVisionFeedback:
-                    visionFeedFlag = 1
                 # Send step number to arduinos:
-                pumpController.sendStep(StepNoL, StepNoR, StepNoT, StepNoP, regulatorPressure, ACTIVE_MODE, INFLATION_MODE)
-                # ardIntLHS.sendStep(StepNoL)
-                # ardIntRHS.sendStep(StepNoR)
-                # ardIntTOP.sendStep(StepNoT)
-                # ardIntPRI.sendStep(StepNoP)
-
-            # # Calculate median pressure over 10 samples:
-            # pressLMed = ardIntLHS.newPressMed(pressL)
-            # pressRMed = ardIntRHS.newPressMed(pressR)
-            # pressTMed = ardIntTOP.newPressMed(pressT)
-            # # pressAMed = ardIntPNEU.newPressMed(pressA)
-            # [conLHS, dLHS] = ardIntLHS.derivPress(timeL, prevTimeL)
-            # [conRHS, dRHS] = ardIntRHS.derivPress(timeR, prevTimeR)
-            # [conTOP, dTOP] = ardIntTOP.derivPress(timeT, prevTimeT)
-            # collisionAngle = kineSolve.collisionAngle(dLHS, dRHS, dTOP, conLHS, conRHS, conTOP)
+                pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, ACTIVE_MODE, INFLATION_MODE)
 
             # Log values from arduinos
-            ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
-            ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
-            ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
-            ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
-            # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
-            ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
+            if pumpDataUpdated:
+                ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
+                ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
+                ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
+                ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
+                # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
+                ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
 
             # Get current pump position, pressure and times from arduinos
             [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
             [timeL, timeR, timeT, timeP] = [timeL]*4
-            # [realStepL, pressL, timeL] = ardIntLHS.listenReply()
-            # [realStepR, pressR, timeR] = ardIntRHS.listenReply()
-            # [realStepT, pressT, timeT] = ardIntTOP.listenReply()
-            # [realStepP, pressP, timeP] = ardIntPRI.listenReply()
-            # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
+
+
 
             # Check for high pressure
             if (max(pressLMed, pressRMed, pressTMed, pressPMed) > PRESS_MAX_KPA):
                 print("Overpressure: ", max(pressL, pressR, pressT, pressL), " kPa")
                 flagStop = True
+
+        # Check if new data has been received from pump controller 
+        if (timeL - prevTimeL > 0):
+            pumpDataUpdated = True
+            kineSolve.TIMESTEP = (timeL - prevTimeL)/1000
+            if (kineSolve.TIMESTEP < 0.01): kineSolve.TIMESTEP = 0.01
+            # print((timeL - prevTimeL)/1000)
+        else:
+            pumpDataUpdated = False
+            kineSolve.TIMESTEP = 6/125
 
         # Update current position, cable lengths, and volumes as previous targets
         currentX = actualX
@@ -651,7 +457,7 @@ try:
         prevTimeR = timeR
         prevTimeT = timeT
         prevPathCounter = pathCounter
-        # pathCounter += 1
+        if pumpDataUpdated: pathCounter += 1
 
         # Close GUI if Esc hit
         # flagStop = False # Will close immediately 
@@ -711,44 +517,13 @@ finally:
             [timeL, timeR, timeT, timeP] = [timeL]*4
             pumpController.closeSerial()
             print("Connection to pump controller closed.")
-            # if ardIntLHS.ser.is_open:
-            #     ardIntLHS.sendStep(CLOSEMESSAGE)
-
-            # if ardIntRHS.ser.is_open:
-            #     ardIntRHS.sendStep(CLOSEMESSAGE)
-            
-            # if ardIntTOP.ser.is_open:
-            #     ardIntTOP.sendStep(CLOSEMESSAGE)
-
-            # if ardIntPRI.ser.is_open:
-            #     ardIntPRI.sendStep(CLOSEMESSAGE)
-
-            # if ardIntPNEU.ser.is_open:
-            #     ardIntPNEU.sendStep(CLOSEMESSAGE)
-
-            # time.sleep(0.2)
-            # [realStepL, pressL, timeL] = ardIntLHS.listenReply()
             print(realStepL, pressL, timeL)
-            # time.sleep(0.2)
-            # [realStepR, pressR, timeR] = ardIntRHS.listenReply()
             print(realStepR, pressR, timeR)
-            # time.sleep(0.2)
-            # [realStepT, pressT, timeT] = ardIntTOP.listenReply()
             print(realStepT, pressT, timeT)
-            # time.sleep(0.2)
-            # [realStepP, pressP, timeP] = ardIntPRI.listenReply()
             print(realStepP, pressP, timeP)
-            # time.sleep(0.2)
-            # [realStepA, pressA, timeA] = ardIntPNEU.listenReply()
-            # print(realStepA, pressA, timeA)
+            pumpController.t.stop()
+            pumpController.ser.close
 
-
-            # Close serial connections
-            # ardIntLHS.ser.close()
-            # ardIntRHS.ser.close()
-            # ardIntTOP.ser.close()
-            # ardIntPRI.ser.close()
-            # ardIntPNEU.ser.close()
         
         if optiTrackConnected:
             opTrack.optiClose()

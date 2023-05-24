@@ -24,7 +24,7 @@ class kineSolver:
         self.OFFSET_Y = self.SIDE_LENGTH/2 * mt.tan(mt.pi/6)
 
         # 'Flat' muscle length:
-        self.L_0 = 50
+        self.L_0 = 32
 
         # Excess length of cable between entry point and muscle, in mm
         # self.Lx = 10
@@ -32,23 +32,25 @@ class kineSolver:
         # self.Lt = self.L_0 + self.Lx + self.SIDE_LENGTH
         # print(Lt)
         # Equivalent width of hydraulic muscle in mm
-        self.ACT_WIDTH = 18
+        # self.ACT_WIDTH = 18
         self.D_s = 12 # Flat section of actutor
         self.D_t = 30 # Total width of actuator
         self.D_c = (self.D_t - self.D_s)/2 # Width of each individual conic end
         # Number of length subdivisions
-        self.NUM_L = 4
+        self.NUM_L = 3
         self.FACT_V = ((self.L_0**2)/self.NUM_L)*(self.D_c/3 + self.D_s/2)
         # Syringe cross sectional area, diameter = 26.5 mm
-        self.A_SYRINGE = mt.pi*(13.25**2) # mm^2
+        self.SYRINGE_RADIUS = 12.5/2
+        self.A_SYRINGE = mt.pi*(self.SYRINGE_RADIUS**2) # mm^2
         # Real volume calc: there are numLs beams of length L0/numLs
         # self.FACT_V = ((self.ACT_WIDTH/1000)*(self.L_0/1000)**2)/(2*self.NUM_L)
         self.M3_to_MM3 = 1e9
         self.VOL_FACTOR = 1 #1.15 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
-        self.CAL_FACTOR = 0.01 # % of max volume still in actuator after calibration
+        self.CAL_FACTOR = 0.005 # % of max volume still in actuator after calibration
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
             mt.cos((mt.pi/2*self.FACT_ANG))*mt.sin((mt.pi/2*self.FACT_ANG)))/((mt.pi/2*self.FACT_ANG)**2)
+        print(self.MAX_VOL)
         self.DEAD_VOL = self.CAL_FACTOR*self.MAX_VOL
         # print(self.MAX_VOL)
         
@@ -71,7 +73,7 @@ class kineSolver:
         self.MIN_STEPS = 50
         # print(maxSteps)
         self.TIMESTEP = 6/125 # Inverse of sampling frequency on arduinos
-        self.CABLE_SPEED_LIM = 5 # mm/s SET HIGH TO REMOVE FROM SYSTEM FOR NOW
+        self.CABLE_SPEED_LIM = 50 # mm/s SET HIGH TO REMOVE FROM SYSTEM FOR NOW
 
 
         ###################################################################
@@ -153,9 +155,10 @@ class kineSolver:
 
         # Entry point array - global frame defined at bottom lhs corner (from behind instrument)
         # LHS, RHS, TOP corner coordinates, corners of equilateral of side S
-        self.ENTRY_POINTS = np.array([[0, 0, 0],\
-            [self.SIDE_LENGTH, 0, 0],\
-            [0.5*self.SIDE_LENGTH, self.SIDE_LENGTH*mt.sin(mt.pi/3), 0]])
+        self.ENTRY_POINTS = np.array([[-self.SIDE_LENGTH/2, -self.SIDE_LENGTH/2*mt.tan(mt.pi/6),  0],\
+                                      [self.SIDE_LENGTH/2,  -self.SIDE_LENGTH/2*mt.tan(mt.pi/6),  0],\
+                                      [0,                    self.SIDE_LENGTH*mt.tan(mt.pi/6),    0]])
+        # print(self.ENTRY_POINTS)
         self.ENTRY_POINTS = np.transpose(self.ENTRY_POINTS)
 
         # Initialise matrix describing cable direction vectors:
@@ -171,8 +174,11 @@ class kineSolver:
         # Point that the shaft rotates around - COR of universal joint
         self.CONT_ARC_S = 15 # mm continuum joint arc length
         self.LEVER_BASE_Z = -37.75 # checked with sldasm
-        self.LEVER_POINT = np.array([0.5*self.SIDE_LENGTH,\
-            0.5*self.SIDE_LENGTH*mt.tan(mt.pi/6),\
+        # self.LEVER_POINT = np.array([0.5*self.SIDE_LENGTH,\
+        #     0.5*self.SIDE_LENGTH*mt.tan(mt.pi/6),\
+        #     self.LEVER_BASE_Z])
+        self.LEVER_POINT = np.array([0,\
+            self.SIDE_LENGTH*mt.tan(mt.pi/6),\
             self.LEVER_BASE_Z])
         self.E12 = self.ENTRY_POINTS[:, 1] - self.ENTRY_POINTS[:, 0]
         self.E13 = self.ENTRY_POINTS[:, 2] - self.ENTRY_POINTS[:, 0]
@@ -403,6 +409,7 @@ class kineSolver:
         # Find current and target volume and displacement of syringe
         # [cV, cD] = length2Vol(cCable)
         [tVol, tSpeed, stepNo, LcDisc, angleDisc] = self.length2Vol(cCable, tCable)
+        # print(tVol, tSpeed, stepNo, LcDisc, angleDisc)
         # if stepNo > self.MAX_STEPS*self.VOL_FACTOR:
         #     stepNo = self.MAX_STEPS*self.VOL_FACTOR
         # if stepNo < self.MIN_STEPS:

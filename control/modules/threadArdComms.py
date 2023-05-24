@@ -57,7 +57,7 @@ class ardThreader:
         the real step count (stepCount) from arduino.
         steps = sendStep(serialConnection, stepNumber)
         """
-        inputList = [stepNumber1/10, stepNumber2/10, stepNumber3/10, stepNumber4/10, desiredPressure]
+        inputList = [stepNumber1, stepNumber2, stepNumber3, stepNumber4, desiredPressure]
         stringList = ['', '', '', '', '']
 
         for i in range(len(inputList)):
@@ -73,7 +73,7 @@ class ardThreader:
         else:
             msg = 'SI'
         message = msg + stringList[0] + ',' + stringList[1] + ',' + stringList[2] + ',' + stringList[3] + ',' + stringList[4] + "\n"
-        print("Message: ", repr(message))
+        # print("Message: ", repr(message))
         message = message.encode('utf-8', 'replace')
         numBytes = self.t.write(message)
         # print(numBytes)

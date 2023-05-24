@@ -23,9 +23,10 @@ class omniStreamer():
         self.tMatrix = []
         self.omniServer = None
         self.omniButton = 0 # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
+        self.manualTimeoutCounter = 0
 
     def connectOmni(self):
-        # problem with this was that it waited for program to terminate, which never happens, but stdin=None, stdout=None, stderr=None argumetns sorted this
+        # problem with this was that it waited for program to terminate, which never happens, but stdin=None, stdin=subprocess.DEVNULL, stdout=None, stderr=None argumetns sorted this
         # print(fileName)
         self.omniServer = subprocess.run(fileName,\
             check=True, capture_output=True, stdin=subprocess.DEVNULL, stdout=None, stderr=None)
@@ -35,7 +36,7 @@ class omniStreamer():
             self.sock.settimeout(0.01)
             print("Connected to {:s}".format(repr(self.server_addr)))
             print(self.sock)
-            return True
+            return self.checkConnection()
         except AttributeError as ae:
             # print("Error creating the socket: {}".format(ae))
             return False
@@ -44,13 +45,19 @@ class omniStreamer():
             return False
 
 
+    def checkConnection(self):
+        while (self.manualTimeoutCounter < 250):
+            omniDataReceived = self.getOmniCoords()
+            if omniDataReceived: return True
+        return False
+
+
     def getOmniCoords(self):
         try:
             handshake = b'1'
             self.sock.send(handshake)
             # Incoming data is the transformation matrix of the haptic device end effector plus start and end bytes
             data = self.sock.recv(512)
-            # print(data)
             stringdata = data.decode('utf-8')
             numdata = stringdata.split(";")
             numdata = numdata[0:-1] # Remove empty entry at end due to split
@@ -79,39 +86,19 @@ class omniStreamer():
                                             [fltMatrix[1], fltMatrix[5], fltMatrix[9], fltMatrix[13]],\
                                             [fltMatrix[2], fltMatrix[6], fltMatrix[10], fltMatrix[14]],\
                                             [fltMatrix[3], fltMatrix[7], fltMatrix[11], fltMatrix[15]]])
-                    # print(self.tMatrix)
-
-            # count = 1
-            # for i in numdata:
-            #     if i == "S":
-            #         if len(numdata)-count >= 4:
-            #             if numdata[count+3] == "E": #index is count minus one (then plus x for relevant digit), for 0 indexing
-            #                 self.omniX = float(numdata[count])
-            #                 self.omniY = float(numdata[count+1])
-            #                 self.omniZ = float(numdata[count+2])
-            #                 print("x: ", self.omniX, ", y: ", self.omniY, ", z: ", self.omniZ)
-            #                 break
-            #             else:
-            #                 # print(numdata[count+3])
-            #                 break # just ignore and wait for nex one
-            #                 # raise ValueError('Somehow the endByte is not what was expected') # Somehow the endByte isn't what was expected
-            #     else:
-            #         count+=1
-
-            # if numdata[0] == ord("S"):
-            #     self.omniX = float(numdata[0])
-            #     self.omniY = float(numdata[1])
-            #     self.omniZ = float(numdata[2])
-                # print("x: ", self.omniX, ", y: ", self.omniY, ", z: ", self.omniZ)
+                    self.manualTimeoutCounter = 0
+                    return 1
 
         except socket.timeout:
-            pass
+            self.manualTimeoutCounter += 1
+            if self.manualTimeoutCounter > 250:
+                print("Check connection to Geomagic Touch / Phantom Omni")
+                return 0
         except socket.error as se:
             print("Exception on socket: {}".format(se))
             print("Closing socket")
             self.sock.close()
-        # print("Omni coords: ", self.omniX, self.omniY, self.omniZ)
-        # return self.omniX, self.omniY, self.omniZ
+            return 2
 
 
 
@@ -135,23 +122,36 @@ class omniStreamer():
         homeY = -65.51071
         homeZ = -88.11420
 
-        offsetX = 0
-        offsetY = homeY
-        offsetZ = homeZ
+        # 160 W x 120 H x 70 D mm    From datasheet, but real values are different
+        rangeXOmni = 430
+        rangeYOmni = 315
+        rangeZOmni = 220
 
-        # 160 W x 120 H x 70 D mm    From datasheet
-        rangeXOmni = 160
-        rangeYOmni = 120
-        rangeZOmni = 70
+        minX = -215
+        maxX = 215
+        minY = -112
+        maxY = 203
+        minZ = -123
+        maxZ = 95
 
-        xUnit = (self.omniX - homeX + offsetX)/(rangeXOmni/2)
-        yUnit = (self.omniY - homeY + offsetY)/(rangeYOmni/2)
-        zUnit = (self.omniZ - homeZ + offsetZ)/(rangeZOmni/2)
-        print(xUnit, yUnit, zUnit)
+        offsetX = (minX + maxX)/2
+        offsetY = (minY + maxY)/2 # -45.5
+        offsetZ = (maxZ) # Z will go from zero to rangeWorkspaceZ
 
-        sensX = 1
-        sensY = 1
-        sensZ = 1
+        # print(self.omniX, self.omniY, self.omniZ)
+
+        # Fixing coords from Omni to go from -0.5*range to 0.5 range
+        # x is -ve to the left and +ve to the right  horizontal
+        xUnit = (self.omniX - offsetX)/(rangeXOmni)
+        # y is -ve down and +ve up                   vertical
+        yUnit = (self.omniY - offsetY)/(rangeYOmni)
+        # z is -ve towards body, +ve towards user    depth
+        zUnit = (self.omniZ - offsetZ)/(rangeZOmni)
+        # print(xUnit, yUnit, zUnit)
+
+        sensX = 2
+        sensY = 2
+        sensZ = 2
 
         signX = -1
         signY = 1
@@ -161,26 +161,33 @@ class omniStreamer():
         rangeYWorkspace = 50
         rangeZWorkspace = 38.5
 
-        # Assuming coords from Omni go from -0.5*range to 0.5 range
-        xMapped = signX * sensX * xUnit * rangeXWorkspace
-        yMapped = signY * sensY * yUnit * rangeYWorkspace
-        zMapped = signZ * sensZ * zUnit * rangeZWorkspace
-        print(xMapped, yMapped, zMapped)
-        print()
+        centreWorkspaceX = 0
+        centreWorkspaceY = -20
+        centreWorkspaceZ = 15
+
+
+        # x is +ve to the left and -ve to the right  horizontal
+        xMapped = signX * sensX * xUnit * rangeXWorkspace + centreWorkspaceX
+        # y is -ve down and +ve up                   vertical
+        yMapped = signY * sensY * yUnit * rangeYWorkspace + centreWorkspaceY
+        # z is +ve towards body, -ve towards user    depth
+        zMapped = signZ * sensZ * zUnit * rangeZWorkspace + centreWorkspaceZ
+        # print(xMapped, yMapped, zMapped)
+        # print()
 
 
 
-        xMapped = -1*(self.omniX*((46-(-46))/440)) + 9.455 # abs just for test       approx 0.2093
-        yMapped = 1*(self.omniY*((55-(-35))/310))  + 5.4591 #                        approx 0.2903
-        zMapped = -1*(self.omniZ*((75-30)/215))*2 + 10 # Omni direction is opposite to real direction     approx 0.2091
+        # xMapped = -1*(self.omniX*((46-(-46))/440)) + 9.455 # abs just for test       approx 0.2093
+        # yMapped = 1*(self.omniY*((55-(-35))/310))  + 5.4591 #                        approx 0.2903
+        # zMapped = -1*(self.omniZ*((75-30)/215))*2 + 10 # Omni direction is opposite to real direction     approx 0.2091
         # if (xMapped < 0):
         #     xMapped = 0
         # if (yMapped < 0):
         #     yMapped = 0
-        if (zMapped < 0):
-            zMapped = 0
-        if (zMapped > 38.5):
-            zMapped = 38.5
+        # if (zMapped < 0):
+        #     zMapped = 0
+        # if (zMapped > 38.5):
+        #     zMapped = 38.5
         # print("x: ", xMapped, ", y: ", yMapped, ", z: ", zMapped)
         return xMapped, yMapped, zMapped
         
@@ -195,9 +202,10 @@ if __name__ == "__main__":
     omni_connected = phntmOmni.connectOmni()
     print("Haptic device connected? ", omni_connected)
     count = 0
-    limit = 200
+    limit = 400
     while (count < limit):
-        phntmOmni.getOmniCoords()
+        omniDataReceived = phntmOmni.getOmniCoords()
+        # if omniDataReceived == 2: break
         [xMap, yMap, zMap] = phntmOmni.omniMap()
         # print(xMap, yMap, zMap)
         time.sleep(0.05)
