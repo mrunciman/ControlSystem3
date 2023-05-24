@@ -53,6 +53,7 @@ class kineSolver:
         print(self.MAX_VOL)
         self.DEAD_VOL = self.CAL_FACTOR*self.MAX_VOL
         # print(self.MAX_VOL)
+        self.MAX_VOL_RATE = 10 # mm^3/s
         
         # For step count:
         # Mapping from step to 1 revolution = 200 steps
@@ -456,6 +457,33 @@ class kineSolver:
         fRoundE = int(fRoundE*fSignE)
 
         return fRound[0], fRound[1], fRound[2], fRoundE
+    
+
+
+
+    def volRateScale(self, tVolL, tVolR, tVolT, cVolL, cVolR, cVolT,):
+        """
+        Returns scaled target volumes 
+        """
+        tVolList = np.array([tVolL, tVolR, tVolT])
+        cVolList = np.array([cVolL, cVolR, cVolT])
+        volDiff = tVolList-cVolList
+        volRate = (volDiff)/self.TIMESTEP #timeSecs  # m^3/s
+        volAbs = np.absolute(tVolList)
+
+        # Find OCR and scale if any of the frequency values is non-zero
+        if np.any(volRate):
+            volSign = np.sign(volRate)
+            volMax = np.amax(volAbs)
+            # If largest frequency is above MAX_FREQ then scale
+            if volMax > self.MAX_VOL_RATE:
+                volFact = self.MAX_VOL_RATE/volMax
+                volScaled = volFact*volAbs
+                volScaled = volScaled*volSign
+                volChange = volScaled*self.TIMESTEP
+                tVolList = cVolList + volChange
+                # Else use unscaled frequencies
+        return tVolList[0], tVolList[1], tVolList[2]
 
 
 
