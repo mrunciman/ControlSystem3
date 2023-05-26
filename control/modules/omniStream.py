@@ -149,9 +149,9 @@ class omniStreamer():
         zUnit = (self.omniZ - offsetZ)/(rangeZOmni)
         # print(xUnit, yUnit, zUnit)
 
-        sensX = 2
-        sensY = 2
-        sensZ = 2
+        sensX = 0.5
+        sensY = 0.5
+        sensZ = 0.5
 
         signX = -1
         signY = 1

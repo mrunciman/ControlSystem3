@@ -269,10 +269,10 @@ try:
         #  Inflate structure and give some time to stabilise:
         print("Inflating structure...")
         pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, INFLATION_MODE)
-        time.sleep(3)
+        # time.sleep(3)
 
         # Has the mechanism been calibrated/want to run without calibration?:
-        calibrated = True
+        calibrated = False
         # Perform calibration:
         print("Zeroing hydraulic actuators...")
         if (not calibrated):
@@ -282,6 +282,7 @@ try:
             time.sleep(0.007)
             [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
             [timeL, timeR, timeT, timeP] = [timeL]*4
+            print(pumpController.calibrationFlag)
 
             if (pumpController.calibrationFlag == 'Y'):
                 calibrated = True
@@ -323,7 +324,7 @@ try:
             # if not omniDataReceived: break
             [xMap, yMap, zMap] = phntmOmni.omniMap()
             XYZPathCoords = [xMap, yMap, zMap]
-            # print(XYZPathCoords)
+            print(XYZPathCoords)
          
         # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
         # XYZPathCoords are desired coords in 3D.
@@ -366,7 +367,7 @@ try:
         [tVolR, vDotR, dDotR, fStepR, tStepR, tSpeedR, LcRealR, angleR] = kineSolve.volRate(cVolR, cableR, targetR)
         [tVolT, vDotT, dDotT, fStepT, tStepT, tSpeedT, LcRealT, angleT] = kineSolve.volRate(cVolT, cableT, targetT)
         # print("\n",tStepL, tStepR, tStepT, "\n")
-        # print("\nVolumes in ml: ",tVolL/1000, tVolR/1000, tVolT/1000, "\n")
+        print("\nVolumes in ml: ",tVolL/1000, tVolR/1000, tVolT/1000, targetOpP, "\n")
 
         [tVolL, tVolR, tVolT] = kineSolve.volRateScale(tVolL, tVolR, tVolT, cVolL, cVolR, cVolT)
 
@@ -421,7 +422,7 @@ try:
             # Get current pump position, pressure and times from arduinos
             [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
             [timeL, timeR, timeT, timeP] = [timeL]*4
-            print(regulatorSensor)
+            # print(regulatorSensor)
 
 
 
