@@ -50,7 +50,7 @@ class kineSolver:
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
             mt.cos((mt.pi/2*self.FACT_ANG))*mt.sin((mt.pi/2*self.FACT_ANG)))/((mt.pi/2*self.FACT_ANG)**2)
-        print(self.MAX_VOL)
+        # print(self.MAX_VOL)
         self.DEAD_VOL = self.CAL_FACTOR*self.MAX_VOL
         # print(self.MAX_VOL)
         self.MAX_VOL_RATE = 1000 # mm^3/s
@@ -195,7 +195,9 @@ class kineSolver:
         self.MIN_EXTEND = 0.5 # mm
         self.MAX_EXTEND = 35 # mm
         # Set limit when curvature of continuum joint is assumed zero
-        self.MIN_CONT_RAD = 0.1 # mm 
+        self.MIN_CONT_RAD = 0.1 # mm
+        # Max angle that hydraulic motors can have is:
+        # print(self.volToAngle(self.MAX_VOL))
 
 
     def intersect(self, tDesX, tDesY, tExt):

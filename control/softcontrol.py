@@ -269,7 +269,7 @@ try:
         #  Inflate structure and give some time to stabilise:
         print("Inflating structure...")
         pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, INFLATION_MODE)
-        # time.sleep(3)
+        time.sleep(2)
 
         # Has the mechanism been calibrated/want to run without calibration?:
         calibrated = False
@@ -283,6 +283,7 @@ try:
             [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
             [timeL, timeR, timeT, timeP] = [timeL]*4
             print(pumpController.calibrationFlag)
+            print(pressL, pressR, pressT, regulatorSensor, "\n")
 
             if (pumpController.calibrationFlag == 'Y'):
                 calibrated = True
@@ -324,7 +325,7 @@ try:
             # if not omniDataReceived: break
             [xMap, yMap, zMap] = phntmOmni.omniMap()
             XYZPathCoords = [xMap, yMap, zMap]
-            print(XYZPathCoords)
+            # print(XYZPathCoords)
          
         # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
         # XYZPathCoords are desired coords in 3D.
