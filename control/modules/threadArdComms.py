@@ -71,7 +71,7 @@ class ardThreader:
         if controlState is not None:
             msg = self.setState(controlState, inflationState)
         else:
-            msg = 'SI'
+            msg = 'HD'
         message = msg + stringList[0] + ',' + stringList[1] + ',' + stringList[2] + ',' + stringList[3] + ',' + stringList[4] + "\n"
         # print("Message: ", repr(message))
         message = message.encode('utf-8', 'replace')
@@ -100,6 +100,7 @@ class ardThreader:
         elif inflationState == 1:
             msg = msg + "D"
         else:
+            # Go to pressure sent by python control system
             msg = msg + "_" # Decimal 95
         return msg
 

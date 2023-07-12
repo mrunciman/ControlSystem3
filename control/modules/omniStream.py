@@ -96,7 +96,7 @@ class omniStreamer():
                 return 0
         except socket.error as se:
             print("Exception on socket: {}".format(se))
-            print("Closing socket")
+            # print("Closing socket")
             self.sock.close()
             return 2
 
@@ -149,21 +149,21 @@ class omniStreamer():
         zUnit = (self.omniZ - offsetZ)/(rangeZOmni)
         # print(xUnit, yUnit, zUnit)
 
-        sensX = 0.5
-        sensY = 0.5
-        sensZ = 0.5
+        sensX = 1.5
+        sensY = 1.5
+        sensZ = 1.5
 
         signX = -1
         signY = 1
         signZ = -1
 
-        rangeXWorkspace = 50
-        rangeYWorkspace = 50
-        rangeZWorkspace = 38.5
+        rangeXWorkspace = 62.5
+        rangeYWorkspace = 55
+        rangeZWorkspace = 50
 
         centreWorkspaceX = 0
-        centreWorkspaceY = -20
-        centreWorkspaceZ = 15
+        centreWorkspaceY = 2.6263
+        centreWorkspaceZ = 43.25
 
 
         # x is +ve to the left and -ve to the right  horizontal
@@ -207,7 +207,7 @@ if __name__ == "__main__":
         omniDataReceived = phntmOmni.getOmniCoords()
         # if omniDataReceived == 2: break
         [xMap, yMap, zMap] = phntmOmni.omniMap()
-        # print(xMap, yMap, zMap)
+        print(xMap, yMap, zMap)
         time.sleep(0.05)
         count += 1
     phntmOmni.omniClose()

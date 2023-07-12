@@ -24,7 +24,7 @@ class kineSolver:
         self.OFFSET_Y = self.SIDE_LENGTH/2 * mt.tan(mt.pi/6)
 
         # 'Flat' muscle length:
-        self.L_0 = 32
+        self.L_0 = 30
 
         # Excess length of cable between entry point and muscle, in mm
         # self.Lx = 10
@@ -45,7 +45,7 @@ class kineSolver:
         # Real volume calc: there are numLs beams of length L0/numLs
         # self.FACT_V = ((self.ACT_WIDTH/1000)*(self.L_0/1000)**2)/(2*self.NUM_L)
         self.M3_to_MM3 = 1e9
-        self.VOL_FACTOR = 1 #1.15 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
+        self.VOL_FACTOR = 1.1 #1.15 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
         self.CAL_FACTOR = 0.005 # % of max volume still in actuator after calibration
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
@@ -73,7 +73,7 @@ class kineSolver:
         self.MAX_STEPS = self.STEPS_PER_MMCUBED*self.MAX_VOL # number of steps needed to fill pouch
         self.MIN_STEPS = 50
         # print(maxSteps)
-        self.TIMESTEP = 6/125 # Inverse of sampling frequency on arduinos
+        self.TIMESTEP = 0.01 # Inverse of sampling frequency on arduinos
         self.CABLE_SPEED_LIM = 50 # mm/s SET HIGH TO REMOVE FROM SYSTEM FOR NOW
 
 
@@ -126,9 +126,15 @@ class kineSolver:
         self.DIST_TO_CENT = (self.SIDE_LENGTH/2)/mt.cos(mt.pi/6)
         # Contraction  self.L_c = (self.SIDE_LENGTH - targetCable)/self.MA
         # where targetCable is target cable length from lin algebra
-        self.MA = 3 # Mechanical advantage of pulleys
+        self.MA = 2 # Mechanical advantage of pulleys
+        if self.SIDE_LENGTH == 50:
+            self.MAX_CABLE_DIST = 40.91    # 35.41 or 40.91
+        elif self.SIDE_LENGTH == 40:
+            self.MAX_CABLE_DIST = 35.41
+        elif self.SIDE_LENGTH == 18.78:
+            self.MAX_CABLE_DIST = 17.50
         #Initialise at centre
-        self.L_c = (self.SIDE_LENGTH - self.DIST_TO_CENT)/self.MA
+        self.L_c = (self.MAX_CABLE_DIST - self.DIST_TO_CENT)/self.MA
         # Store current value of contraction 
         self.cL_c = self.L_c
         self.MIN_CONTRACT = 0.1
@@ -174,26 +180,29 @@ class kineSolver:
         ###################################################################
         # Point that the shaft rotates around - COR of universal joint
         self.CONT_ARC_S = 15 # mm continuum joint arc length
-        self.LEVER_BASE_Z = -37.75 # checked with sldasm
+        self.LEVER_BASE_Z = -25.0 # checked with sldasm
         # self.LEVER_POINT = np.array([0.5*self.SIDE_LENGTH,\
         #     0.5*self.SIDE_LENGTH*mt.tan(mt.pi/6),\
         #     self.LEVER_BASE_Z])
+        # self.LEVER_POINT = np.array([0,\
+        #                              self.SIDE_LENGTH*mt.tan(mt.pi/6),\
+        #                              self.LEVER_BASE_Z])
         self.LEVER_POINT = np.array([0,\
-            self.SIDE_LENGTH*mt.tan(mt.pi/6),\
-            self.LEVER_BASE_Z])
+                                     0,\
+                                     self.LEVER_BASE_Z])
         self.E12 = self.ENTRY_POINTS[:, 1] - self.ENTRY_POINTS[:, 0]
         self.E13 = self.ENTRY_POINTS[:, 2] - self.ENTRY_POINTS[:, 0]
         self.N_CROSS = np.cross(self.E12, self.E13)
         # Normal of end effector / parallel mechanism plane:
         self.N_PLANE = self.N_CROSS/la.norm(self.N_CROSS)
 
-        self.SHAFT_LENGTH_UJ = 80 # mm
+        self.SHAFT_LENGTH_UJ = 50 # mm
         self.SHAFT_LENGTH = self.SHAFT_LENGTH_UJ - self.CONT_ARC_S # mm     SHAFT_LENGTH_UJ - CONT_ARC
 
         # Set limits on shaft extension
         # self.minShaftExt = self.SHAFT_LENGTH + 1
         self.MIN_EXTEND = 0.5 # mm
-        self.MAX_EXTEND = 35 # mm
+        self.MAX_EXTEND = 40 # mm
         # Set limit when curvature of continuum joint is assumed zero
         self.MIN_CONT_RAD = 0.1 # mm
         # Max angle that hydraulic motors can have is:
@@ -358,12 +367,13 @@ class kineSolver:
         e.g. length2Vol(17.32, 18)
         """
         # Find contraction of actuator, filtering zeros:
-        if targetCable < self.SIDE_LENGTH:
-            self.L_c = (self.SIDE_LENGTH - targetCable)/self.MA
+        if targetCable < self.MAX_CABLE_DIST:
+            self.L_c = (self.MAX_CABLE_DIST - targetCable)/self.MA
+            # print(self.L_c)
         else:
             self.L_c = self.MIN_CONTRACT
         # Similar for current contraction
-        self.cL_c = (self.SIDE_LENGTH - currentCable)/self.MA
+        self.cL_c = (self.MAX_CABLE_DIST - currentCable)/self.MA
         
         # Rate of change of cable length
         cableSpeed = (self.cL_c - self.cL_c)/self.TIMESTEP

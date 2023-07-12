@@ -38,7 +38,7 @@ from visual_navigation.cam_pose import PoseEstimator
 np.set_printoptions(suppress=True, precision = 2)
 ############################################################
 # Instantiate classes:
-sideLength = 40 # mm, from workspace2 model
+sideLength = 18.78 # mm, from workspace2 model
 
 kineSolve = kinematics.kineSolver(sideLength)
 # mouseTrack = mouseGUI.mouseTracker(sideLength)
@@ -98,23 +98,11 @@ else:
 XYZPathCoords = [xMap, yMap, zMap]
 print("Start point: ", XYZPathCoords)
 
-# Do you want to use mouse as primary?
-# useMouse = False
-
-# if not useMouse:
-#     mouseTrack.xCoord = xPath[0]
-#     mouseTrack.yCoord = yPath[0]
-#     mouseTrack.zCoord = zPath[0]
-#     #Down-sample path here for display
-#     mouseTrack.xPathCoords = xPath[0: int(len(xPath)/noCycles)]  
-#     mouseTrack.yPathCoords = yPath[0: int(len(yPath)/noCycles)]
-#     mouseTrack.zPathCoords = zPath[0: int(len(zPath)/noCycles)]
-
 
 ############################################################################
 # Initialise variables 
 SAMP_FREQ = 1/kineSolve.TIMESTEP
-PRESS_MAX_KPA = 190000
+PRESS_MAX_KPA = 80
 flagStop = False
 
 # Desired pressure in pneumatic structure
@@ -168,6 +156,8 @@ targetP = 0
 repJaco = cJaco
 repJpinv = cJpinv
 
+[targetL, targetR, targetT, targetP] = 28.86, 28.86, 28.86, 5  # Centre of scaffold triangle side size 50 mm
+
 # Set current volume (ignore tSpeed and step values) 
 [cVolL, tSpeedL, tStepL, LcRealL, angleL] = kineSolve.length2Vol(cableL, targetL)
 [cVolR, tSpeedR, tStepR, LcRealR, angleR] = kineSolve.length2Vol(cableR, targetR)
@@ -181,6 +171,11 @@ tStepP = 0
 LcRealP = tStepP/kineSolve.STEPS_PER_MM_PRI
 [LStep, RStep, TStep, PStep] = kineSolve.freqScale(fStepL, fStepR, fStepT, fStepP)
 LStep, RStep, TStep, PStep = 0, 0, 0, 0
+
+desiredThetaL = kineSolve.volToAngle(tVolL)
+desiredThetaR = kineSolve.volToAngle(tVolR)
+desiredThetaT = kineSolve.volToAngle(tVolT)
+desiredThetaP = 360.0*targetP/kineSolve.LEAD
 
 # Set initial pressure and calibration variables
 pressL, pressR, pressT, pressP = 0, 0, 0, 0
@@ -249,15 +244,15 @@ msConnected = massSpecLink.connect(msCOM)
 # if msConnected:
 print("Mass spec serial connected? ", msConnected)
 
-config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
-pose_est = PoseEstimator(config_path)
-if useVisionFeedback:
+# config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
+# pose_est = PoseEstimator(config_path)
+# if useVisionFeedback:
     # config_path = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/visual_navigation/data_45short/'
     # pose_est = PoseEstimator(config_path)
-    pose_est.initialize()
-else:
-    pose_est.camConnected = False
-print("Use camera?", pose_est.camConnected)
+    # pose_est.initialize()
+# else:
+    # pose_est.camConnected = False
+# print("Use camera?", pose_est.camConnected)
 
 
 
@@ -269,10 +264,14 @@ try:
         #  Inflate structure and give some time to stabilise:
         print("Inflating structure...")
         pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, INFLATION_MODE)
-        time.sleep(2)
+        time.sleep(3)
+
 
         # Has the mechanism been calibrated/want to run without calibration?:
-        calibrated = False
+        startWithCalibration = True
+        calibrated = not startWithCalibration
+
+
         # Perform calibration:
         print("Zeroing hydraulic actuators...")
         if (not calibrated):
@@ -287,14 +286,14 @@ try:
 
             if (pumpController.calibrationFlag == 'Y'):
                 calibrated = True
-                # Send 0s instead of StepNo and pressMed as signal that calibration done
-                StepNoL, StepNoR, StepNoT, StepNoP, StepNoA = 0, 0, 0, 0, 0
+                # Send 0s instead of desiredTheta and pressMed as signal that calibration done
+                desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, StepNoA = 0, 0, 0, 0, 0
                 pressLMed, pressRMed, pressTMed, pressPMed, pressAMed = 0, 0, 0, 0, 0
 
-            ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
-            ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
-            ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
-            ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
+            ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, timeL)
+            ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, timeR)
+            ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, timeT)
+            ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, timeP)
             # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
             # Ensure same number of rows in position log file
@@ -305,7 +304,7 @@ try:
         print("PUMP CONTROLLER NOT CONNECTED. RUNNING WITHOUT PUMPS.")
 
     print("Beginning path following task.")
-    if fibreConnected: fibrebotLink.sendState("Run")
+    # if fibreConnected: fibrebotLink.sendState("Run")
     
 
     ################################################################
@@ -315,14 +314,14 @@ try:
         if not omni_connected:
         # CHOOSE WHICH BEHAVIOUR TO EXECUTE
             # Gross raster until end of path
-            if pathCounter >= len(xPath)/18:
+            if pathCounter >= len(xPath)/9:
                 break               
             else:
                 XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
                 # print(XYZPathCoords)
         else:
             omniDataReceived = phntmOmni.getOmniCoords()
-            # if not omniDataReceived: break
+            if (omniDataReceived == 2): break
             [xMap, yMap, zMap] = phntmOmni.omniMap()
             XYZPathCoords = [xMap, yMap, zMap]
             # print(XYZPathCoords)
@@ -347,6 +346,13 @@ try:
         targetT = scaleTargT
         targetP = targetOpP
 
+        # ###[targetL, targetR, targetT, targetOpP] = 28.86, 28.86, 28.86, 5 # FOR HOMING ONLY
+        # ###[targetL, targetR, targetT, targetOpP] = 23.09, 23.09, 23.09, 5 # FOR HOMING ONLY23.09
+        # [targetL, targetR, targetT, targetOpP] = 10.84, 10.84, 10.84, 5 # FOR HOMING ONLY23.09
+        # ###[targetL, targetR, targetT, targetOpP] = 36.32, 16.60, 36.85, 5 # Random non-homing position
+        if not omni_connected: 
+            [targetL, targetR, targetT, targetOpP] = 10.84, 10.84, 10.84, 5
+
         tStepP = int(targetP*kineSolve.STEPS_PER_MM_PRI)
         tStepP += targDir*antiHystSteps
         LcRealP = tStepP/kineSolve.STEPS_PER_MM_PRI
@@ -358,7 +364,7 @@ try:
         # If stopped, preserve previous direction as target direction: 
         elif tStepP == cStepP:
             targDir = cDir
-        # print("\n",targetL, targetR, targetT, targetP, "\n")
+        # print(targetL, targetR, targetT, targetP)
         # print(lhsV, rhsV, topV, actualX, actualY)
         # print(cVolL, cVolR, cVolT)
 
@@ -368,15 +374,15 @@ try:
         [tVolR, vDotR, dDotR, fStepR, tStepR, tSpeedR, LcRealR, angleR] = kineSolve.volRate(cVolR, cableR, targetR)
         [tVolT, vDotT, dDotT, fStepT, tStepT, tSpeedT, LcRealT, angleT] = kineSolve.volRate(cVolT, cableT, targetT)
         # print("\n",tStepL, tStepR, tStepT, "\n")
-        print("\nVolumes in ml: ",tVolL/1000, tVolR/1000, tVolT/1000, targetOpP, "\n")
+        # print("\nVolumes in ml: ",tVolL/1000, tVolR/1000, tVolT/1000, targetOpP, "\n")
 
-        [tVolL, tVolR, tVolT] = kineSolve.volRateScale(tVolL, tVolR, tVolT, cVolL, cVolR, cVolT)
+        [tVolL_Scaled, tVolR_Scaled, tVolT_Scaled] = kineSolve.volRateScale(tVolL, tVolR, tVolT, cVolL, cVolR, cVolT)
 
-        desiredThetaL = kineSolve.volToAngle(tVolL)
-        desiredThetaR = kineSolve.volToAngle(tVolR)
-        desiredThetaT = kineSolve.volToAngle(tVolT)
+        desiredThetaL = kineSolve.volToAngle(tVolL_Scaled)
+        desiredThetaR = kineSolve.volToAngle(tVolR_Scaled)
+        desiredThetaT = kineSolve.volToAngle(tVolT_Scaled)
         desiredThetaP = 360.0*targetOpP/kineSolve.LEAD
-        # print(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP)
+        # print(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, "\n")
 
         # # CALCULATE FREQS FROM VALID STEP NUMBER
         # # tStepL is target pump position, cStepL is current, speed controlled position.
@@ -392,10 +398,11 @@ try:
         # StepNoP += PStep
         # print(StepNoL, StepNoR, StepNoT, StepNoP)
 
-        # Log deisred position at 
-        posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
+        # Log desired positions
+        if pumpDataUpdated:
+            posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
-        if pumpsConnected:
+        if pumpsConnected and startWithCalibration:
         # Reduce speed when making first move after calibration.
             if firstMoveDelay < firstMoveDivider:
                 firstMoveDelay += 1
@@ -404,7 +411,6 @@ try:
                 initStepNoR = int(desiredThetaR*(firstMoveDelay/firstMoveDivider))
                 initStepNoT = int(desiredThetaT*(firstMoveDelay/firstMoveDivider))
                 initStepNoP = int(desiredThetaP*(firstMoveDelay/firstMoveDivider))
-                # TODO change sendStep args to desiredAngleL etc
                 # Send scaled step number to arduinos:
                 pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, initStepNoP, regulatorPressure, ACTIVE_MODE, INFLATION_MODE)
             else:
@@ -413,29 +419,28 @@ try:
 
             # Log values from arduinos
             if pumpDataUpdated:
-                ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
-                ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
-                ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
-                ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
+                ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, timeL)
+                ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, timeR)
+                ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, timeT)
+                ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, timeP)
                 # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
                 ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
 
             # Get current pump position, pressure and times from arduinos
             [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
             [timeL, timeR, timeT, timeP] = [timeL]*4
-            # print(regulatorSensor)
-
 
 
             # Check for high pressure
-            if (max(pressLMed, pressRMed, pressTMed, pressPMed) > PRESS_MAX_KPA):
-                print("Overpressure: ", max(pressL, pressR, pressT, pressL), " kPa")
-                flagStop = True
+            if (max(pressL, pressR, pressT) > PRESS_MAX_KPA): # TODO Add filtered pressure values back again to use here
+                print("Overpressure: ", max(pressL, pressR, pressT), " kPa")
+                break
 
         # Check if new data has been received from pump controller 
         if (timeL - prevTimeL > 0):
             pumpDataUpdated = True
             kineSolve.TIMESTEP = (timeL - prevTimeL)/1000
+            kineSolve.TIMESTEP = 0.01
             if (kineSolve.TIMESTEP < 0.01): kineSolve.TIMESTEP = 0.01
             # print((timeL - prevTimeL)/1000)
         else:
@@ -475,10 +480,10 @@ except TypeError as exTE:
     tb_textTE = ''.join(tb_linesTE)
     print(tb_textTE)
 
-    # except Exception as ex:
-    #     tb_lines = traceback.format_exception(ex.__class__, ex, ex.__traceback__)
-    #     tb_text = ''.join(tb_lines)
-    #     print(tb_text)
+except Exception as ex:
+    tb_lines = traceback.format_exception(ex.__class__, ex, ex.__traceback__)
+    tb_text = ''.join(tb_lines)
+    print(tb_text)
     
 
 finally:
@@ -490,10 +495,10 @@ finally:
 
         if pumpsConnected:
             # Save values gathered from arduinos
-            ardLogging.ardLog(realStepL, LcRealL, angleL, StepNoL, pressL, pressLMed, timeL)
-            ardLogging.ardLog(realStepR, LcRealR, angleR, StepNoR, pressR, pressRMed, timeR)
-            ardLogging.ardLog(realStepT, LcRealT, angleT, StepNoT, pressT, pressTMed, timeT)
-            ardLogging.ardLog(realStepP, LcRealP, angleP, StepNoP, pressP, pressPMed, timeP)
+            ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, timeL)
+            ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, timeR)
+            ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, timeT)
+            ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, timeP)
             # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
             ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
             ardLogging.ardSave()
@@ -501,11 +506,11 @@ finally:
             posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
 
-        #Save pose estimation data
-        massSpecLink.savePoseMassSpec()
-
         #Save position data
         posLogging.posSave()
+
+        #Save pose estimation data
+        massSpecLink.savePoseMassSpec()
 
         # #Save optitrack data
         if optiTrackConnected:
@@ -516,7 +521,8 @@ finally:
 
 
         if pumpsConnected:
-            pumpController.sendStep(cStepL, cStepR, cStepT, cStepP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
+            if calibrated:
+                pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
             pumpController.stopThreader()
             time.sleep(0.2)
             [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
