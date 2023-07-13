@@ -3,15 +3,16 @@ import time
 import subprocess
 import numpy as np
 import os
+import math
 # from ctypes import *
 np.set_printoptions(suppress=True, precision = 2)
 
 location = os.path.dirname(__file__)
 parent = os.path.dirname(location)
-relative = "modules\HelloHapticDevice.exe"
+relative = "modules\Transformation_And_Forces.exe"
 fileName = os.path.join(parent, relative).replace('\\', '/') # For subprocess it looks like we need forward slashes in path
 # fileName = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/modules/HelloHapticDevice.exe'
-
+MAX_FORCE = 2 # N
 
 class omniStreamer():
     def __init__(self):
@@ -29,7 +30,7 @@ class omniStreamer():
         # problem with this was that it waited for program to terminate, which never happens, but stdin=None, stdin=subprocess.DEVNULL, stdout=None, stderr=None argumetns sorted this
         # print(fileName)
         self.omniServer = subprocess.run(fileName,\
-            check=True, capture_output=True, stdin=subprocess.DEVNULL, stdout=None, stderr=None)
+            check = True, capture_output = False, stdin = subprocess.DEVNULL, stdout = None, stderr = None)
         try:
             self.sock.connect(self.server_addr)
             # self.sock.setblocking(0)
@@ -51,11 +52,36 @@ class omniStreamer():
             if omniDataReceived: return True
         return False
 
+# [-0.500,-0.500,00.000]
 
-    def getOmniCoords(self):
+# [0.500,0.500,0.000]
+# 0
+# 1 - 6
+# 8 - 13
+# 15 - 20
+# 21
+    def getOmniCoords(self, forces = None):
         try:
             handshake = b'1'
+            if forces is not None:
+                forcesStrList = []# [format(x, '.3f') for x in forces]
+                # print(forcesStrList)
+                for x in range(len(forces)):
+                    if forces[x] >= 0:
+                        if forces[x] > MAX_FORCE:
+                            forces[x] = MAX_FORCE
+                        forcesStrList.append('0' + format(abs(forces[x]), '1.3f'))
+
+                    else:
+                        if (abs(forces[x]) > MAX_FORCE):
+                            forces[x] = -1*MAX_FORCE
+                        forcesStrList.append(format(forces[x], '1.3f'))
+
+                forcesString = '[' + forcesStrList[0] + ',' + forcesStrList[1] + ',' + forcesStrList[2] + ']' 
+                handshake = forcesString.encode('utf-8')
+                print(handshake)
             self.sock.send(handshake)
+
             # Incoming data is the transformation matrix of the haptic device end effector plus start and end bytes
             data = self.sock.recv(512)
             stringdata = data.decode('utf-8')
@@ -203,11 +229,16 @@ if __name__ == "__main__":
     print("Haptic device connected? ", omni_connected)
     count = 0
     limit = 400
+    forces = [-0, 0, 0]
     while (count < limit):
+        forces = [2*math.sin(count), 2*math.sin(count), 2*math.sin(count)]
         omniDataReceived = phntmOmni.getOmniCoords()
+
         # if omniDataReceived == 2: break
         [xMap, yMap, zMap] = phntmOmni.omniMap()
         print(xMap, yMap, zMap)
+        # print(phntmOmni.omniServer.stdout)
         time.sleep(0.05)
         count += 1
+        # print(math.sin(count))
     phntmOmni.omniClose()
