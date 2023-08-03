@@ -9,6 +9,8 @@ import serial.tools.list_ports
 import time
 import numpy as np
 
+WINDOW_SIZE = 10
+
 def ardConnect():
     # serial.tools.list_ports.comports()
     comlist = []
@@ -71,18 +73,19 @@ class ardInterfacer:
         # self.ser.timeout = 0
         self.ser = ser
 
-        self.press1 = 0.0
-        self.press2 = 0.0
-        self.press3 = 0.0
-        self.press4 = 0.0
-        self.press5 = 0.0
-        self.press6 = 0.0
-        self.press7 = 0.0
-        self.press8 = 0.0
-        self.press9 = 0.0
-        self.press10 = 0.0
-        self.pressArray = np.array([self.press1, self.press2, self.press3, self.press4, self.press5, \
-            self.press6, self.press7, self.press8, self.press9, self.press10])
+        # self.press1 = 0.0
+        # self.press2 = 0.0
+        # self.press3 = 0.0
+        # self.press4 = 0.0
+        # self.press5 = 0.0
+        # self.press6 = 0.0
+        # self.press7 = 0.0
+        # self.press8 = 0.0
+        # self.press9 = 0.0
+        # self.press10 = 0.0
+        # self.pressArray = np.array([self.press1, self.press2, self.press3, self.press4, self.press5, \
+        #     self.press6, self.press7, self.press8, self.press9, self.press10])
+        self.pressArray = np.zeros(WINDOW_SIZE)
         self.pressMed = np.median(self.pressArray)
         self.pressMedPrev = self.pressMed
 
@@ -282,18 +285,21 @@ class ardInterfacer:
         #     return stepCount, pumpPress, pumpTime
 
     def newPressMed(self, newPress):
-        self.press10 = self.press9
-        self.press9 = self.press8
-        self.press8 = self.press7
-        self.press7 = self.press6
-        self.press6 = self.press5
-        self.press5 = self.press4
-        self.press4 = self.press3
-        self.press3 = self.press2
-        self.press2 = self.press1
-        self.press1 = newPress
-        self.pressArray = np.array([self.press1, self.press2, self.press3, self.press4, self.press5,\
-            self.press6, self.press7, self.press8, self.press9, self.press10])
+        # self.press10 = self.press9
+        # self.press9 = self.press8
+        # self.press8 = self.press7
+        # self.press7 = self.press6
+        # self.press6 = self.press5
+        # self.press5 = self.press4
+        # self.press4 = self.press3
+        # self.press3 = self.press2
+        # self.press2 = self.press1
+        # self.press1 = newPress
+        np.roll(self.pressArray, 1)
+        self.pressArray[0] = newPress
+
+        # self.pressArray = np.array([self.press1, self.press2, self.press3, self.press4, self.press5,\
+        #     self.press6, self.press7, self.press8, self.press9, self.press10])
         self.pressMedPrev = self.pressMed
         self.pressMed = np.median(self.pressArray)
 

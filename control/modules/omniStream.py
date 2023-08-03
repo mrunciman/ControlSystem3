@@ -79,7 +79,7 @@ class omniStreamer():
 
                 forcesString = '[' + forcesStrList[0] + ',' + forcesStrList[1] + ',' + forcesStrList[2] + ']' 
                 handshake = forcesString.encode('utf-8')
-                print(handshake)
+                # print(handshake)
             self.sock.send(handshake)
 
             # Incoming data is the transformation matrix of the haptic device end effector plus start and end bytes
@@ -231,8 +231,8 @@ if __name__ == "__main__":
     limit = 400
     forces = [-0, 0, 0]
     while (count < limit):
-        forces = [2*math.sin(count), 2*math.sin(count), 2*math.sin(count)]
-        omniDataReceived = phntmOmni.getOmniCoords()
+        forces = [2*math.sin(0.1*count), 2*math.cos(0.1*count), 2*math.cos(0.1*count),]
+        omniDataReceived = phntmOmni.getOmniCoords(forces)
 
         # if omniDataReceived == 2: break
         [xMap, yMap, zMap] = phntmOmni.omniMap()

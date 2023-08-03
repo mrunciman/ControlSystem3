@@ -221,9 +221,10 @@ class dataClustering:
 
 
 if __name__ == '__main__':
-    fileNamePath = 'control/logs/Pose_and_MS_Test_data_-_pose 2022-11-14 16-05-03 (1).csv'
+    # fileNamePath = 'control/logs/Pose_and_MS_Test_data_-_pose 2022-11-14 16-05-03 (1).csv'
+    fileNamePath = 'control/logs/display pose 2023-03-03 16-36-36.csv'
 
     dataClust = dataClustering()
 
     # dataClust.loadData(fileNamePath)
-    dataClust.clusterBlobs(fileNamePath)
+    dataClust.clusterBlobs(fileNamePath, 1)

@@ -1,6 +1,5 @@
 import csv
 import os
-from re import I
 import time
 import sys
 import numpy as np
@@ -242,7 +241,18 @@ class optiTracker:
             return T_Rob_Inst
 
     
+if __name__ == "__main__":
+    opTrack = optiTracker()
+    optiTrackConnected = opTrack.optiConnect()
+    count = 0
+    while count < 100:
+        count += count
+        print(opTrack.markerData[0])
 
+
+    opTrack.optiSave(opTrack.markerData)
+    opTrack.optiClose()
+    
 
 
 # # Robot base
