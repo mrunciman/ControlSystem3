@@ -14,6 +14,13 @@ startByte = "<"
 endByte = ">"
 completeMessage = '999'
 
+
+# Fibre related variables - previously in main
+fibreDone = False
+pauseVisFeedback = False
+
+behaviourState = 1
+
 class fibreBot:
 # Make a serial connection to the NI controller of the fibrebot
     def __init__(self):

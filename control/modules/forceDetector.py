@@ -60,6 +60,20 @@ class forceDetector:
         return self.conDetected, centredDeriv, secondDeriv
 
 
+if __name__ == "__main__":
+    forceD = forceDetector()
+    for x in range(4*WINDOW_SIZE):
+        if (x < WINDOW_SIZE + 10):
+            forceD.newPressMed(x)
+        else:
+            forceD.newPressMed(x*(-1)**x)
+
+        [contactFlag, cDeriv, c2Deriv] = forceD.derivPress()
+
+        print("Window of pressures: ", forceD.pressArray)
+        print("Last three medians:  ", forceD.pressMedians)
+        print("Derivatives:         ", cDeriv, c2Deriv)
+
     # def initPress(self, pressIndex, pressVal):
     #     self.pressArray[pressIndex] = float(pressVal)
 
@@ -85,16 +99,4 @@ class forceDetector:
     #     return collAngle
 
 
-if __name__ == "__main__":
-    forceD = forceDetector()
-    for x in range(4*WINDOW_SIZE):
-        if (x < WINDOW_SIZE + 10):
-            forceD.newPressMed(x)
-        else:
-            forceD.newPressMed(x*(-1)**x)
 
-        [contactFlag, cDeriv, c2Deriv] = forceD.derivPress()
-
-        print("Window of pressures: ", forceD.pressArray)
-        print("Last three medians:  ", forceD.pressMedians)
-        print("Derivatives:         ", cDeriv, c2Deriv)

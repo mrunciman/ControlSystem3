@@ -28,6 +28,11 @@ os.mkdir(miniScanPath)
 # miniScanFileName = os.path.join(parent, miniScanRelative)
 
 
+MSCounter = 0
+miniPathCounter = 0
+numClusters = 0
+
+
 def unpack_homo(homo):
     R = homo[:,:3][:3]
     t = homo[:,-1][:3]

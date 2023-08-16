@@ -229,9 +229,12 @@ if __name__ == "__main__":
     print("Haptic device connected? ", omni_connected)
     count = 0
     limit = 400
-    forces = [-0, 0, 0]
+    forces = [0, 0, 0]
     while (count < limit):
-        forces = [2*math.sin(0.1*count), 2*math.cos(0.1*count), 2*math.cos(0.1*count),]
+
+        # Set forces to send to device
+        forces = [2*math.sin(0.1*count), 2*math.cos(0.1*count), 2*math.cos(0.1*count)]
+        # Both send forces and receive pose information
         omniDataReceived = phntmOmni.getOmniCoords(forces)
 
         # if omniDataReceived == 2: break
