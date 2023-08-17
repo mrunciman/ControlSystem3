@@ -5,6 +5,8 @@ import traceback
 import time
 import numpy as np 
 from tkinter import *
+from tkinter import messagebox
+from functools import partial
 import threading
 
 from modules import arduinoInterface
@@ -18,7 +20,7 @@ from modules import optiStream
 from modules import omniStream
 from modules import clusterData
 from modules import threadArdComms
-from functools import partial
+
 
 from visual_navigation.cam_pose import PoseEstimator
 
@@ -27,14 +29,14 @@ np.set_printoptions(suppress=True, precision = 2)
 
 
 
-useVisionFeedback = False
-visionFeedFlag = False
-startWithCalibration = False
-useOmni = True
-useOptitrack = False
-useFibrebot = False
-useMassSpec = False
-usePathFile = False
+# useVisionFeedback = False
+# visionFeedFlag = False
+# startWithCalibration = False
+# useOmni = True
+# useOptitrack = False
+# useFibrebot = False
+# useMassSpec = False
+# usePathFile = False
 
 
 
@@ -59,8 +61,9 @@ CLOSEMESSAGE = "Closed"
 def moveRobot(listButtons, classSettings):
     print("'Move robot' button pressed")
     #TODO Deactivate the settings buttons
-    for b in listButtons[0:-1]: #Don't disable the stop button
+    for b in listButtons[0:-2]: #Don't disable the stop button
         b.config(state = 'disabled')
+    listButtons[-1].config(state = 'disabled')
     
     [useVisionFeedback, visionFeedFlag, startWithCalibration, useOmni, useOptitrack, useFibrebot, useMassSpec, usePathFile, flagStop] = list(vars(classSettings).values())
     print("Settings: ", vars(classSettings))
@@ -329,7 +332,7 @@ def moveRobot(listButtons, classSettings):
 
     try:
         # if startWithCalibration and not calibrated:
-        #     listButtons[-2].config(bg = '#A877BA')
+        #     listButtons[-3].config(bg = '#A877BA')
             # raise Exception
 
         ################################################################
@@ -584,7 +587,7 @@ def moveRobot(listButtons, classSettings):
             #Reactivate selection buttons 
             for b in listButtons:
                 b.config(state = 'normal')
-            listButtons[-2].config(bg = 'white')
+            listButtons[-3].config(bg = 'white')
 
 
 
@@ -597,7 +600,7 @@ class controlSettings:
         self.useVisionFeedback = False
         self.visionFeedFlag = False
         self.startWithCalibration = True
-        self.useOmni = False
+        self.useOmni = True
         self.useOptitrack = False
         self.useFibrebot = False
         self.useMassSpec = False
@@ -619,6 +622,15 @@ def toggleButton(classSettings, attrib, button):
 def stopFunction(classSettings, button):
     classSettings.stopFlag = True
     button.config(bg = 'red')
+
+def resetFunction(classSettings, button):
+    classSettings.stopFlag = False
+    button.config(bg = 'grey')
+
+def onClosing():
+    if messagebox.askokcancel("Quit", "Do you want to quit?"):
+        #Call function here that quits control loop properly
+        rootWindow.destroy()
 
 
 ########################################################################################################
@@ -692,9 +704,15 @@ buttonList.append(moveButton)
 stopButton = Button(rootWindow, text = "Stop")
 buttonObj = stopButton
 buttonList.append(stopButton)
+stopButton.config(command = partial(stopFunction, settingsClass, buttonObj))
+
+resetButton = Button(rootWindow, text = "Reset")
+buttonObj = stopButton
+buttonList.append(resetButton)
+resetButton.config(command = partial(resetFunction, settingsClass, buttonObj))
 
 moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonList, settingsClass]).start())
-stopButton.config(command = partial(stopFunction, settingsClass, buttonObj))
+
 
 
 # Place buttons
@@ -707,11 +725,18 @@ msButton.pack(pady=10)
 visButton.pack(pady=10)
 moveButton.pack(pady=20)
 stopButton.pack(pady=20)
+resetButton.pack(pady=20)
 
+
+
+
+
+rootWindow.protocol("WM_DELETE_WINDOW", onClosing)
 
 #Begin Tk loop
 rootWindow.mainloop()
 
-#TODO close threads etc if window closed
+#TODO close threads and disconnect properly if window closed
+# make a dict of buttons, not a list
 # add status labels e.g. to show if arduinos connected
 # add bars that change colour/height depending on pressure (normalse to MAX_PRESS)
