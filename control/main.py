@@ -9,6 +9,8 @@ from tkinter import messagebox
 from functools import partial
 import threading
 
+np.set_printoptions(suppress=True, precision = 2)
+
 from modules import arduinoInterface
 from modules import fibrebotInterface
 from modules import massSpecInterface
@@ -20,50 +22,19 @@ from modules import optiStream
 from modules import omniStream
 from modules import clusterData
 from modules import threadArdComms
-
-
 from visual_navigation.cam_pose import PoseEstimator
-
-np.set_printoptions(suppress=True, precision = 2)
-
-
-
-
-# useVisionFeedback = False
-# visionFeedFlag = False
-# startWithCalibration = False
-# useOmni = True
-# useOptitrack = False
-# useFibrebot = False
-# useMassSpec = False
-# usePathFile = False
-
-
-
-
-CALIBRATION_MODE = 0
-HOLD_MODE = 1
-ACTIVE_MODE = 2
-INFLATION_MODE = 0
-DEFLATION_MODE = 1
-SET_PRESS_MODE = 3
-
-# Other constants
-PRESS_MAX_KPA = 80
-
-CLOSEMESSAGE = "Closed"
-
-
 
 
 
 ######################################################################
-def moveRobot(listButtons, classSettings):
+def moveRobot(dictButtons, classSettings):
     print("'Move robot' button pressed")
-    #TODO Deactivate the settings buttons
-    for b in listButtons[0:-2]: #Don't disable the stop button
-        b.config(state = 'disabled')
-    listButtons[-1].config(state = 'disabled')
+
+    for b in dictButtons:
+        if b != "stopButton":
+            print(b)
+            dictButtons[b].config(state = 'disabled')
+
     
     [useVisionFeedback, visionFeedFlag, startWithCalibration, useOmni, useOptitrack, useFibrebot, useMassSpec, usePathFile, flagStop] = list(vars(classSettings).values())
     print("Settings: ", vars(classSettings))
@@ -84,6 +55,17 @@ def moveRobot(listButtons, classSettings):
     pumpController = threadArdComms.ardThreader()
 
     SAMP_FREQ = 1/kineSolve.TIMESTEP
+    CALIBRATION_MODE = 0
+    HOLD_MODE = 1
+    ACTIVE_MODE = 2
+    INFLATION_MODE = 0
+    DEFLATION_MODE = 1
+    SET_PRESS_MODE = 3
+
+    # Other constants
+    PRESS_MAX_KPA = 80
+
+    CLOSEMESSAGE = "Closed"
 
 
     calibrated = not startWithCalibration
@@ -331,8 +313,9 @@ def moveRobot(listButtons, classSettings):
 
 
     try:
-        # if startWithCalibration and not calibrated:
-        #     listButtons[-3].config(bg = '#A877BA')
+        if startWithCalibration and not calibrated:
+        #     dictButtons[-3].config(bg = '#A877BA')
+              dictButtons['moveButton'].config(bg = '#A877BA')
             # raise Exception
 
         ################################################################
@@ -516,12 +499,12 @@ def moveRobot(listButtons, classSettings):
         
 
     finally:
+        print("Ending control loop...")
 
         ###########################################################################
         # Stop program
         # Disable pumps and set them to idle state
         try:
-
 
             if pumpsConnected:
                 # Save values gathered from arduinos
@@ -581,13 +564,17 @@ def moveRobot(listButtons, classSettings):
         except TypeError as exTE:
             tb_linesTE = traceback.format_exception(exTE.__class__, exTE, exTE.__traceback__)
             tb_textTE = ''.join(tb_linesTE)
-            # print(tb_textTE)
+            print(tb_textTE)
         
         finally:
             #Reactivate selection buttons 
-            for b in listButtons:
-                b.config(state = 'normal')
-            listButtons[-3].config(bg = 'white')
+            for b in dictButtons:
+                dictButtons[b].config(state = 'normal')
+            dictButtons['moveButton'].config(bg = 'white')
+        
+        print("Move Robot complete.")
+
+
 
 
 
@@ -623,13 +610,16 @@ def stopFunction(classSettings, button):
     classSettings.stopFlag = True
     button.config(bg = 'red')
 
+
 def resetFunction(classSettings, button):
     classSettings.stopFlag = False
     button.config(bg = 'grey')
 
-def onClosing():
+
+def onClosing(classSettings):
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
         #Call function here that quits control loop properly
+        classSettings.stopFlag = True
         rootWindow.destroy()
 
 
@@ -645,73 +635,80 @@ settingsClass = controlSettings()
 
 
 # Create buttons
-buttonList = []
-calibrateButton = Button(rootWindow, text = "Calibrate robot")
+buttonDict = {}
+calibrateButton = Button(rootWindow, text = "Calibrate robot at start")
 attrStr = 'startWithCalibration'
 buttonObj = calibrateButton
+buttonDict.update({"calibrateButton" : buttonObj})
 calibrateButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
 buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
-buttonList.append(calibrateButton)
 
 optiButton = Button(rootWindow, text = "Use OptiTrack")
 attrStr = 'useOptitrack'
 buttonObj = optiButton
+buttonDict.update({"optiButton" : buttonObj})
 optiButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
 buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
-buttonList.append(optiButton)
 
 fibreButton = Button(rootWindow, text = "Use fibrebot")
 attrStr = 'useFibrebot'
 buttonObj = fibreButton
+buttonDict.update({"fibreButton" : buttonObj})
 fibreButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
 buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
-buttonList.append(fibreButton)
 
 msButton = Button(rootWindow, text = "Use mass spec")
 attrStr = 'useMassSpec'
 buttonObj = msButton
+buttonDict.update({"msButton" : buttonObj})
 msButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
 buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
-buttonList.append(msButton)
 
 omniButton = Button(rootWindow, text = "Use haptic device")
 attrStr = 'useOmni'
 buttonObj = omniButton
+buttonDict.update({"omniButton" : buttonObj})
 omniButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
 buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
-buttonList.append(omniButton)
+
 
 # pathButton = Button(rootWindow, text = "Follow preprogrammed path")
 # attrStr = 'usePathFile'
 # buttonObj = optiButton
+# buttonDict.update({"optiButton" : buttonObj})
 # pathButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
 # buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
-# buttonList.append(pathButton)
+
 
 visButton = Button(rootWindow, text = "Use pose estimator")
 attrStr = 'useVisionFeedback'
 buttonObj = visButton
+buttonDict.update({"visButton" : buttonObj})
 visButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
 buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 # visButton.config(command = (lambda s, f, b : toggleButton(s, f, b))(settingsClass, attrStr, buttonObj))
-buttonList.append(visButton)
+
 
 
 #Start and stop buttons
 moveButton = Button(rootWindow, text = "Start robot")
-buttonList.append(moveButton)
+buttonObj = moveButton
+buttonDict.update({"moveButton" : buttonObj})
 
 stopButton = Button(rootWindow, text = "Stop")
 buttonObj = stopButton
-buttonList.append(stopButton)
+buttonDict.update({"stopButton" : buttonObj})
 stopButton.config(command = partial(stopFunction, settingsClass, buttonObj))
 
 resetButton = Button(rootWindow, text = "Reset")
 buttonObj = stopButton
-buttonList.append(resetButton)
+buttonDict.update({"resetButton" : buttonObj})
 resetButton.config(command = partial(resetFunction, settingsClass, buttonObj))
+buttonObj = resetButton
+buttonDict.update({"resetButton" : buttonObj})
 
-moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonList, settingsClass]).start())
+
+moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, settingsClass]).start())
 
 
 
@@ -728,10 +725,7 @@ stopButton.pack(pady=20)
 resetButton.pack(pady=20)
 
 
-
-
-
-rootWindow.protocol("WM_DELETE_WINDOW", onClosing)
+rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass))
 
 #Begin Tk loop
 rootWindow.mainloop()
@@ -740,3 +734,17 @@ rootWindow.mainloop()
 # make a dict of buttons, not a list
 # add status labels e.g. to show if arduinos connected
 # add bars that change colour/height depending on pressure (normalse to MAX_PRESS)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
