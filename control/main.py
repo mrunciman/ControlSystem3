@@ -6,6 +6,7 @@ import time
 import numpy as np 
 from tkinter import *
 from tkinter import messagebox
+from tkinter import ttk
 from functools import partial
 import threading
 
@@ -32,7 +33,6 @@ def moveRobot(dictButtons, classSettings):
 
     for b in dictButtons:
         if b != "stopButton":
-            print(b)
             dictButtons[b].config(state = 'disabled')
 
     
@@ -631,40 +631,42 @@ rootWindow = Tk()
 rootWindow.title("Soft Robot Control System")
 rootWindow.geometry("700x700")
 
+contentFrame = ttk.Frame(rootWindow)
+
 settingsClass = controlSettings()
 
 
 # Create buttons
 buttonDict = {}
-calibrateButton = Button(rootWindow, text = "Calibrate robot at start")
+calibrateButton = Button(contentFrame, text = "Calibrate robot at start")
 attrStr = 'startWithCalibration'
 buttonObj = calibrateButton
 buttonDict.update({"calibrateButton" : buttonObj})
 calibrateButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
 buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
-optiButton = Button(rootWindow, text = "Use OptiTrack")
+optiButton = Button(contentFrame, text = "Use OptiTrack")
 attrStr = 'useOptitrack'
 buttonObj = optiButton
 buttonDict.update({"optiButton" : buttonObj})
 optiButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
 buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
-fibreButton = Button(rootWindow, text = "Use fibrebot")
+fibreButton = Button(contentFrame, text = "Use fibrebot")
 attrStr = 'useFibrebot'
 buttonObj = fibreButton
 buttonDict.update({"fibreButton" : buttonObj})
 fibreButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
 buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
-msButton = Button(rootWindow, text = "Use mass spec")
+msButton = Button(contentFrame, text = "Use mass spec")
 attrStr = 'useMassSpec'
 buttonObj = msButton
 buttonDict.update({"msButton" : buttonObj})
 msButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
 buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
-omniButton = Button(rootWindow, text = "Use haptic device")
+omniButton = Button(contentFrame, text = "Use haptic device")
 attrStr = 'useOmni'
 buttonObj = omniButton
 buttonDict.update({"omniButton" : buttonObj})
@@ -680,7 +682,7 @@ buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.co
 # buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
 
-visButton = Button(rootWindow, text = "Use pose estimator")
+visButton = Button(contentFrame, text = "Use pose estimator")
 attrStr = 'useVisionFeedback'
 buttonObj = visButton
 buttonDict.update({"visButton" : buttonObj})
@@ -691,16 +693,16 @@ buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.co
 
 
 #Start and stop buttons
-moveButton = Button(rootWindow, text = "Start robot")
+moveButton = Button(contentFrame, text = "Start robot")
 buttonObj = moveButton
 buttonDict.update({"moveButton" : buttonObj})
 
-stopButton = Button(rootWindow, text = "Stop")
+stopButton = Button(contentFrame, text = "Stop")
 buttonObj = stopButton
 buttonDict.update({"stopButton" : buttonObj})
 stopButton.config(command = partial(stopFunction, settingsClass, buttonObj))
 
-resetButton = Button(rootWindow, text = "Reset")
+resetButton = Button(contentFrame, text = "Reset")
 buttonObj = stopButton
 buttonDict.update({"resetButton" : buttonObj})
 resetButton.config(command = partial(resetFunction, settingsClass, buttonObj))
@@ -708,21 +710,44 @@ buttonObj = resetButton
 buttonDict.update({"resetButton" : buttonObj})
 
 
+
+
+
+
+labelDict = {}
+pumpLabel = Label(contentFrame, text = "Pump controller connection status")
+pumpLabel.config(fg = 'red')
+labelObj = pumpLabel
+labelDict.update({"pumpLabel" : labelObj})
+
+
+
+
+
+
+
+
+
 moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, settingsClass]).start())
 
 
 
 # Place buttons
-calibrateButton.pack(pady=20)
-omniButton.pack(pady=10)
-optiButton.pack(pady=10)
-fibreButton.pack(pady=10)
-msButton.pack(pady=10)
-# pathButton.pack(pady=10)
-visButton.pack(pady=10)
-moveButton.pack(pady=20)
-stopButton.pack(pady=20)
-resetButton.pack(pady=20)
+contentFrame.grid(column=0, row=0)
+rowZerothColumn = 0
+columnNo = 0
+for b in buttonDict:
+    buttonDict[b].grid(column = columnNo, row = rowZerothColumn)
+    rowZerothColumn = rowZerothColumn + 1
+
+# Place labels
+rowFirstColumn = 0
+columnNo = 1
+for l in labelDict:
+    labelDict[l].grid(column = columnNo, row = rowFirstColumn)
+    rowFirstColumn = rowFirstColumn + 1
+
+
 
 
 rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass))
