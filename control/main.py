@@ -28,7 +28,7 @@ from visual_navigation.cam_pose import PoseEstimator
 
 
 ######################################################################
-def moveRobot(dictButtons, classSettings):
+def moveRobot(dictButtons, dictLabel, classSettings):
     print("'Move robot' button pressed")
 
     for b in dictButtons:
@@ -237,6 +237,8 @@ def moveRobot(dictButtons, classSettings):
     pumpController.startThreader()
     pumpsConnected = pumpController.connected
     print("Connected to controller? ", pumpsConnected)
+    
+    labelDict["pumpLabel"].config(fg = "green") if pumpsConnected else labelDict["pumpLabel"].config(fg = "red")
 
     if pumpsConnected:
         pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
@@ -485,7 +487,11 @@ def moveRobot(dictButtons, classSettings):
             # Stop operation if Stop button hit
             flagStop = classSettings.stopFlag
 
-
+        # Control loop is over
+        # Reactivate selection buttons 
+        for b in dictButtons:
+            dictButtons[b].config(state = 'normal')
+        dictButtons['moveButton'].config(bg = 'white')
 
     except TypeError as exTE:
         tb_linesTE = traceback.format_exception(exTE.__class__, exTE, exTE.__traceback__)
@@ -566,11 +572,6 @@ def moveRobot(dictButtons, classSettings):
             tb_textTE = ''.join(tb_linesTE)
             print(tb_textTE)
         
-        finally:
-            #Reactivate selection buttons 
-            for b in dictButtons:
-                dictButtons[b].config(state = 'normal')
-            dictButtons['moveButton'].config(bg = 'white')
         
         print("Move Robot complete.")
 
@@ -617,9 +618,9 @@ def resetFunction(classSettings, button):
 
 
 def onClosing(classSettings):
+    # Exit control loop properly
+    classSettings.stopFlag = True
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
-        #Call function here that quits control loop properly
-        classSettings.stopFlag = True
         rootWindow.destroy()
 
 
@@ -716,7 +717,6 @@ buttonDict.update({"resetButton" : buttonObj})
 
 labelDict = {}
 pumpLabel = Label(contentFrame, text = "Pump controller connection status")
-pumpLabel.config(fg = 'red')
 labelObj = pumpLabel
 labelDict.update({"pumpLabel" : labelObj})
 
@@ -727,24 +727,28 @@ labelDict.update({"pumpLabel" : labelObj})
 
 
 
-
-moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, settingsClass]).start())
+# Set command for move Robot button, taking in label dictionary
+moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, settingsClass]).start())
 
 
 
 # Place buttons
 contentFrame.grid(column=0, row=0)
 rowZerothColumn = 0
+yPadding = 10
+xPadding = 10
+
 columnNo = 0
+
 for b in buttonDict:
-    buttonDict[b].grid(column = columnNo, row = rowZerothColumn)
+    buttonDict[b].grid(column = columnNo, row = rowZerothColumn, pady = yPadding, padx = xPadding)
     rowZerothColumn = rowZerothColumn + 1
 
 # Place labels
 rowFirstColumn = 0
 columnNo = 1
 for l in labelDict:
-    labelDict[l].grid(column = columnNo, row = rowFirstColumn)
+    labelDict[l].grid(column = columnNo, row = rowFirstColumn, pady = yPadding, padx = xPadding)
     rowFirstColumn = rowFirstColumn + 1
 
 
