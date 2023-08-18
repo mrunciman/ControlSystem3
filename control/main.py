@@ -31,10 +31,8 @@ from visual_navigation.cam_pose import PoseEstimator
 def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     print("'Move robot' button pressed")
 
-    for b in dictButtons:
-        if b != "stopButton":
-            dictButtons[b].config(state = 'disabled')
-
+    minPress = -15
+    deactivateButtons(dictButtons)
     
     [useVisionFeedback, visionFeedFlag, startWithCalibration, useOmni, useOptitrack, useFibrebot, useMassSpec, usePathFile, flagStop] = list(vars(classSettings).values())
     print("Settings: ", vars(classSettings))
@@ -245,7 +243,6 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     # [pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
     # print(pumpCOMS)
 
-
     fibrebotLink = fibrebotInterface.fibreBot()
     fibreConnected = False
     if useFibrebot:
@@ -262,59 +259,70 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         # if msConnected:
         print("Mass spec serial connected? ", msConnected)
 
-
-    if startWithCalibration:
-
-        if pumpsConnected:
-
-            #  Inflate structure and give some time to stabilise:
-            print("Inflating structure...")
-            pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, INFLATION_MODE)
-            # time.sleep(3)
-
-
-            # Has the mechanism been calibrated/want to run without calibration?:
-
-            calibrated = False
-
-
-            # Perform calibration:
-            print("Zeroing hydraulic actuators...")
-            if (not calibrated):
-                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, INFLATION_MODE)
-            while (not calibrated):
-
-                time.sleep(0.007)
-                [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
-                [timeL, timeR, timeT, timeP] = [timeL]*4
-                print(pumpController.calibrationFlag)
-                print(pressL, pressR, pressT, regulatorSensor, "\n")
-
-                if (pumpController.calibrationFlag == 'Y'):
-                    calibrated = True
-                    # Send 0s instead of desiredTheta and pressMed as signal that calibration done
-                    desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, StepNoA = 0, 0, 0, 0, 0
-                    pressLMed, pressRMed, pressTMed, pressPMed, pressAMed = 0, 0, 0, 0, 0
-
-                ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, timeL)
-                ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, timeR)
-                ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, timeT)
-                ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, timeP)
-                # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
-                ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
-                # Ensure same number of rows in position log file
-                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
-            print("Calibration done.")
-
-        else:
-            print("PUMP CONTROLLER NOT CONNECTED. RUNNING WITHOUT PUMPS.")
-
-    # print("Beginning path following task.")
-    # if fibreConnected: fibrebotLink.sendState("Run")
-
-
-
     try:
+        if startWithCalibration:
+
+            if pumpsConnected:
+
+                #  Inflate structure and give some time to stabilise:
+                print("Inflating structure...")
+                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, INFLATION_MODE)
+                time.sleep(3)
+
+
+                # Has the mechanism been calibrated/want to run without calibration?:
+
+                calibrated = not startWithCalibration
+
+
+                # Perform calibration:
+                print("Zeroing hydraulic actuators...")
+                if (not calibrated):
+                    pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, INFLATION_MODE)
+                while (not calibrated):
+
+                    # Stop operation if Stop button hit
+                    flagStop = classSettings.stopFlag
+                    if flagStop == True:
+                        activateButtons(dictButtons)
+                        raise 
+
+                    # time.sleep(0.007)
+                    [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
+                    [timeL, timeR, timeT, timeP] = [timeL]*4
+                    # print(pumpController.calibrationFlag)
+                    # print(pressL, pressR, pressT, regulatorSensor, "\n")
+
+                    pressList = [pressL, pressR, pressT, regulatorSensor]
+                    # Change pressurebars
+                    updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
+
+                    dictLabel["calibrationLabel"].config(fg = "red")
+
+                    if (pumpController.calibrationFlag == 'Y'):
+                        dictLabel["calibrationLabel"].config(fg = "green")
+                        calibrated = True
+                        # Send 0s instead of desiredTheta and pressMed as signal that calibration done
+                        desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, StepNoA = 0, 0, 0, 0, 0
+                        pressLMed, pressRMed, pressTMed, pressPMed, pressAMed = 0, 0, 0, 0, 0
+
+                    ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, timeL)
+                    ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, timeR)
+                    ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, timeT)
+                    ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, timeP)
+                    # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
+                    ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
+                    # Ensure same number of rows in position log file
+                    posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
+                print("Calibration done.")
+
+            else:
+                print("PUMP CONTROLLER NOT CONNECTED. RUNNING WITHOUT PUMPS.")
+
+        # print("Beginning path following task.")
+        if fibreConnected: fibrebotLink.sendState("Run")
+
+
         if startWithCalibration and not calibrated:
             dictButtons['moveButton'].config(bg = '#A877BA')
             # raise Exception
@@ -414,20 +422,21 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             if pumpDataUpdated:
                 posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
-            if pumpsConnected and startWithCalibration:
-            # Reduce speed when making first move after calibration.
-                if firstMoveDelay < firstMoveDivider:
-                    firstMoveDelay += 1
-                    # RStep = dStepR scaled for speed (w rounding differences)
-                    initStepNoL = int(desiredThetaL*(firstMoveDelay/firstMoveDivider))
-                    initStepNoR = int(desiredThetaR*(firstMoveDelay/firstMoveDivider))
-                    initStepNoT = int(desiredThetaT*(firstMoveDelay/firstMoveDivider))
-                    initStepNoP = int(desiredThetaP*(firstMoveDelay/firstMoveDivider))
-                    # Send scaled step number to arduinos:
-                    pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, initStepNoP, regulatorPressure, ACTIVE_MODE, INFLATION_MODE)
-                else:
-                    # Send step number to arduinos:
-                    pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, ACTIVE_MODE, INFLATION_MODE)
+            if pumpsConnected:
+                if startWithCalibration:
+                    # Reduce speed when making first move after calibration.
+                    if firstMoveDelay < firstMoveDivider:
+                        firstMoveDelay += 1
+                        # RStep = dStepR scaled for speed (w rounding differences)
+                        initStepNoL = int(desiredThetaL*(firstMoveDelay/firstMoveDivider))
+                        initStepNoR = int(desiredThetaR*(firstMoveDelay/firstMoveDivider))
+                        initStepNoT = int(desiredThetaT*(firstMoveDelay/firstMoveDivider))
+                        initStepNoP = int(desiredThetaP*(firstMoveDelay/firstMoveDivider))
+                        # Send scaled step number to arduinos:
+                        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, initStepNoP, regulatorPressure, ACTIVE_MODE, INFLATION_MODE)
+                    else:
+                        # Send step number to arduinos:
+                        pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, ACTIVE_MODE, INFLATION_MODE)
 
                 # Log values from arduinos
                 if pumpDataUpdated:
@@ -444,11 +453,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 pressList = [pressL, pressR, pressT, regulatorSensor]
 
                 # Change pressurebars
-                pIndex = 0
-                for p in dictPress:
-                    if type(pressureDict[p]) != int:
-                        dictPress[p]['value'] = pressList[pIndex]/PRESS_MAX_KPA*100
-                        pIndex = pIndex + 1
+                updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
 
                 # Check for high pressure
                 if (max(pressL, pressR, pressT) > PRESS_MAX_KPA): # TODO Add filtered pressure values back again to use here
@@ -495,9 +500,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
         # Control loop is over
         # Reactivate selection buttons 
-        for b in dictButtons:
-            dictButtons[b].config(state = 'normal')
-        dictButtons['moveButton'].config(bg = 'white')
+        activateButtons(dictButtons)
+
 
     except TypeError as exTE:
         tb_linesTE = traceback.format_exception(exTE.__class__, exTE, exTE.__traceback__)
@@ -630,18 +634,44 @@ def onClosing(classSettings):
         rootWindow.destroy()
 
 
+def activateButtons(dictButtons):
+    # Reactivate selection buttons 
+    for b in dictButtons:
+        dictButtons[b].config(state = 'normal')
+    dictButtons['moveButton'].config(bg = 'white')
+
+def deactivateButtons(dictButtons):
+    for b in dictButtons:
+        if b != "stopButton":
+            dictButtons[b].config(state = 'disabled')
+
+
+def mapRange(x, in_min, in_max, out_min, out_max):
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
+
+def updatePressures(dictPress, listPress, minPress, maxPress):
+    pIndex = 0
+    for p in dictPress:
+        if "pressBar" in p:
+            dictPress[p]['value'] = mapRange(listPress[pIndex], minPress, maxPress, 0, 100)
+            # listPress[pIndex]/maxPress*100
+            pIndex = pIndex + 1
+
+
+
 ########################################################################################################
 # GUI
 ########################################################################################################
 
 rootWindow = Tk()
 rootWindow.title("Soft Robot Control System")
-rootWindow.geometry("700x700")
+rootWindow.geometry("750x500")
 
 contentFrame = ttk.Frame(rootWindow)
-s = ttk.Style()
-s.theme_use("default")
-s.configure("TProgressbar", thickness=50, foreground='black', background='red')
+pBarStyle = ttk.Style()
+pBarStyle.theme_use("default")
+pBarStyle.configure("TProgressbar", thickness=50, background='red')
 
 settingsClass = controlSettings()
 
@@ -720,7 +750,6 @@ stopButton.config(command = partial(stopFunction, settingsClass, buttonObj))
 
 resetButton = Button(contentFrame, text = "Reset")
 buttonObj = stopButton
-buttonDict.update({"resetButton" : buttonObj})
 resetButton.config(command = partial(resetFunction, settingsClass, buttonObj))
 buttonObj = resetButton
 buttonDict.update({"resetButton" : buttonObj})
@@ -731,13 +760,13 @@ buttonDict.update({"resetButton" : buttonObj})
 
 
 labelDict = {}
-pumpLabel = Label(contentFrame, text = "Pump controller connection status")
+pumpLabel = Label(contentFrame, text = "Pump controller connection")
 labelObj = pumpLabel
 labelDict.update({"pumpLabel" : labelObj})
 
-# pumpLabel = Label(contentFrame, text = "Pump controller connection status")
-# labelObj = pumpLabel
-# labelDict.update({"pumpLabel" : labelObj})
+calibrationLabel = Label(contentFrame, text = "Calibration")
+labelObj = calibrationLabel
+labelDict.update({"calibrationLabel" : labelObj})
 
 
 
@@ -770,9 +799,12 @@ pressureDict.update({"pressBar4":pressureBar4})
 pressPLabel = Label(contentFrame, text = "Pressure Struct")
 pressureLabels = [press1Label, press2Label, press3Label, pressPLabel]
 
+pressureDict.update({"pBarStyle" : pBarStyle})
+
 
 # Set command for move Robot button, taking in label dictionary
 moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, pressureDict, settingsClass]).start())
+
 
 
 
@@ -786,7 +818,7 @@ xPadding = 10
 
 headingSLabel.grid(column = 0, row = 0, pady = yPadding, padx = xPadding)
 headingLLabel.grid(column = 1, row = 0, pady = yPadding, padx = xPadding)
-headingPLabel.grid(column = 3, row = 0, columnspan = 2, pady = yPadding, padx = xPadding)
+headingPLabel.grid(column = 4, row = 0, columnspan = 2, pady = yPadding, padx = xPadding)
 
 
 # Place buttons
@@ -810,11 +842,11 @@ for l in labelDict:
 
 
 # Place pressure displays and labels
-columnNo = 2
+columnNo = 3
 lastRow = max(rowZerothColumn, rowFirstColumn)
 labelIndex = 0
 for p in pressureDict:
-    if type(pressureDict[p]) != int:
+    if type(pressureDict[p]) == type(pressureBar1):
         pressureDict[p].grid(column = columnNo, row = 1, rowspan = lastRow - 1, pady = yPadding, padx = xPadding)
         pressureLabels[labelIndex].grid(column = columnNo, row = lastRow, pady = yPadding, padx = xPadding)
         columnNo = columnNo + 1

@@ -262,7 +262,7 @@ class SerialReaderProtocolLine(LineReader):
     def connection_made(self, transport):
         """Called when reader thread is started"""
         super(SerialReaderProtocolLine, self).connection_made(transport)
-        print("Connected, ready to receive data...")
+        # print("Connected, ready to receive data...")
 
     
     def handle_line(self, line):
