@@ -28,7 +28,7 @@ from visual_navigation.cam_pose import PoseEstimator
 
 
 ######################################################################
-def moveRobot(dictButtons, dictLabel, classSettings):
+def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     print("'Move robot' button pressed")
 
     for b in dictButtons:
@@ -238,7 +238,7 @@ def moveRobot(dictButtons, dictLabel, classSettings):
     pumpsConnected = pumpController.connected
     print("Connected to controller? ", pumpsConnected)
     
-    labelDict["pumpLabel"].config(fg = "green") if pumpsConnected else labelDict["pumpLabel"].config(fg = "red")
+    dictLabel["pumpLabel"].config(fg = "green") if pumpsConnected else dictLabel["pumpLabel"].config(fg = "red")
 
     if pumpsConnected:
         pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
@@ -316,8 +316,7 @@ def moveRobot(dictButtons, dictLabel, classSettings):
 
     try:
         if startWithCalibration and not calibrated:
-        #     dictButtons[-3].config(bg = '#A877BA')
-              dictButtons['moveButton'].config(bg = '#A877BA')
+            dictButtons['moveButton'].config(bg = '#A877BA')
             # raise Exception
 
         ################################################################
@@ -442,7 +441,14 @@ def moveRobot(dictButtons, dictLabel, classSettings):
                 # Get current pump position, pressure and times from arduinos
                 [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
                 [timeL, timeR, timeT, timeP] = [timeL]*4
+                pressList = [pressL, pressR, pressT, regulatorSensor]
 
+                # Change pressurebars
+                pIndex = 0
+                for p in dictPress:
+                    if type(pressureDict[p]) != int:
+                        dictPress[p]['value'] = pressList[pIndex]/PRESS_MAX_KPA*100
+                        pIndex = pIndex + 1
 
                 # Check for high pressure
                 if (max(pressL, pressR, pressT) > PRESS_MAX_KPA): # TODO Add filtered pressure values back again to use here
@@ -614,7 +620,7 @@ def stopFunction(classSettings, button):
 
 def resetFunction(classSettings, button):
     classSettings.stopFlag = False
-    button.config(bg = 'grey')
+    button.config(bg = 'white')
 
 
 def onClosing(classSettings):
@@ -633,8 +639,17 @@ rootWindow.title("Soft Robot Control System")
 rootWindow.geometry("700x700")
 
 contentFrame = ttk.Frame(rootWindow)
+s = ttk.Style()
+s.theme_use("default")
+s.configure("TProgressbar", thickness=50, foreground='black', background='red')
 
 settingsClass = controlSettings()
+
+
+# Headings
+headingSLabel = Label(contentFrame, text = "Settings", font='bold')
+headingLLabel = Label(contentFrame, text = "Status", font='bold')
+headingPLabel = Label(contentFrame, text = "Pressures", font='bold')
 
 
 # Create buttons
@@ -720,40 +735,94 @@ pumpLabel = Label(contentFrame, text = "Pump controller connection status")
 labelObj = pumpLabel
 labelDict.update({"pumpLabel" : labelObj})
 
+# pumpLabel = Label(contentFrame, text = "Pump controller connection status")
+# labelObj = pumpLabel
+# labelDict.update({"pumpLabel" : labelObj})
 
 
 
 
 
+
+# Progressbars for pressure sensors
+pressureDict = {}
+barLength = 300
+pressureDict.update({"lengthBar" : barLength})
+
+pressureBar1 = ttk.Progressbar(contentFrame, orient = 'vertical', mode = 'determinate', length = barLength)
+pressureBar1['value'] = 1
+pressureDict.update({"pressBar1":pressureBar1})
+press1Label = Label(contentFrame, text = "Pressure L")
+
+pressureBar2 = ttk.Progressbar(contentFrame, orient = 'vertical', mode = 'determinate', length = barLength)
+pressureBar2['value'] = 1
+pressureDict.update({"pressBar2":pressureBar2})
+press2Label = Label(contentFrame, text = "Pressure R")
+
+pressureBar3 = ttk.Progressbar(contentFrame, orient = 'vertical', mode = 'determinate', length = barLength)
+pressureBar3['value'] = 1
+pressureDict.update({"pressBar3":pressureBar3})
+press3Label = Label(contentFrame, text = "Pressure T")
+
+pressureBar4 = ttk.Progressbar(contentFrame, orient = 'vertical', mode = 'determinate', length = barLength)
+pressureBar4['value'] = 1
+pressureDict.update({"pressBar4":pressureBar4})
+pressPLabel = Label(contentFrame, text = "Pressure Struct")
+pressureLabels = [press1Label, press2Label, press3Label, pressPLabel]
 
 
 # Set command for move Robot button, taking in label dictionary
-moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, settingsClass]).start())
+moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, pressureDict, settingsClass]).start())
 
 
 
-# Place buttons
+#################################################################
+# Placement
+
 contentFrame.grid(column=0, row=0)
-rowZerothColumn = 0
 yPadding = 10
 xPadding = 10
 
-columnNo = 0
 
+headingSLabel.grid(column = 0, row = 0, pady = yPadding, padx = xPadding)
+headingLLabel.grid(column = 1, row = 0, pady = yPadding, padx = xPadding)
+headingPLabel.grid(column = 3, row = 0, columnspan = 2, pady = yPadding, padx = xPadding)
+
+
+# Place buttons
+rowZerothColumn = 1
+columnNo = 0
 for b in buttonDict:
-    buttonDict[b].grid(column = columnNo, row = rowZerothColumn, pady = yPadding, padx = xPadding)
-    rowZerothColumn = rowZerothColumn + 1
+    if b not in ["moveButton", "stopButton", "resetButton"]:
+        buttonDict[b].grid(column = columnNo, row = rowZerothColumn, pady = yPadding, padx = xPadding)
+        rowZerothColumn = rowZerothColumn + 1
+    else:
+        buttonDict[b].grid(column = columnNo, row = rowZerothColumn + 1, pady = yPadding, padx = xPadding)
+        columnNo = columnNo + 1
+
 
 # Place labels
-rowFirstColumn = 0
+rowFirstColumn = 1
 columnNo = 1
 for l in labelDict:
     labelDict[l].grid(column = columnNo, row = rowFirstColumn, pady = yPadding, padx = xPadding)
     rowFirstColumn = rowFirstColumn + 1
 
 
+# Place pressure displays and labels
+columnNo = 2
+lastRow = max(rowZerothColumn, rowFirstColumn)
+labelIndex = 0
+for p in pressureDict:
+    if type(pressureDict[p]) != int:
+        pressureDict[p].grid(column = columnNo, row = 1, rowspan = lastRow - 1, pady = yPadding, padx = xPadding)
+        pressureLabels[labelIndex].grid(column = columnNo, row = lastRow, pady = yPadding, padx = xPadding)
+        columnNo = columnNo + 1
+        labelIndex = labelIndex + 1
 
 
+
+# Set what to do when window is closed
 rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass))
 
 #Begin Tk loop
