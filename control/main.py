@@ -9,6 +9,7 @@ from tkinter import messagebox
 from tkinter import ttk
 from functools import partial
 import threading
+import sv_ttk
 
 np.set_printoptions(suppress=True, precision = 2)
 
@@ -624,7 +625,7 @@ def stopFunction(classSettings, button):
 
 def resetFunction(classSettings, button):
     classSettings.stopFlag = False
-    button.config(bg = 'white')
+    button.config(bg = '#1c1c1c')
 
 
 def onClosing(classSettings):
@@ -638,7 +639,7 @@ def activateButtons(dictButtons):
     # Reactivate selection buttons 
     for b in dictButtons:
         dictButtons[b].config(state = 'normal')
-    dictButtons['moveButton'].config(bg = 'white')
+    dictButtons['moveButton'].config(bg = '#1c1c1c')
 
 def deactivateButtons(dictButtons):
     for b in dictButtons:
@@ -654,8 +655,31 @@ def updatePressures(dictPress, listPress, minPress, maxPress):
     pIndex = 0
     for p in dictPress:
         if "pressBar" in p:
-            dictPress[p]['value'] = mapRange(listPress[pIndex], minPress, maxPress, 0, 100)
-            # listPress[pIndex]/maxPress*100
+            # Change colour
+            if listPress[pIndex] < 0:
+                # Change height of bar
+                rectHeight = mapRange(listPress[pIndex], minPress, maxPress, 0, dictPress["canvasHeight"])
+                x0, y0, x1, y1 = dictPress["pressCanvas"].coords(dictPress[p])
+                dictPress["pressCanvas"].coords(dictPress[p], x0, int(dictPress["canvasHeight"]*0.8), x1, dictPress["canvasHeight"] - rectHeight)
+                # Change colour
+                hexInt = int(mapRange(listPress[pIndex], minPress, 0, 255, 0))
+                if (hexInt > 255): hexInt = 255
+                if (hexInt < 0): hexInt = 0
+                barColour = "#0000" + "{0:02x}".format(hexInt)
+
+                
+            else:
+                # Change height of bar
+                rectHeight = mapRange(listPress[pIndex], minPress, maxPress, 0, dictPress["canvasHeight"])
+                x0, y0, x1, y1 = dictPress["pressCanvas"].coords(dictPress[p])
+                dictPress["pressCanvas"].coords(dictPress[p], x0, dictPress["canvasHeight"] - rectHeight, x1, int(dictPress["canvasHeight"]*0.8))
+                #Change colour
+                hexInt = int(mapRange(listPress[pIndex], minPress, maxPress, 0, 255))
+                if (hexInt > 255): hexInt = 255
+                if (hexInt < 0): hexInt = 0
+                barColour = "#" + "{0:02x}".format(hexInt) + "0000"
+            # Set colour
+            dictPress["pressCanvas"].itemconfig(dictPress[p], fill = barColour)
             pIndex = pIndex + 1
 
 
@@ -666,12 +690,11 @@ def updatePressures(dictPress, listPress, minPress, maxPress):
 
 rootWindow = Tk()
 rootWindow.title("Soft Robot Control System")
-rootWindow.geometry("750x500")
+rootWindow.geometry("1000x500")
 
 contentFrame = ttk.Frame(rootWindow)
-pBarStyle = ttk.Style()
-pBarStyle.theme_use("default")
-pBarStyle.configure("TProgressbar", thickness=50, background='red')
+winStyle = ttk.Style()
+winStyle.theme_use("classic")
 
 settingsClass = controlSettings()
 
@@ -683,6 +706,12 @@ headingPLabel = Label(contentFrame, text = "Pressures", font='bold')
 
 
 # Create buttons
+# # Add Image
+# login_btn = PhotoImage(file = "Image Path")
+  
+# # Create button and image
+# img = Button(root, image = login_btn, borderwidth = 0)
+
 buttonDict = {}
 calibrateButton = Button(contentFrame, text = "Calibrate robot at start")
 attrStr = 'startWithCalibration'
@@ -776,30 +805,36 @@ labelDict.update({"calibrationLabel" : labelObj})
 # Progressbars for pressure sensors
 pressureDict = {}
 barLength = 300
+barAndPadWidth = 100
 pressureDict.update({"lengthBar" : barLength})
 
-pressureBar1 = ttk.Progressbar(contentFrame, orient = 'vertical', mode = 'determinate', length = barLength)
-pressureBar1['value'] = 1
+canvasHeight = 200
+pressureDict.update({"canvasHeight" : canvasHeight})
+pressCanvas = Canvas(contentFrame, width=400, height=canvasHeight)
+pressureDict.update({"pressCanvas":pressCanvas})
+
+rectNo = 0
+pressureBar1 = pressCanvas.create_rectangle(25+rectNo*barAndPadWidth, 0.8*canvasHeight, 75+rectNo*barAndPadWidth, 0.8*canvasHeight, fill = 'red')
 pressureDict.update({"pressBar1":pressureBar1})
-press1Label = Label(contentFrame, text = "Pressure L")
 
-pressureBar2 = ttk.Progressbar(contentFrame, orient = 'vertical', mode = 'determinate', length = barLength)
-pressureBar2['value'] = 1
+rectNo = 1
+pressureBar2 = pressCanvas.create_rectangle(25+rectNo*barAndPadWidth, 0.8*canvasHeight, 75+rectNo*barAndPadWidth, 0.8*canvasHeight, fill = 'red')
 pressureDict.update({"pressBar2":pressureBar2})
-press2Label = Label(contentFrame, text = "Pressure R")
 
-pressureBar3 = ttk.Progressbar(contentFrame, orient = 'vertical', mode = 'determinate', length = barLength)
-pressureBar3['value'] = 1
+rectNo = 2
+pressureBar3 = pressCanvas.create_rectangle(25+rectNo*barAndPadWidth, 0.8*canvasHeight, 75+rectNo*barAndPadWidth, 0.8*canvasHeight, fill = 'red')
 pressureDict.update({"pressBar3":pressureBar3})
-press3Label = Label(contentFrame, text = "Pressure T")
 
-pressureBar4 = ttk.Progressbar(contentFrame, orient = 'vertical', mode = 'determinate', length = barLength)
-pressureBar4['value'] = 1
+rectNo = 3
+pressureBar4 = pressCanvas.create_rectangle(25+rectNo*barAndPadWidth, 0.8*canvasHeight, 75+rectNo*barAndPadWidth, 0.8*canvasHeight, fill = 'red')
 pressureDict.update({"pressBar4":pressureBar4})
+
+
+press1Label = Label(contentFrame, text = "Pressure L")
+press2Label = Label(contentFrame, text = "Pressure R")
+press3Label = Label(contentFrame, text = "Pressure T")
 pressPLabel = Label(contentFrame, text = "Pressure Struct")
 pressureLabels = [press1Label, press2Label, press3Label, pressPLabel]
-
-pressureDict.update({"pBarStyle" : pBarStyle})
 
 
 # Set command for move Robot button, taking in label dictionary
@@ -819,7 +854,7 @@ xPadding = 10
 headingSLabel.grid(column = 0, row = 0, pady = yPadding, padx = xPadding)
 headingLLabel.grid(column = 1, row = 0, pady = yPadding, padx = xPadding)
 headingPLabel.grid(column = 4, row = 0, columnspan = 2, pady = yPadding, padx = xPadding)
-
+pressCanvas.grid(column = 3, row = 2, rowspan = 6, columnspan = 4, pady = yPadding, padx = xPadding)
 
 # Place buttons
 rowZerothColumn = 1
@@ -842,20 +877,21 @@ for l in labelDict:
 
 
 # Place pressure displays and labels
-columnNo = 3
 lastRow = max(rowZerothColumn, rowFirstColumn)
+columnNo = 3
 labelIndex = 0
-for p in pressureDict:
-    if type(pressureDict[p]) == type(pressureBar1):
-        pressureDict[p].grid(column = columnNo, row = 1, rowspan = lastRow - 1, pady = yPadding, padx = xPadding)
-        pressureLabels[labelIndex].grid(column = columnNo, row = lastRow, pady = yPadding, padx = xPadding)
-        columnNo = columnNo + 1
-        labelIndex = labelIndex + 1
+for pL in pressureLabels:
+    pL.grid(column = columnNo, row = 1, pady = yPadding, padx = xPadding)
+    columnNo = columnNo + 1
+    labelIndex = labelIndex + 1
 
 
 
 # Set what to do when window is closed
 rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass))
+
+# This is where the magic happens
+sv_ttk.set_theme("dark")
 
 #Begin Tk loop
 rootWindow.mainloop()
