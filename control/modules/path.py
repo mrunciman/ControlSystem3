@@ -21,7 +21,10 @@ class pathGenerator:
         self.zPath = np.array([])
 
         # File name initialisation
-        self.location = os.path.dirname(__file__)
+        if os.path.isdir("C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime"):
+            self.location = "C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime"
+        else:
+            self.location = os.path.dirname(__file__)
         # print(os.path.abspath(os.pardir))
         self.logTime = time.strftime("%Y-%m-%d %H-%M-%S")
         self.relative = "../paths/genericPath" + self.logTime + str(self.sideLength) + "EqSide.csv"

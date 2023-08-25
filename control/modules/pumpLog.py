@@ -7,7 +7,8 @@ import os
 # Append timestamp in ms to name
 # location = "Imperial College London/Imperial/Fluidic Control/ControlSystem/logs/pumps"
 location = os.path.dirname(__file__)
-parent = os.path.dirname(location)
+# parent = os.path.dirname(location)
+parent = "C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime"
 logTime = time.strftime("%Y-%m-%d %H-%M-%S")
 relative = "logs/pumps/arduinoLogs " + logTime + ".csv"
 fileName = os.path.join(parent, relative) # USE THIS IN REAL TESTS

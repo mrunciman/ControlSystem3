@@ -63,6 +63,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
     # Other constants
     PRESS_MAX_KPA = 80
+    VAC_PRESS = -15
 
     CLOSEMESSAGE = "Closed"
 
@@ -109,6 +110,11 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     if useOmni:
         omni_connected = phntmOmni.connectOmni()
         print("Haptic device connected? ", omni_connected)
+    
+    if omni_connected:
+        dictLabel["omniLabel"].config(fg = "green") 
+    else:
+        dictLabel["omniLabel"].config(fg = "red")
 
     # Try to connect to phantom omni. If not connected, use pre-determined coords.
     # if usePathFile:
@@ -653,6 +659,7 @@ def mapRange(x, in_min, in_max, out_min, out_max):
 
 def updatePressures(dictPress, listPress, minPress, maxPress):
     pIndex = 0
+    listIndex = 0
     for p in dictPress:
         if "pressBar" in p:
             # Change colour
@@ -660,27 +667,38 @@ def updatePressures(dictPress, listPress, minPress, maxPress):
                 # Change height of bar
                 rectHeight = mapRange(listPress[pIndex], minPress, maxPress, 0, dictPress["canvasHeight"])
                 x0, y0, x1, y1 = dictPress["pressCanvas"].coords(dictPress[p])
-                dictPress["pressCanvas"].coords(dictPress[p], x0, int(dictPress["canvasHeight"]*0.8), x1, dictPress["canvasHeight"] - rectHeight)
+                dictPress["pressCanvas"].coords(dictPress[p], x0, int(dictPress["canvasHeight"]*guiPressFactor), x1, dictPress["canvasHeight"] - rectHeight)
                 # Change colour
                 hexInt = int(mapRange(listPress[pIndex], minPress, 0, 255, 0))
                 if (hexInt > 255): hexInt = 255
                 if (hexInt < 0): hexInt = 0
                 barColour = "#0000" + "{0:02x}".format(hexInt)
-
+ 
                 
             else:
-                # Change height of bar
-                rectHeight = mapRange(listPress[pIndex], minPress, maxPress, 0, dictPress["canvasHeight"])
                 x0, y0, x1, y1 = dictPress["pressCanvas"].coords(dictPress[p])
-                dictPress["pressCanvas"].coords(dictPress[p], x0, dictPress["canvasHeight"] - rectHeight, x1, int(dictPress["canvasHeight"]*0.8))
-                #Change colour
-                hexInt = int(mapRange(listPress[pIndex], minPress, maxPress, 0, 255))
+                # Change height of bar
+                if "Air" in p:
+                    rectHeight = mapRange(listPress[pIndex], minPress*4, maxPress*4, 0, dictPress["canvasHeight"])           
+                    #Change colour
+                    hexInt = int(mapRange(listPress[pIndex], minPress*4, maxPress*4, 0, 255))
+                else:
+                    rectHeight = mapRange(listPress[pIndex], minPress, maxPress, 0, dictPress["canvasHeight"])
+                    #Change colour
+                    hexInt = int(mapRange(listPress[pIndex], minPress, maxPress, 0, 255))
+
+                dictPress["pressCanvas"].coords(dictPress[p], x0, dictPress["canvasHeight"] - rectHeight, x1, int(dictPress["canvasHeight"]*guiPressFactor))
+
                 if (hexInt > 255): hexInt = 255
                 if (hexInt < 0): hexInt = 0
                 barColour = "#" + "{0:02x}".format(hexInt) + "0000"
             # Set colour
             dictPress["pressCanvas"].itemconfig(dictPress[p], fill = barColour)
             pIndex = pIndex + 1
+
+        elif "pressure" in p:
+            dictPress[p].config(text = str(listPress[listIndex]))
+            listIndex = listIndex + 1
 
 
 
@@ -706,11 +724,6 @@ headingPLabel = Label(contentFrame, text = "Pressures", font='bold')
 
 
 # Create buttons
-# # Add Image
-# login_btn = PhotoImage(file = "Image Path")
-  
-# # Create button and image
-# img = Button(root, image = login_btn, borderwidth = 0)
 
 buttonDict = {}
 calibrateButton = Button(contentFrame, text = "Calibrate robot at start")
@@ -787,11 +800,15 @@ buttonDict.update({"resetButton" : buttonObj})
 
 
 
-
+# Status labels
 labelDict = {}
 pumpLabel = Label(contentFrame, text = "Pump controller connection")
 labelObj = pumpLabel
 labelDict.update({"pumpLabel" : labelObj})
+
+omniLabel = Label(contentFrame, text = "Haptic connected")
+labelObj = omniLabel
+labelDict.update({"omniLabel" : omniLabel})
 
 calibrationLabel = Label(contentFrame, text = "Calibration")
 labelObj = calibrationLabel
@@ -805,29 +822,50 @@ labelDict.update({"calibrationLabel" : labelObj})
 # Progressbars for pressure sensors
 pressureDict = {}
 barLength = 300
+barWidth = 80
 barAndPadWidth = 100
+padSize = int((barAndPadWidth-barWidth)/2)
+numberBars = 4
+# Other constants
+PRESS_MAX_KPA = 80
+VAC_PRESS = -15
+guiPressFactor = 1 - abs(VAC_PRESS)/(PRESS_MAX_KPA - VAC_PRESS)
+
 pressureDict.update({"lengthBar" : barLength})
 
 canvasHeight = 200
 pressureDict.update({"canvasHeight" : canvasHeight})
-pressCanvas = Canvas(contentFrame, width=400, height=canvasHeight)
+pressCanvas = Canvas(contentFrame, width = barAndPadWidth*numberBars, height = canvasHeight, bg='gray')
 pressureDict.update({"pressCanvas":pressCanvas})
 
 rectNo = 0
-pressureBar1 = pressCanvas.create_rectangle(25+rectNo*barAndPadWidth, 0.8*canvasHeight, 75+rectNo*barAndPadWidth, 0.8*canvasHeight, fill = 'red')
+pressureBar1 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
+                                            padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
 pressureDict.update({"pressBar1":pressureBar1})
 
 rectNo = 1
-pressureBar2 = pressCanvas.create_rectangle(25+rectNo*barAndPadWidth, 0.8*canvasHeight, 75+rectNo*barAndPadWidth, 0.8*canvasHeight, fill = 'red')
+pressureBar2 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
+                                            padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
 pressureDict.update({"pressBar2":pressureBar2})
 
 rectNo = 2
-pressureBar3 = pressCanvas.create_rectangle(25+rectNo*barAndPadWidth, 0.8*canvasHeight, 75+rectNo*barAndPadWidth, 0.8*canvasHeight, fill = 'red')
+pressureBar3 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
+                                            padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
 pressureDict.update({"pressBar3":pressureBar3})
 
 rectNo = 3
-pressureBar4 = pressCanvas.create_rectangle(25+rectNo*barAndPadWidth, 0.8*canvasHeight, 75+rectNo*barAndPadWidth, 0.8*canvasHeight, fill = 'red')
-pressureDict.update({"pressBar4":pressureBar4})
+pressureBar4 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
+                                            padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
+pressureDict.update({"pressBarAir4":pressureBar4})
+
+pressureL = Label(contentFrame, text = "Pressure L")
+pressureR = Label(contentFrame, text = "Pressure R")
+pressureT = Label(contentFrame, text = "Pressure T")
+pressureStruct = Label(contentFrame, text = "Pressure Struct")
+pressureDict.update({"pressureL":pressureL})
+pressureDict.update({"pressureR":pressureR})
+pressureDict.update({"pressureT":pressureT})
+pressureDict.update({"pressureStruct":pressureStruct})
 
 
 press1Label = Label(contentFrame, text = "Pressure L")
@@ -866,7 +904,7 @@ for b in buttonDict:
     else:
         buttonDict[b].grid(column = columnNo, row = rowZerothColumn + 1, pady = yPadding, padx = xPadding)
         columnNo = columnNo + 1
-
+moveButtonRow = rowZerothColumn
 
 # Place labels
 rowFirstColumn = 1
@@ -884,6 +922,12 @@ for pL in pressureLabels:
     pL.grid(column = columnNo, row = 1, pady = yPadding, padx = xPadding)
     columnNo = columnNo + 1
     labelIndex = labelIndex + 1
+
+columnNo = 3
+for p in pressureDict:
+    if "pressure" in p:
+        pressureDict[p].grid(column = columnNo, row = moveButtonRow, pady = yPadding, padx = xPadding)
+        columnNo = columnNo + 1
 
 
 

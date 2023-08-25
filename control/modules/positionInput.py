@@ -3,7 +3,8 @@ import csv
 import os
 
 location = os.path.dirname(__file__)
-parent = os.path.dirname(location)
+# parent = os.path.dirname(location)
+parent = "C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime"
 logTime = time.strftime("%Y-%m-%d %H-%M-%S")
 relative = "logs/positions/desired " + logTime + ".csv"
 fileName = os.path.join(parent, relative)
