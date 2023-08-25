@@ -97,7 +97,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     flagStop = False
 
     # Desired pressure in pneumatic structure
-    regulatorPressure = 100
+    regulatorPressure = 0
+    inflationPressure = 100
     regulatorSensor = 0
     
 
@@ -273,19 +274,27 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
                 #  Inflate structure and give some time to stabilise:
                 print("Inflating structure...")
-                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, INFLATION_MODE)
+                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE)
+                count = 0
+                countLimit = 1000
+                rampTime = 3 # seconds
+                while (count != countLimit):
+                    regulatorPressure = inflationPressure*(count/countLimit)
+                    time.sleep(rampTime/countLimit)
+                    # print(inflationPressure)
+                    count = count + 1
+                # Wait an additional 3 s to stabilises
                 time.sleep(3)
 
 
                 # Has the mechanism been calibrated/want to run without calibration?:
-
                 calibrated = not startWithCalibration
 
 
                 # Perform calibration:
                 print("Zeroing hydraulic actuators...")
                 if (not calibrated):
-                    pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, INFLATION_MODE)
+                    pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE)
                 while (not calibrated):
 
                     # Stop operation if Stop button hit
@@ -440,10 +449,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                         initStepNoT = int(desiredThetaT*(firstMoveDelay/firstMoveDivider))
                         initStepNoP = int(desiredThetaP*(firstMoveDelay/firstMoveDivider))
                         # Send scaled step number to arduinos:
-                        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, initStepNoP, regulatorPressure, ACTIVE_MODE, INFLATION_MODE)
+                        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, initStepNoP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE)
                     else:
                         # Send step number to arduinos:
-                        pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, ACTIVE_MODE, INFLATION_MODE)
+                        pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE)
 
                 # Log values from arduinos
                 if pumpDataUpdated:
