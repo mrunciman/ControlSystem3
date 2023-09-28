@@ -281,9 +281,19 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 while (count != countLimit):
                     regulatorPressure = inflationPressure*(count/countLimit)
                     time.sleep(rampTime/countLimit)
-                    # print(inflationPressure)
+                    pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE)
+                    [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
+                    pressList = [pressL, pressR, pressT, regulatorSensor]
+                    # Change pressurebars
+                    updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
                     count = count + 1
-                # Wait an additional 3 s to stabilises
+
+                    # Stop operation if Stop button hit
+                    flagStop = classSettings.stopFlag
+                    if flagStop == True:
+                        activateButtons(dictButtons)
+                        raise 
+                # Wait an additional 3 s to stabilise
                 time.sleep(3)
 
 
@@ -295,6 +305,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 print("Zeroing hydraulic actuators...")
                 if (not calibrated):
                     pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE)
+                    
                 while (not calibrated):
 
                     # Stop operation if Stop button hit

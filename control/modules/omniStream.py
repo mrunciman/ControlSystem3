@@ -112,6 +112,11 @@ class omniStreamer():
                                             [fltMatrix[1], fltMatrix[5], fltMatrix[9], fltMatrix[13]],\
                                             [fltMatrix[2], fltMatrix[6], fltMatrix[10], fltMatrix[14]],\
                                             [fltMatrix[3], fltMatrix[7], fltMatrix[11], fltMatrix[15]]])
+
+                    self.rotMatrix = np.array([[fltMatrix[0], fltMatrix[4], fltMatrix[8]],\
+                                            [fltMatrix[1], fltMatrix[5], fltMatrix[9]],\
+                                            [fltMatrix[2], fltMatrix[6], fltMatrix[10]]])
+                    
                     self.manualTimeoutCounter = 0
                     return 1
 
@@ -233,15 +238,16 @@ if __name__ == "__main__":
     while (count < limit):
 
         # Set forces to send to device
-        forces = [2*math.sin(0.1*count), 2*math.cos(0.1*count), 2*math.cos(0.1*count)]
+        # forces = [2*math.sin(0.1*count), 2*math.cos(0.1*count), 2*math.cos(0.1*count)]
         # Both send forces and receive pose information
         omniDataReceived = phntmOmni.getOmniCoords(forces)
 
         # if omniDataReceived == 2: break
         [xMap, yMap, zMap] = phntmOmni.omniMap()
-        print(xMap, yMap, zMap)
+        # print(xMap, yMap, zMap)
+        print(phntmOmni.tMatrix)
         # print(phntmOmni.omniServer.stdout)
-        time.sleep(0.05)
+        time.sleep(0.5)
         count += 1
         # print(math.sin(count))
     phntmOmni.omniClose()
