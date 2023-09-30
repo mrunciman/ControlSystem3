@@ -35,13 +35,16 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     minPress = -15
     deactivateButtons(dictButtons)
     
-    [useVisionFeedback, visionFeedFlag, startWithCalibration, useOmni, useOptitrack, useFibrebot, useMassSpec, usePathFile, flagStop] = list(vars(classSettings).values())
+    [useVisionFeedback, visionFeedFlag, startWithCalibration, useOmni, socketOmni, useOptitrack, useFibrebot, useMassSpec, usePathFile, flagStop]\
+        = list(vars(classSettings).values())
+    
     print("Settings: ", vars(classSettings))
 
 
     ############################################################
     # Instantiate classes:
     sideLength = 18.78 # mm, from workspace2 model
+    # sideLength = 45 # mm, from workspace2 model
 
     kineSolve = kinematics.kineSolver(sideLength)
     # mouseTrack = mouseGUI.mouseTracker(sideLength)
@@ -107,9 +110,13 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     yPath = []
     zPath = []
 
-    omni_connected = False
     if useOmni:
-        omni_connected = phntmOmni.connectOmni()
+        if socketOmni is None:
+            omni_connected = False
+        else: 
+            omni_connected = True
+            phntmOmni.sock = classSettings.socketOmni
+        omni_connected = phntmOmni.connectOmni(omni_connected)
         print("Haptic device connected? ", omni_connected)
     
     if omni_connected:
@@ -275,35 +282,37 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 #  Inflate structure and give some time to stabilise:
                 print("Inflating structure...")
                 pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE)
-                count = 0
-                countLimit = 1000
-                rampTime = 3 # seconds
-                while (count != countLimit):
-                    regulatorPressure = inflationPressure*(count/countLimit)
-                    time.sleep(rampTime/countLimit)
-                    pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE)
-                    [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
-                    pressList = [pressL, pressR, pressT, regulatorSensor]
-                    # Change pressurebars
-                    updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
-                    count = count + 1
+                # count = 0
+                # countLimit = 1000
+                # rampTime = 3 # seconds
+                # while (count != countLimit):
+                #     regulatorPressure = inflationPressure*(count/countLimit)
+                #     time.sleep(rampTime/countLimit)
+                #     pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE)
+                #     [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
+                #     pressList = [pressL, pressR, pressT, regulatorSensor]
+                #     # Change pressurebars
+                #     updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
+                #     count = count + 1
 
-                    # Stop operation if Stop button hit
-                    flagStop = classSettings.stopFlag
-                    if flagStop == True:
-                        activateButtons(dictButtons)
-                        raise 
-                # Wait an additional 3 s to stabilise
-                time.sleep(3)
+                #     # Stop operation if Stop button hit
+                #     flagStop = classSettings.stopFlag
+                #     if flagStop == True:
+                #         activateButtons(dictButtons, flagStop)
+                #         raise 
+                # # Wait an additional 3 s to stabilise
+                time.sleep(1)
 
 
                 # Has the mechanism been calibrated/want to run without calibration?:
                 calibrated = not startWithCalibration
 
 
-                # Perform calibration:
-                print("Zeroing hydraulic actuators...")
+
                 if (not calibrated):
+                    # Perform calibration:
+                    print("Zeroing hydraulic actuators...")
+                    dictLabel["calibrationLabel"].config(fg = "red")
                     pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE)
                     
                 while (not calibrated):
@@ -311,10 +320,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     # Stop operation if Stop button hit
                     flagStop = classSettings.stopFlag
                     if flagStop == True:
-                        activateButtons(dictButtons)
+                        activateButtons(dictButtons, flagStop)
                         raise 
 
-                    # time.sleep(0.007)
                     [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
                     [timeL, timeR, timeT, timeP] = [timeL]*4
                     # print(pumpController.calibrationFlag)
@@ -324,14 +332,15 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     # Change pressurebars
                     updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
 
-                    dictLabel["calibrationLabel"].config(fg = "red")
-
                     if (pumpController.calibrationFlag == 'Y'):
                         dictLabel["calibrationLabel"].config(fg = "green")
                         calibrated = True
                         # Send 0s instead of desiredTheta and pressMed as signal that calibration done
                         desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, StepNoA = 0, 0, 0, 0, 0
                         pressLMed, pressRMed, pressTMed, pressPMed, pressAMed = 0, 0, 0, 0, 0
+                    # else:
+                    #     time.sleep(0.007)
+                    #     pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE)
 
                     ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, timeL)
                     ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, timeR)
@@ -352,7 +361,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
         if startWithCalibration and not calibrated:
             dictButtons['moveButton'].config(bg = '#A877BA')
-            # raise Exception
+            raise
+
+        if not messagebox.askokcancel("Proceed?", "Start the robot?"):
+            raise
 
         ################################################################
         # Begin main loop
@@ -525,10 +537,6 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             # Stop operation if Stop button hit
             flagStop = classSettings.stopFlag
 
-        # Control loop is over
-        # Reactivate selection buttons 
-        activateButtons(dictButtons)
-
 
     except TypeError as exTE:
         tb_linesTE = traceback.format_exception(exTE.__class__, exTE, exTE.__traceback__)
@@ -542,6 +550,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         
 
     finally:
+        # Control loop is over
+        # Reactivate selection buttons 
+        activateButtons(dictButtons, flagStop)
+
         print("Ending control loop...")
 
         ###########################################################################
@@ -561,12 +573,29 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 # Ensure same number of rows in position log file
                 posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
+                # if calibrated:
+                pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
+                pumpController.stopThreader()
+                time.sleep(0.2)
+                [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
+                [timeL, timeR, timeT, timeP] = [timeL]*4
+                print("Connection to pump controller closed.")
+                print(realStepL, pressL, timeL)
+                print(realStepR, pressR, timeR)
+                print(realStepT, pressT, timeT)
+                print(realStepP, pressP, timeP)
+                # pumpController.t.stop()
+                pumpController.closeSerial()
+
+
 
             #Save position data
             posLogging.posSave()
 
+
             #Save pose estimation data
             massSpecLink.savePoseMassSpec()
+
 
             # #Save optitrack data
             if optiTrackConnected:
@@ -574,35 +603,19 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     opTrack.optiSave(opTrack.rigidData)
                 else:
                     opTrack.optiSave(opTrack.markerData)
-
-
-            if pumpsConnected:
-                if calibrated:
-                    pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
-                pumpController.stopThreader()
-                time.sleep(0.2)
-                [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
-                [timeL, timeR, timeT, timeP] = [timeL]*4
-                pumpController.closeSerial()
-                print("Connection to pump controller closed.")
-                print(realStepL, pressL, timeL)
-                print(realStepR, pressR, timeR)
-                print(realStepT, pressT, timeT)
-                print(realStepP, pressP, timeP)
-                pumpController.t.stop()
-                pumpController.ser.close
-
-            
-            if optiTrackConnected:
                 opTrack.optiClose()
+
 
             if fibreConnected:
                 # Send stop message to fibrebot
                 fibrebotLink.sendState("Stop")
                 fibrebotLink.fibreSerial.close()
 
+
             if omni_connected:
-                phntmOmni.omniClose()
+                # phntmOmni.omniClose()
+                classSettings.socketOmni = phntmOmni.sock
+
 
         except TypeError as exTE:
             tb_linesTE = traceback.format_exception(exTE.__class__, exTE, exTE.__traceback__)
@@ -626,6 +639,7 @@ class controlSettings:
         self.visionFeedFlag = False
         self.startWithCalibration = True
         self.useOmni = True
+        self.socketOmni = None
         self.useOptitrack = False
         self.useFibrebot = False
         self.useMassSpec = False
@@ -644,27 +658,33 @@ def toggleButton(classSettings, attrib, button):
         button.config(bg = 'red')
 
 
-def stopFunction(classSettings, button):
+def stopFunction(classSettings, stopButton, startButton):
     classSettings.stopFlag = True
-    button.config(bg = 'red')
+    stopButton.config(bg = 'red')
+    startButton.config(state = 'disabled')
 
 
-def resetFunction(classSettings, button):
+def resetFunction(classSettings, button, startButton):
     classSettings.stopFlag = False
     button.config(bg = '#1c1c1c')
+    startButton.config(state = 'normal')
 
 
-def onClosing(classSettings):
+def onClosing(classSettings, dictButtons):
     # Exit control loop properly
     classSettings.stopFlag = True
+    dictButtons['stopButton'].config(bg = 'red')
+    dictButtons['moveButton'].config(state = 'disabled')
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
         rootWindow.destroy()
 
 
-def activateButtons(dictButtons):
+def activateButtons(dictButtons, stopFlag):
     # Reactivate selection buttons 
     for b in dictButtons:
         dictButtons[b].config(state = 'normal')
+    if stopFlag:
+        dictButtons['moveButton'].config(state = 'disabled')
     dictButtons['moveButton'].config(bg = '#1c1c1c')
 
 def deactivateButtons(dictButtons):
@@ -808,11 +828,11 @@ buttonDict.update({"moveButton" : buttonObj})
 stopButton = Button(contentFrame, text = "Stop")
 buttonObj = stopButton
 buttonDict.update({"stopButton" : buttonObj})
-stopButton.config(command = partial(stopFunction, settingsClass, buttonObj))
+stopButton.config(command = partial(stopFunction, settingsClass, buttonObj, moveButton))
 
 resetButton = Button(contentFrame, text = "Reset")
 buttonObj = stopButton
-resetButton.config(command = partial(resetFunction, settingsClass, buttonObj))
+resetButton.config(command = partial(resetFunction, settingsClass, buttonObj, moveButton))
 buttonObj = resetButton
 buttonDict.update({"resetButton" : buttonObj})
 
@@ -952,7 +972,7 @@ for p in pressureDict:
 
 
 # Set what to do when window is closed
-rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass))
+rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass, buttonDict))
 
 # This is where the magic happens
 sv_ttk.set_theme("dark")

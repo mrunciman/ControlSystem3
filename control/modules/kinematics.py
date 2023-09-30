@@ -25,6 +25,7 @@ class kineSolver:
 
         # 'Flat' muscle length:
         self.L_0 = 30
+        # self.L_0 = 40
 
         # Excess length of cable between entry point and muscle, in mm
         # self.Lx = 10
@@ -46,6 +47,7 @@ class kineSolver:
         # self.FACT_V = ((self.ACT_WIDTH/1000)*(self.L_0/1000)**2)/(2*self.NUM_L)
         self.M3_to_MM3 = 1e9
         self.VOL_FACTOR = 1.1 #1.15 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
+        self.VOL_FACTOR = 1 #1.15 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
         self.CAL_FACTOR = 0.005 # % of max volume still in actuator after calibration
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
@@ -124,17 +126,22 @@ class kineSolver:
         # Analytical approximation of Volume based on Contraction
         ###################################################################
         self.DIST_TO_CENT = (self.SIDE_LENGTH/2)/mt.cos(mt.pi/6)
-        # Contraction  self.L_c = (self.SIDE_LENGTH - targetCable)/self.MA
+        # Contraction  self.L_c = (self.SIDE_LENGTH - targetCable)/self.MECH_ADV
         # where targetCable is target cable length from lin algebra
-        self.MA = 2 # Mechanical advantage of pulleys
+        # This part depends on how we define where the cable is at minimum or maximum stroke. E.g:
+        # If the cable is at an opposing corner when the actuator is flat, the maximum distance is the side length of the triangle
+        # If the cable is at the same corner when the actuator is at maximum contraction, the max distance is the stoke times the mech. adv.
+        self.MECH_ADV = 4 # Mechanical advantage of pulleys
         if self.SIDE_LENGTH == 50:
             self.MAX_CABLE_DIST = 40.91    # 35.41 or 40.91
+        elif self.SIDE_LENGTH == 45:
+            self.MAX_CABLE_DIST = self.SIDE_LENGTH # 52.50 # MA of 4 for higher max dist
         elif self.SIDE_LENGTH == 40:
             self.MAX_CABLE_DIST = 35.41
         elif self.SIDE_LENGTH == 18.78:
             self.MAX_CABLE_DIST = 17.50
         #Initialise at centre
-        self.L_c = (self.MAX_CABLE_DIST - self.DIST_TO_CENT)/self.MA
+        self.L_c = (self.MAX_CABLE_DIST - self.DIST_TO_CENT)/self.MECH_ADV
         # Store current value of contraction 
         self.cL_c = self.L_c
         self.MIN_CONTRACT = 0.1
@@ -368,12 +375,12 @@ class kineSolver:
         """
         # Find contraction of actuator, filtering zeros:
         if targetCable < self.MAX_CABLE_DIST:
-            self.L_c = (self.MAX_CABLE_DIST - targetCable)/self.MA
+            self.L_c = (self.MAX_CABLE_DIST - targetCable)/self.MECH_ADV
             # print(self.L_c)
         else:
             self.L_c = self.MIN_CONTRACT
         # Similar for current contraction
-        self.cL_c = (self.MAX_CABLE_DIST - currentCable)/self.MA
+        self.cL_c = (self.MAX_CABLE_DIST - currentCable)/self.MECH_ADV
         
         # Rate of change of cable length
         cableSpeed = (self.cL_c - self.cL_c)/self.TIMESTEP

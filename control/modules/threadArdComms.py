@@ -122,7 +122,7 @@ class ardThreader:
         self.t.stop()
 
     def closeSerial(self):
-        self.ser.close
+        self.ser.close()
 
 
 

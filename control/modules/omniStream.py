@@ -26,13 +26,15 @@ class omniStreamer():
         self.omniButton = 0 # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
         self.manualTimeoutCounter = 0
 
-    def connectOmni(self):
+    def connectOmni(self, noSubProcess):
         # problem with this was that it waited for program to terminate, which never happens, but stdin=None, stdin=subprocess.DEVNULL, stdout=None, stderr=None argumetns sorted this
         # print(fileName)
-        self.omniServer = subprocess.run(fileName,\
-            check = True, capture_output = False, stdin = subprocess.DEVNULL, stdout = None, stderr = None)
+        if not noSubProcess:
+            self.omniServer = subprocess.run(fileName,\
+                check = True, capture_output = False, stdin = subprocess.DEVNULL, stdout = None, stderr = None)
         try:
-            self.sock.connect(self.server_addr)
+            if not noSubProcess:
+                self.sock.connect(self.server_addr)
             # self.sock.setblocking(0)
             self.sock.settimeout(0.01)
             print("Connected to {:s}".format(repr(self.server_addr)))
