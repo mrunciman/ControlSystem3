@@ -43,8 +43,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
     ############################################################
     # Instantiate classes:
-    sideLength = 18.78 # mm, from workspace2 model
-    # sideLength = 45 # mm, from workspace2 model
+    # sideLength = 18.78 # mm, from workspace2 model
+    sideLength = 38 # mm, from workspace2 model
 
     kineSolve = kinematics.kineSolver(sideLength)
     # mouseTrack = mouseGUI.mouseTracker(sideLength)
@@ -55,6 +55,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     dataClust = clusterData.dataClustering()
     pressDetector = arduinoInterface.ardInterfacer
     pumpController = threadArdComms.ardThreader()
+    medPressL = kinematics.forceDetector()
+    medPressR = kinematics.forceDetector()
+    medPressT = kinematics.forceDetector()
+    medPressP = kinematics.forceDetector()
 
     SAMP_FREQ = 1/kineSolve.TIMESTEP
     CALIBRATION_MODE = 0
@@ -65,7 +69,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     SET_PRESS_MODE = 3
 
     # Other constants
-    PRESS_MAX_KPA = 80
+    # PRESS_MAX_KPA = 900
     VAC_PRESS = -15
 
     CLOSEMESSAGE = "Closed"
@@ -75,7 +79,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     pumpDataUpdated = False
     delayFactor = 1
     firstMoveDelay = 0
-    firstMoveDivider = 100
+    firstMoveDivider = 400
     delayCount = 0
     delayLim = 200
 
@@ -118,11 +122,15 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             phntmOmni.sock = classSettings.socketOmni
         omni_connected = phntmOmni.connectOmni(omni_connected)
         print("Haptic device connected? ", omni_connected)
+    else: 
+        omni_connected = False
     
     if omni_connected:
         dictLabel["omniLabel"].config(fg = "green") 
     else:
         dictLabel["omniLabel"].config(fg = "red")
+    
+    omniButtons = phntmOmni.omniButton # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
 
     # Try to connect to phantom omni. If not connected, use pre-determined coords.
     # if usePathFile:
@@ -179,7 +187,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     repJaco = cJaco
     repJpinv = cJpinv
 
-    [targetL, targetR, targetT, targetP] = 28.86, 28.86, 28.86, 5  # Centre of scaffold triangle side size 50 mm
+    #Cable length to centre of triangle is sideLength/(3**0.5) # tan(30) is 1/sqrt(3)
+    [targetL, targetR, targetT, targetP] = sideLength/(3**0.5), sideLength/(3**0.5), sideLength/(3**0.5), 10  # Cable length to centre of scaffold
 
     # Set current volume (ignore tSpeed and step values) 
     [cVolL, tSpeedL, tStepL, LcRealL, angleL] = kineSolve.length2Vol(cableL, targetL)
@@ -254,7 +263,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     dictLabel["pumpLabel"].config(fg = "green") if pumpsConnected else dictLabel["pumpLabel"].config(fg = "red")
 
     if pumpsConnected:
-        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
+        omniButtons = phntmOmni.omniButton
+        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE, omniButtons)
     # [pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
     # print(pumpCOMS)
 
@@ -281,14 +291,17 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
                 #  Inflate structure and give some time to stabilise:
                 print("Inflating structure...")
-                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE)
+                time.sleep(1)
+                omniButtons = phntmOmni.omniButton
+                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE,omniButtons)
                 # count = 0
                 # countLimit = 1000
                 # rampTime = 3 # seconds
                 # while (count != countLimit):
                 #     regulatorPressure = inflationPressure*(count/countLimit)
                 #     time.sleep(rampTime/countLimit)
-                #     pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE)
+                #     omniButtons = phntmOmni.omniButton
+                #     pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, omniButtons)
                 #     [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
                 #     pressList = [pressL, pressR, pressT, regulatorSensor]
                 #     # Change pressurebars
@@ -301,7 +314,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 #         activateButtons(dictButtons, flagStop)
                 #         raise 
                 # # Wait an additional 3 s to stabilise
-                time.sleep(1)
+                # time.sleep(1)
 
 
                 # Has the mechanism been calibrated/want to run without calibration?:
@@ -313,7 +326,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     # Perform calibration:
                     print("Zeroing hydraulic actuators...")
                     dictLabel["calibrationLabel"].config(fg = "red")
-                    pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE)
+                    pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE, omniButtons)
                     
                 while (not calibrated):
 
@@ -321,7 +334,11 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     flagStop = classSettings.stopFlag
                     if flagStop == True:
                         activateButtons(dictButtons, flagStop)
-                        raise 
+                        raise
+
+                    if (max(pressL, pressR, pressT) > PRESS_MAX_KPA): # TODO Add filtered pressure values back again to use here
+                        print("Overpressure: ", max(pressL, pressR, pressT), " kPa")
+                        raise
 
                     [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
                     [timeL, timeR, timeT, timeP] = [timeL]*4
@@ -332,15 +349,19 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     # Change pressurebars
                     updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
 
+                    if omni_connected:
+                        omniDataReceived = phntmOmni.getOmniCoords()
+                        omniButtons = phntmOmni.omniButton
+
                     if (pumpController.calibrationFlag == 'Y'):
                         dictLabel["calibrationLabel"].config(fg = "green")
                         calibrated = True
                         # Send 0s instead of desiredTheta and pressMed as signal that calibration done
                         desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, StepNoA = 0, 0, 0, 0, 0
                         pressLMed, pressRMed, pressTMed, pressPMed, pressAMed = 0, 0, 0, 0, 0
-                    # else:
-                    #     time.sleep(0.007)
-                    #     pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE)
+                    else:
+                        time.sleep(0.007)
+                        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE, omniButtons)
 
                     ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, timeL)
                     ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, timeR)
@@ -359,7 +380,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         if fibreConnected: fibrebotLink.sendState("Run")
 
 
-        if startWithCalibration and not calibrated:
+        if startWithCalibration and not calibrated and pumpsConnected:
             dictButtons['moveButton'].config(bg = '#A877BA')
             raise
 
@@ -380,6 +401,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     # print(XYZPathCoords)
             else:
                 omniDataReceived = phntmOmni.getOmniCoords()
+                omniButtons = phntmOmni.omniButton
                 if (omniDataReceived == 2): break
                 [xMap, yMap, zMap] = phntmOmni.omniMap()
                 XYZPathCoords = [xMap, yMap, zMap]
@@ -388,7 +410,12 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
             # XYZPathCoords are desired coords in 3D.
             [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
-            # print("Open loop : ", targetXideal, targetYideal, targetOpP)
+            # [targetXideal, targetYideal, targetOpP] = 0, 0, 10 # HOMING ONLY  [0, -13.47, 50.4]
+
+            # if not omni_connected: 
+            #     [targetXideal, targetYideal, targetOpP] = 0, 0, 10
+                # print("Haptic not connected")
+            # print("Open loop : ", targetXideal, targetYideal, targetOpP) 
 
             # Return target cable lengths at target coords and jacobian at current coords
             [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
@@ -404,13 +431,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             targetR = scaleTargR 
             targetT = scaleTargT
             targetP = targetOpP
-
-            # ###[targetL, targetR, targetT, targetOpP] = 28.86, 28.86, 28.86, 5 # FOR HOMING ONLY
-            # ###[targetL, targetR, targetT, targetOpP] = 23.09, 23.09, 23.09, 5 # FOR HOMING ONLY23.09
-            # [targetL, targetR, targetT, targetOpP] = 10.84, 10.84, 10.84, 5 # FOR HOMING ONLY23.09
-            # ###[targetL, targetR, targetT, targetOpP] = 36.32, 16.60, 36.85, 5 # Random non-homing position
             if not omni_connected: 
-                [targetL, targetR, targetT, targetOpP] = 10.84, 10.84, 10.84, 5
+                [targetL, targetR, targetT, targetP] = 20.18931022920578, 20.18931022920578, 20.189310229205777, 10 # Homing
+            # [targetL, targetR, targetT, targetP] = 20.18931022920578, 20.18931022920578, 20.189310229205777, 10 # Homing
+
 
             tStepP = int(targetP*kineSolve.STEPS_PER_MM_PRI)
             tStepP += targDir*antiHystSteps
@@ -472,10 +496,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                         initStepNoT = int(desiredThetaT*(firstMoveDelay/firstMoveDivider))
                         initStepNoP = int(desiredThetaP*(firstMoveDelay/firstMoveDivider))
                         # Send scaled step number to arduinos:
-                        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, initStepNoP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE)
+                        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, initStepNoP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE, omniButtons)
                     else:
                         # Send step number to arduinos:
-                        pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE)
+                        pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE, omniButtons)
 
                 # Log values from arduinos
                 if pumpDataUpdated:
@@ -489,8 +513,16 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 # Get current pump position, pressure and times from arduinos
                 [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
                 [timeL, timeR, timeT, timeP] = [timeL]*4
-                pressList = [pressL, pressR, pressT, regulatorSensor]
 
+                pressLMed = medPressL.newPressMed(pressL)
+                pressRMed = medPressR.newPressMed(pressR)
+                pressTMed = medPressT.newPressMed(pressT)
+                pressP = regulatorSensor
+                pressPMed = medPressP.newPressMed(regulatorSensor)
+
+                # pressList = [pressL, pressR, pressT, regulatorSensor]
+                pressList = [pressLMed, pressRMed, pressTMed, pressPMed]
+ 
                 # Change pressurebars
                 updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
 
@@ -574,7 +606,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
                 # if calibrated:
-                pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, HOLD_MODE, DEFLATION_MODE)
+                omniButtons = 0
+                pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, HOLD_MODE, DEFLATION_MODE, omniButtons)
                 pumpController.stopThreader()
                 time.sleep(0.2)
                 [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
@@ -867,7 +900,7 @@ barAndPadWidth = 100
 padSize = int((barAndPadWidth-barWidth)/2)
 numberBars = 4
 # Other constants
-PRESS_MAX_KPA = 80
+PRESS_MAX_KPA = 110
 VAC_PRESS = -15
 guiPressFactor = 1 - abs(VAC_PRESS)/(PRESS_MAX_KPA - VAC_PRESS)
 

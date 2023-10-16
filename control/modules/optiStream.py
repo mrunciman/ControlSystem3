@@ -8,20 +8,31 @@ from modules import NatNetClient
 from modules import DataDescriptions
 from modules import MoCapData
 
-location = os.path.dirname(__file__)
+# location = os.path.dirname(__file__)
 # parent = os.path.dirname(location)
-parent = "C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime"
-logTime = time.strftime("%Y-%m-%d %H-%M-%S")
-relative = "logs/opti/optiTrack " + logTime + ".csv"
-fileName = os.path.join(parent, relative)
-with open(fileName, mode ='w', newline='') as optiLog0: 
-    optiLog1 = csv.writer(optiLog0)
-    optiLog1.writerow(['time stamp', 'cumulative time', 'ID', 'X', 'Y', 'Z', 'Y angle', 'Z angle', 'X angle', 'w', 'i', 'j', 'k',\
-        'ID', 'X', 'Y', 'Z', 'Y angle', 'Z angle', 'X angle','w', 'i', 'j', 'k'])
+# parent = "C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime"
+# logTime = time.strftime("%Y-%m-%d %H-%M-%S")
+# relative = "logs/opti/optiTrack " + logTime + ".csv"
+# fileName = os.path.join(parent, relative)
+# with open(fileName, mode ='w', newline='') as optiLog0: 
+#     optiLog1 = csv.writer(optiLog0)
+#     optiLog1.writerow(['time stamp', 'cumulative time', 'ID', 'X', 'Y', 'Z', 'Y angle', 'Z angle', 'X angle', 'w', 'i', 'j', 'k',\
+#         'ID', 'X', 'Y', 'Z', 'Y angle', 'Z angle', 'X angle','w', 'i', 'j', 'k'])
 
 class optiTracker:
 
     def __init__(self):
+        self.parent = "C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime"
+        self.logTime = time.strftime("%Y-%m-%d %H-%M-%S")
+        relative = "logs/opti/optiTrack " + self.logTime + ".csv"
+        self.fileName = os.path.join(self.parent, relative)
+        with open(self.fileName, mode ='w', newline='') as optiLog0: 
+            optiLog1 = csv.writer(optiLog0)
+            optiLog1.writerow(['time stamp', 'cumulative time', 'ID', 'X', 'Y', 'Z', 'Y angle', 'Z angle', 'X angle', 'w', 'i', 'j', 'k',\
+                'ID', 'X', 'Y', 'Z', 'Y angle', 'Z angle', 'X angle','w', 'i', 'j', 'k'])
+
+
+
         self.marker1 = (0, 0, 0)
         self.marker2 = (0, 0, 0)
         self.marker3 = (0, 0, 0)
@@ -86,7 +97,7 @@ class optiTracker:
 
 
     def optiSave(self, dataToSave):
-        with open(fileName, 'a', newline='') as optiLog2:
+        with open(self.fileName, 'a', newline='') as optiLog2:
             optiLog3 = csv.writer(optiLog2)
             for i in range(len(dataToSave)):
                 optiLog3.writerow(dataToSave[i])

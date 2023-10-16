@@ -31,7 +31,7 @@ class ardThreader:
         self.pressData = [0, 0, 0, 0, 0]
         self.ardTime = 0
         self.calibrationFlag = 'N'
-
+        # self.calibrationByte = 0
 
     def startThreader(self):
         try:
@@ -51,7 +51,7 @@ class ardThreader:
 
  
     # The pump controller takes the desired angles (from zero volume)
-    def sendStep(self, stepNumber1, stepNumber2, stepNumber3, stepNumber4, desiredPressure, controlState = None, inflationState = None):
+    def sendStep(self, stepNumber1, stepNumber2, stepNumber3, stepNumber4, desiredPressure, controlState = None, inflationState = None, buttonsValue = None):
         """
         This function sends ideal position (stepNumber) then receives
         the real step count (stepCount) from arduino.
@@ -68,8 +68,9 @@ class ardThreader:
 
         # If we are sending the extra state variables, alter the 
         # output message appropriately
+        # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
         if controlState is not None:
-            msg = self.setState(controlState, inflationState)
+            msg = self.setState(controlState, inflationState, buttonsValue)
         else:
             msg = 'HD'
         message = msg + stringList[0] + ',' + stringList[1] + ',' + stringList[2] + ',' + stringList[3] + ',' + stringList[4] + "\n"
@@ -81,7 +82,7 @@ class ardThreader:
     
 
 
-    def setState(self, controlState, inflationState):
+    def setState(self, controlState, inflationState, buttonState):
         # Choice of control states of C, H, or S
         # calibration state is C
         # Hold state is H
@@ -92,6 +93,7 @@ class ardThreader:
             msg = "H"
         elif controlState == 2:
             msg = "S"
+
         # Choice of inflation states of I or D
         # inflated state is I
         # deflated is D
@@ -102,6 +104,20 @@ class ardThreader:
         else:
             # Go to pressure sent by python control system
             msg = msg + "_" # Decimal 95
+
+        # Choice of haptic button states of N, F, B
+        # N is no motion
+        # F is forward
+        # B is backward
+        # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
+        # if buttonState == 0:#
+        #     msg = msg + "N"
+        # elif buttonState == 1:
+        #     msg = msg + "F"
+        # elif buttonState == 2:
+        #     msg = msg + "B"
+        # else:
+        #     msg = msg + "N"
         return msg
 
 
@@ -111,10 +127,13 @@ class ardThreader:
         self.pressData = self.t.pressD
         self.ardTime = self.t.ardT
         self.calibrationFlag = self.t.caliFlag
+        # the last four digits of calibration byte represent the calibration status of the motors
+        # The order is PTRL
+        # self.calibrationByte = self.t.caliByte
         # print("Motor angles: ", self.positionData)
         # print("Pressures: ",self.pressData)
         # print("Time: ",self.ardTime)
-        # print("Calibration completed? ", self.calibrationFlag)
+        # print("Calibration completed? ", self.calibrationFlag, self.calibrationByte)
         return self.positionData, self.pressData, self.ardTime
     
 
@@ -154,8 +173,9 @@ class LocalReaderThread(threading.Thread):
         self._lock = threading.Lock()
         self._connection_made = threading.Event()
         self.protocol = None
-        self.caliFlag = 'N'
 
+        self.caliFlag = 'N'
+        # self.caliByte = 0
         self.positionD = [0.0, 0.0, 0.0, 0.0]
         self.pressD = [0, 0, 0, 0, 0]
         self.ardT = 0
@@ -193,6 +213,7 @@ class LocalReaderThread(threading.Thread):
                 # probably some I/O problem such as disconnected USB serial
                 # adapters -> exit
                 error = e
+                print("Serial exception: ", e)
                 break
             else:
                 if data:
@@ -204,6 +225,7 @@ class LocalReaderThread(threading.Thread):
                         # Then handle_line is called from the local Protocol that inherits from LineReader
                     except Exception as e:
                         error = e
+                        print("Serial exception: ", e)
                         break
         self.alive = False
         self.protocol.connection_lost(error)
@@ -297,7 +319,9 @@ class SerialReaderProtocolLine(LineReader):
             if len(stepPress)!= CORRECT_LENGTH:
                 return
             
-            # ['<', '1.23', ' 2.34', ' 3.45', ' 4.56', ' -00075', ' -48.4', ' -31.4', ' -21.3', ' -88.0', '13001', 'N', '>']
+            # ['<', '1.23', ' 2.34', ' 3.45', ' 4.56', ' -00075', ' -48.4', ' -31.4', ' -21.3', ' -88.0', '13001', 'N', '>']   
+            # With byte for calibration status per motor:
+                        # ['<', '1.23', ' 2.34', ' 3.45', ' 4.56', ' -00075', ' -48.4', ' -31.4', ' -21.3', ' -88.0', '13001', 'N', 255 '>']
 
             # print(self.transport.positionD)
             # pos = [stepPress[0], stepPress[2], stepPress[4], stepPress[6]]
@@ -314,7 +338,10 @@ class SerialReaderProtocolLine(LineReader):
             # print(self.transport.ardT)
 
             self.transport.caliFlag = stepPress[11]
-            # print(self.transport.calibrationFlag)
+            # print(self.transport.caliFlag)
+
+            # self.transport.caliByte = int(stepPress[12]).to_bytes(1, 'big')
+            # print(self.transport.caliByte)
 
 
 

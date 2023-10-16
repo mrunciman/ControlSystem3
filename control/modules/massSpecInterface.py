@@ -10,20 +10,20 @@ import csv
 import os
 import numpy as np
 
-location = os.path.dirname(__file__)
-# parent = os.path.dirname(location)
-parent = "C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime"
-logTime = time.strftime("%Y-%m-%d %H-%M-%S")
-relative = "logs/pose/pose " + logTime + ".csv"
-fileName = os.path.join(parent, relative)
-with open(fileName, mode ='w', newline='') as poseLog1: 
-    logger1 = csv.writer(poseLog1)
-    logger1.writerow(['X_est', 'Y_est', 'Z_est', 'Alpha', 'Beta', 'Gamma', 'MS Classification', 'Timestamp', time.time()])
+# location = os.path.dirname(__file__)
+# # parent = os.path.dirname(location)
+# parent = "C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime"
+# logTime = time.strftime("%Y-%m-%d %H-%M-%S")
+# relative = "logs/pose/pose " + logTime + ".csv"
+# fileName = os.path.join(parent, relative)
+# with open(fileName, mode ='w', newline='') as poseLog1: 
+#     logger1 = csv.writer(poseLog1)
+#     logger1.writerow(['X_est', 'Y_est', 'Z_est', 'Alpha', 'Beta', 'Gamma', 'MS Classification', 'Timestamp', time.time()])
 
 
-miniScanDirectory = "logs/pose/mini "+ logTime
-miniScanPath = os.path.join(parent, miniScanDirectory)
-os.mkdir(miniScanPath)
+# miniScanDirectory = "logs/pose/mini "+ logTime
+# miniScanPath = os.path.join(parent, miniScanDirectory)
+# os.mkdir(miniScanPath)
 # rasterNumber = 0
 # miniScanRelative = "logs/pose/mini "+ logTime +"/raster" + str(rasterNumber) + ".csv"
 # miniScanFileName = os.path.join(parent, miniScanRelative)
@@ -60,9 +60,27 @@ class massSpec:
         self.grossSaved = False
         self.grossScanName = None
 
+        location = os.path.dirname(__file__)
+        # parent = os.path.dirname(location)
+        self.parent = "C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime"
+        self.logTime = time.strftime("%Y-%m-%d %H-%M-%S")
+        relative = "logs/pose/pose " + self.logTime + ".csv"
+        self.fileName = os.path.join(self.parent, relative)
+        with open(self.fileName, mode ='w', newline='') as poseLog1: 
+            logger1 = csv.writer(poseLog1)
+            logger1.writerow(['X_est', 'Y_est', 'Z_est', 'Alpha', 'Beta', 'Gamma', 'MS Classification', 'Timestamp', time.time()])
+
+
+        miniScanDirectory = "logs/pose/mini "+ self.logTime
+        miniScanPath = os.path.join(self.parent, miniScanDirectory)
+        os.mkdir(miniScanPath)
+
+
+
+
         self.rasterNumber = 0
         self.miniScanRelative = miniScanDirectory + "/raster" + str(self.rasterNumber) + ".csv"
-        self.miniScanFileName = os.path.join(parent, self.miniScanRelative)
+        self.miniScanFileName = os.path.join(self.parent, self.miniScanRelative)
 
 
 
@@ -187,8 +205,8 @@ class massSpec:
                 positionLog3.writerow(self.miniRaster[i])
         #Prepare for next raster scan:
         self.rasterNumber += 1
-        self.miniScanRelative = "logs/pose/mini"+ logTime +"/raster" + str(self.rasterNumber) + ".csv"
-        self.miniScanFileName = os.path.join(parent, self.miniScanRelative)
+        self.miniScanRelative = "logs/pose/mini"+ self.logTime +"/raster" + str(self.rasterNumber) + ".csv"
+        self.miniScanFileName = os.path.join(self.parent, self.miniScanRelative)
         self.miniRaster = []
         
 
@@ -213,8 +231,8 @@ class massSpec:
             self.poseData.append([T[0]] + [T[1]] + [T[2]] + [float(rotVect[0])] + [float(rotVect[1])] + [float(rotVect[2])] + [msClassification] + [time.time()])
 
     def savePoseMassSpec(self):
-        self.grossScanName = fileName
-        with open(fileName, 'a', newline='') as posLog2:
+        self.grossScanName = self.fileName
+        with open(self.fileName, 'a', newline='') as posLog2:
             positionLog2 = csv.writer(posLog2)
             for i in range(len(self.poseData)):
                 positionLog2.writerow(self.poseData[i])

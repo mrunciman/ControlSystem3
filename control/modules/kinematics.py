@@ -24,8 +24,9 @@ class kineSolver:
         self.OFFSET_Y = self.SIDE_LENGTH/2 * mt.tan(mt.pi/6)
 
         # 'Flat' muscle length:
-        self.L_0 = 30
-        # self.L_0 = 40
+        # self.L_0 = 30
+        self.L_0 = 35
+        self.STROKE = self.L_0/4
 
         # Excess length of cable between entry point and muscle, in mm
         # self.Lx = 10
@@ -46,15 +47,13 @@ class kineSolver:
         # Real volume calc: there are numLs beams of length L0/numLs
         # self.FACT_V = ((self.ACT_WIDTH/1000)*(self.L_0/1000)**2)/(2*self.NUM_L)
         self.M3_to_MM3 = 1e9
-        self.VOL_FACTOR = 1.1 #1.15 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
-        self.VOL_FACTOR = 1 #1.15 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
+        self.VOL_FACTOR = 0.95 #1.15 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
         self.CAL_FACTOR = 0.005 # % of max volume still in actuator after calibration
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
             mt.cos((mt.pi/2*self.FACT_ANG))*mt.sin((mt.pi/2*self.FACT_ANG)))/((mt.pi/2*self.FACT_ANG)**2)
-        # print(self.MAX_VOL)
+        print(self.MAX_VOL)
         self.DEAD_VOL = self.CAL_FACTOR*self.MAX_VOL
-        # print(self.MAX_VOL)
         self.MAX_VOL_RATE = 1000 # mm^3/s
         
         # For step count:
@@ -122,30 +121,6 @@ class kineSolver:
         # print(cableLookup)
 
 
-        ###################################################################
-        # Analytical approximation of Volume based on Contraction
-        ###################################################################
-        self.DIST_TO_CENT = (self.SIDE_LENGTH/2)/mt.cos(mt.pi/6)
-        # Contraction  self.L_c = (self.SIDE_LENGTH - targetCable)/self.MECH_ADV
-        # where targetCable is target cable length from lin algebra
-        # This part depends on how we define where the cable is at minimum or maximum stroke. E.g:
-        # If the cable is at an opposing corner when the actuator is flat, the maximum distance is the side length of the triangle
-        # If the cable is at the same corner when the actuator is at maximum contraction, the max distance is the stoke times the mech. adv.
-        self.MECH_ADV = 4 # Mechanical advantage of pulleys
-        if self.SIDE_LENGTH == 50:
-            self.MAX_CABLE_DIST = 40.91    # 35.41 or 40.91
-        elif self.SIDE_LENGTH == 45:
-            self.MAX_CABLE_DIST = self.SIDE_LENGTH # 52.50 # MA of 4 for higher max dist
-        elif self.SIDE_LENGTH == 40:
-            self.MAX_CABLE_DIST = 35.41
-        elif self.SIDE_LENGTH == 18.78:
-            self.MAX_CABLE_DIST = 17.50
-        #Initialise at centre
-        self.L_c = (self.MAX_CABLE_DIST - self.DIST_TO_CENT)/self.MECH_ADV
-        # Store current value of contraction 
-        self.cL_c = self.L_c
-        self.MIN_CONTRACT = 0.1
-
 
         ###################################################################
         # End Effector and Entry Point Geometry
@@ -156,22 +131,23 @@ class kineSolver:
         # For transformation from base orientation to conventional instrument frame, add further rotation
         # This is an input
         self.ROT_GLOB_INST = np.array([[mt.cos(self.ALPHA_YAW), -mt.sin(self.ALPHA_YAW), 0],\
-            [mt.sin(self.ALPHA_YAW), mt.cos(self.ALPHA_YAW), 0],\
-            [0, 0, 1]])
+                                       [mt.sin(self.ALPHA_YAW),  mt.cos(self.ALPHA_YAW), 0],\
+                                       [0,                      0,                       1]])
 
         # r (radius) is radius of end effector
-        self.RAD_END = 0 # millimetres, possible because of rotating end effector
-        # This matrix defines the three instrument attachment points wrt instrument frame
-        self.ATTACH_POINTS = np.array([[self.RAD_END, -self.RAD_END, 0],\
-            [-self.RAD_END, self.RAD_END, 0],\
-            [0, self.RAD_END, 0]])
+        self.RAD_END = 3.5/2 # millimetres, zero is possible because of rotating shaft coupling
+        # This matrix defines the three instrument attachment points wrt instrument frame, rows are right, left, top
+        self.ATTACH_POINTS = np.array([[self.RAD_END*mt.cos(210 * mt.pi/180), self.RAD_END*mt.sin(210 * mt.pi/180), 0],\
+                                       [self.RAD_END*mt.cos(330 * mt.pi/180), self.RAD_END*mt.sin(330 * mt.pi/180), 0],\
+                                       [self.RAD_END*mt.cos(90 * mt.pi/180),  self.RAD_END*mt.sin(90 * mt.pi/180),  0]])
+        self.ATTACH_POINTS = np.transpose(self.ATTACH_POINTS)
         # Z axis out of screen - conssitent with 'master' controller
 
         # Entry point array - global frame defined at bottom lhs corner (from behind instrument)
         # LHS, RHS, TOP corner coordinates, corners of equilateral of side S
         self.ENTRY_POINTS = np.array([[-self.SIDE_LENGTH/2, -self.SIDE_LENGTH/2*mt.tan(mt.pi/6),  0],\
-                                      [self.SIDE_LENGTH/2,  -self.SIDE_LENGTH/2*mt.tan(mt.pi/6),  0],\
-                                      [0,                    self.SIDE_LENGTH*mt.tan(mt.pi/6),    0]])
+                                      [ self.SIDE_LENGTH/2, -self.SIDE_LENGTH/2*mt.tan(mt.pi/6),  0],\
+                                      [ 0,                   self.SIDE_LENGTH*mt.tan(mt.pi/6),    0]])
         # print(self.ENTRY_POINTS)
         self.ENTRY_POINTS = np.transpose(self.ENTRY_POINTS)
 
@@ -181,13 +157,43 @@ class kineSolver:
             [0, 1, 0]])
         self.uCables = np.transpose(self.uCables)
 
+
+        ###################################################################
+        # Analytical approximation of Volume based on Contraction
+        ###################################################################
+        self.DIST_TO_CENT = (self.SIDE_LENGTH/2)/mt.cos(mt.pi/6)
+        # print(self.DIST_TO_CENT)
+        # Contraction  self.L_c = (self.SIDE_LENGTH - targetCable)/self.MECH_ADV
+        # where targetCable is target cable length from lin algebra
+        # This part depends on how we define where the cable is at minimum or maximum stroke. E.g:
+        # If the cable is at an opposing corner when the actuator is flat, the maximum distance is the side length of the triangle
+        # If the cable is at the same corner when the actuator is at maximum contraction, the max distance is the stoke times the mech. adv.
+        self.MECH_ADV = 2 # Mechanical advantage of pulleys
+
+        # self.MAX_CABLE_DIST = self.SIDE_LENGTH # mt.sqrt((self.RAD_END*mt.cos(mt.pi/3))**2 + (45 - 3*self.RAD_END*mt.cos(mt.pi/6))**2)
+        self.MIN_CABLE = 11.29 #see Sizing.sldprt
+        self.MAX_CABLE_DIST = 28.79 # see Sizing.sldprt
+        self.RANGE = self.STROKE*self.MECH_ADV #self.MAX_CABLE_DIST - self.MIN_CABLE
+        # self.MAX_CABLE_DIST = self.MECH_ADV*(self.L_0/4) + self.MIN_CABLE
+
+
+        #Initialise at centre
+        # self.L_c = (self.MAX_CABLE_DIST - self.DIST_TO_CENT)/self.MECH_ADV
+        L_c_centre = 20.19
+        self.L_c = self.STROKE * ((self.RANGE - (L_c_centre - self.MIN_CABLE))/self.RANGE)
+        print("Contraction at centre: ", self.L_c)
+        # Store current value of contraction 
+        self.cL_c = self.L_c
+        self.MIN_CONTRACT = 0.1
         
         ###################################################################
         # Extension/Retraction Geometry
         ###################################################################
         # Point that the shaft rotates around - COR of universal joint
         self.CONT_ARC_S = 15 # mm continuum joint arc length
-        self.LEVER_BASE_Z = -25.0 # checked with sldasm
+        # self.LEVER_BASE_Z = -25.0 # checked with sldasm
+        # self.LEVER_BASE_Z = -27.50 # checked with calipers
+        self.LEVER_BASE_Z = -27.50 # checked with calipers
         # self.LEVER_POINT = np.array([0.5*self.SIDE_LENGTH,\
         #     0.5*self.SIDE_LENGTH*mt.tan(mt.pi/6),\
         #     self.LEVER_BASE_Z])
@@ -195,7 +201,7 @@ class kineSolver:
         #                              self.SIDE_LENGTH*mt.tan(mt.pi/6),\
         #                              self.LEVER_BASE_Z])
         self.LEVER_POINT = np.array([0,\
-                                     0,\
+                                     7.5,\
                                      self.LEVER_BASE_Z])
         self.E12 = self.ENTRY_POINTS[:, 1] - self.ENTRY_POINTS[:, 0]
         self.E13 = self.ENTRY_POINTS[:, 2] - self.ENTRY_POINTS[:, 0]
@@ -203,7 +209,7 @@ class kineSolver:
         # Normal of end effector / parallel mechanism plane:
         self.N_PLANE = self.N_CROSS/la.norm(self.N_CROSS)
 
-        self.SHAFT_LENGTH_UJ = 50 # mm
+        self.SHAFT_LENGTH_UJ = 45 # mm
         self.SHAFT_LENGTH = self.SHAFT_LENGTH_UJ - self.CONT_ARC_S # mm     SHAFT_LENGTH_UJ - CONT_ARC
 
         # Set limits on shaft extension
@@ -373,14 +379,20 @@ class kineSolver:
         for required length, given contractedL = flatL times sin(theta)/theta
         e.g. length2Vol(17.32, 18)
         """
+
+        self.cL_c = self.L_c
         # Find contraction of actuator, filtering zeros:
         if targetCable < self.MAX_CABLE_DIST:
-            self.L_c = (self.MAX_CABLE_DIST - targetCable)/self.MECH_ADV
-            # print(self.L_c)
+            if targetCable > self.MIN_CABLE:
+                self.L_c = self.STROKE * (self.RANGE - (targetCable - self.MIN_CABLE))/self.RANGE
+            else:
+                self.L_c = self.STROKE
         else:
             self.L_c = self.MIN_CONTRACT
+        # print(self.L_c)
         # Similar for current contraction
-        self.cL_c = (self.MAX_CABLE_DIST - currentCable)/self.MECH_ADV
+        # self.cL_c = (self.MAX_CABLE_DIST - currentCable)/self.MECH_ADV
+        # self.cL_c = self.STROKE * (self.RANGE - (currentCable - self.MIN_CABLE))/self.RANGE
         
         # Rate of change of cable length
         cableSpeed = (self.cL_c - self.cL_c)/self.TIMESTEP
@@ -633,7 +645,7 @@ class kineSolver:
 
 
 
-WINDOW_SIZE = 10
+WINDOW_SIZE = 20
 
 class forceDetector:
 
@@ -662,7 +674,7 @@ class forceDetector:
 
         self.presMedPrevPrev = self.pressMedPrev
         self.pressMedPrev = self.pressMed
-        self.pressMed = np.median(self.pressArray)
+        self.pressMed = round(np.median(self.pressArray), 2)
 
         return self.pressMed
 

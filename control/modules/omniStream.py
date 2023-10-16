@@ -7,10 +7,10 @@ import math
 # from ctypes import *
 np.set_printoptions(suppress=True, precision = 2)
 
-location = os.path.dirname(__file__)
-parent = os.path.dirname(location)
-relative = "modules\Transformation_And_Forces.exe"
-fileName = os.path.join(parent, relative).replace('\\', '/') # For subprocess it looks like we need forward slashes in path
+# location = os.path.dirname(__file__)
+# parent = os.path.dirname(location)
+# relative = "modules\Transformation_And_Forces.exe"
+# fileName = os.path.join(parent, relative).replace('\\', '/') # For subprocess it looks like we need forward slashes in path
 # fileName = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/modules/HelloHapticDevice.exe'
 MAX_FORCE = 2 # N
 
@@ -26,19 +26,24 @@ class omniStreamer():
         self.omniButton = 0 # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
         self.manualTimeoutCounter = 0
 
+        self.location = os.path.dirname(__file__)
+        self.parent = os.path.dirname(self.location)
+        self.relative = "modules\Transformation_And_Forces.exe"
+        self.fileName = os.path.join(self.parent, self.relative).replace('\\', '/') # For subprocess it looks like we need forward slashes in path
+
     def connectOmni(self, noSubProcess):
         # problem with this was that it waited for program to terminate, which never happens, but stdin=None, stdin=subprocess.DEVNULL, stdout=None, stderr=None argumetns sorted this
         # print(fileName)
         if not noSubProcess:
-            self.omniServer = subprocess.run(fileName,\
+            self.omniServer = subprocess.run(self.fileName,\
                 check = True, capture_output = False, stdin = subprocess.DEVNULL, stdout = None, stderr = None)
         try:
             if not noSubProcess:
                 self.sock.connect(self.server_addr)
             # self.sock.setblocking(0)
             self.sock.settimeout(0.01)
-            print("Connected to {:s}".format(repr(self.server_addr)))
-            print(self.sock)
+            # print("Connected to {:s}".format(repr(self.server_addr)))
+            # print(self.sock)
             return self.checkConnection()
         except AttributeError as ae:
             # print("Error creating the socket: {}".format(ae))
@@ -232,7 +237,8 @@ class omniStreamer():
 
 if __name__ == "__main__":
     phntmOmni = omniStreamer()
-    omni_connected = phntmOmni.connectOmni()
+
+    omni_connected = phntmOmni.connectOmni(0)
     print("Haptic device connected? ", omni_connected)
     count = 0
     limit = 400
@@ -242,12 +248,13 @@ if __name__ == "__main__":
         # Set forces to send to device
         # forces = [2*math.sin(0.1*count), 2*math.cos(0.1*count), 2*math.cos(0.1*count)]
         # Both send forces and receive pose information
+        # print(phntmOmni.omniButton)
         omniDataReceived = phntmOmni.getOmniCoords(forces)
 
         # if omniDataReceived == 2: break
         [xMap, yMap, zMap] = phntmOmni.omniMap()
         # print(xMap, yMap, zMap)
-        print(phntmOmni.tMatrix)
+        # print(phntmOmni.tMatrix)
         # print(phntmOmni.omniServer.stdout)
         time.sleep(0.5)
         count += 1
