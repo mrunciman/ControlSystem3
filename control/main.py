@@ -894,13 +894,14 @@ labelDict.update({"calibrationLabel" : labelObj})
 
 # Progressbars for pressure sensors
 pressureDict = {}
+
 barLength = 300
 barWidth = 80
 barAndPadWidth = 100
 padSize = int((barAndPadWidth-barWidth)/2)
 numberBars = 4
 # Other constants
-PRESS_MAX_KPA = 110
+PRESS_MAX_KPA = 150
 VAC_PRESS = -15
 guiPressFactor = 1 - abs(VAC_PRESS)/(PRESS_MAX_KPA - VAC_PRESS)
 
