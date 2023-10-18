@@ -141,7 +141,7 @@ class omniStreamer():
 
 
 
-    def omniMap(self):#, xFromOmni, yFromOmni, zFromOmni):
+    def omniMap(self, degreesToRotate = None):#, xFromOmni, yFromOmni, zFromOmni):
         #Calibrated position in inkwell:
         #  x:  0.00000 , y:  -65.51071 , z:  -88.11420
         # self.omniX = self.omniX + 220
@@ -213,6 +213,26 @@ class omniStreamer():
         # print(xMapped, yMapped, zMapped)
         # print()
 
+        #TODO Add rotation of coordinates after mapping
+        mapMatrix = np.array([  [xMapped],\
+                                [yMapped],\
+                                [zMapped]])
+        
+        if degreesToRotate is not None:
+            radsToRotate = np.radians(degreesToRotate)
+        else:
+            radsToRotate = 0
+
+        omniRotate = np.array([ [np.cos(radsToRotate), -np.sin(radsToRotate), 0],\
+                                [np.sin(radsToRotate),  np.cos(radsToRotate), 0],\
+                                [0,                     0,                    1]])
+        
+        coordsMappedRotated = np.dot(omniRotate, mapMatrix)
+
+        xMappedRotated = coordsMappedRotated[0]
+        yMappedRotated = coordsMappedRotated[1]
+        zMappedRotated = coordsMappedRotated[2]
+
 
 
         # xMapped = -1*(self.omniX*((46-(-46))/440)) + 9.455 # abs just for test       approx 0.2093
@@ -227,7 +247,7 @@ class omniStreamer():
         # if (zMapped > 38.5):
         #     zMapped = 38.5
         # print("x: ", xMapped, ", y: ", yMapped, ", z: ", zMapped)
-        return xMapped, yMapped, zMapped
+        return xMappedRotated, yMappedRotated, zMappedRotated
         
         
 

@@ -402,8 +402,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             else:
                 omniDataReceived = phntmOmni.getOmniCoords()
                 omniButtons = phntmOmni.omniButton
+                frameRotAngle = dictLabel["rotationSlider"].get()
                 if (omniDataReceived == 2): break
-                [xMap, yMap, zMap] = phntmOmni.omniMap()
+                [xMap, yMap, zMap] = phntmOmni.omniMap(frameRotAngle)
                 XYZPathCoords = [xMap, yMap, zMap]
                 # print(XYZPathCoords)
             
@@ -951,8 +952,8 @@ pressureLabels = [press1Label, press2Label, press3Label, pressPLabel]
 
 # Creates slider to rotate input device coordinates.
 # To be placed below the pressure bars, so it is the same width as the pressure bar canvas
-rotationSlider = Scale(contentFrame, from_=-180, to=180, length = barAndPadWidth*numberBars, tickinterval=90, orient = HORIZONTAL)
-
+rotationSlider = Scale(contentFrame, from_=180, to=-180, length = barAndPadWidth*numberBars, tickinterval=90, orient = HORIZONTAL)
+labelDict.update({"rotationSlider" : rotationSlider})
 
 
 
@@ -993,8 +994,9 @@ rotationSlider.grid(column = columnNo, row = rowZerothColumn + 2, columnspan = 4
 rowFirstColumn = 1
 columnNo = 1
 for l in labelDict:
-    labelDict[l].grid(column = columnNo, row = rowFirstColumn, pady = yPadding, padx = xPadding)
-    rowFirstColumn = rowFirstColumn + 1
+    if l not in ["rotationSlider"]: # Exclude rotation slider here
+        labelDict[l].grid(column = columnNo, row = rowFirstColumn, pady = yPadding, padx = xPadding)
+        rowFirstColumn = rowFirstColumn + 1
 
 
 # Place pressure displays and labels
