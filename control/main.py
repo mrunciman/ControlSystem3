@@ -949,9 +949,15 @@ pressPLabel = Label(contentFrame, text = "Pressure Struct")
 pressureLabels = [press1Label, press2Label, press3Label, pressPLabel]
 
 
+# Creates slider to rotate input device coordinates.
+# To be placed below the pressure bars, so it is the same width as the pressure bar canvas
+rotationSlider = Scale(contentFrame, from_=-180, to=180, length = barAndPadWidth*numberBars, tickinterval=90, orient = HORIZONTAL)
+
+
+
+
 # Set command for move Robot button, taking in label dictionary
 moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, pressureDict, settingsClass]).start())
-
 
 
 
@@ -979,6 +985,9 @@ for b in buttonDict:
         buttonDict[b].grid(column = columnNo, row = rowZerothColumn + 1, pady = yPadding, padx = xPadding)
         columnNo = columnNo + 1
 moveButtonRow = rowZerothColumn
+
+columnNo = 3
+rotationSlider.grid(column = columnNo, row = rowZerothColumn + 2, columnspan = 4, pady = yPadding, padx = xPadding)
 
 # Place labels
 rowFirstColumn = 1
