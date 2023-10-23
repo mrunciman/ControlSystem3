@@ -79,7 +79,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     pumpDataUpdated = False
     delayFactor = 1
     firstMoveDelay = 0
-    firstMoveDivider = 400
+    firstMoveDivider = 500
     delayCount = 0
     delayLim = 200
 
@@ -384,7 +384,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             dictButtons['moveButton'].config(bg = '#A877BA')
             raise
 
-        if not messagebox.askokcancel("Proceed?", "Start the robot?"):
+        if not messagebox.askokcancel("Proceed?", "Start the robot? MANUAL CALIBRATION COMPLETE?"):
             raise
 
         ################################################################

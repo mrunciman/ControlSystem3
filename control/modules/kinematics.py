@@ -201,7 +201,7 @@ class kineSolver:
         #                              self.SIDE_LENGTH*mt.tan(mt.pi/6),\
         #                              self.LEVER_BASE_Z])
         self.LEVER_POINT = np.array([0,\
-                                     7.5,\
+                                     0,\
                                      self.LEVER_BASE_Z])
         self.E12 = self.ENTRY_POINTS[:, 1] - self.ENTRY_POINTS[:, 0]
         self.E13 = self.ENTRY_POINTS[:, 2] - self.ENTRY_POINTS[:, 0]

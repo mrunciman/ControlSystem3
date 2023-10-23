@@ -229,9 +229,9 @@ class omniStreamer():
         
         coordsMappedRotated = np.dot(omniRotate, mapMatrix)
 
-        xMappedRotated = coordsMappedRotated[0]
-        yMappedRotated = coordsMappedRotated[1]
-        zMappedRotated = coordsMappedRotated[2]
+        xMappedRotated = float(coordsMappedRotated[0])
+        yMappedRotated = float(coordsMappedRotated[1])
+        zMappedRotated = float(coordsMappedRotated[2])
 
 
 
