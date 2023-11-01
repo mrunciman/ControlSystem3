@@ -13,16 +13,16 @@ import os
 # Create a file in 'log' directory and empty contents (if it already exists)
 # Append timestamp in ms to name
 # location = "Imperial College London/Imperial/Fluidic Control/ControlSystem/logs"
-location = os.path.dirname(__file__)
-parent = os.path.dirname(location)
-logTime = time.strftime("%Y-%m-%d %H-%M-%S")
-relative = "logs/positions/desired " + logTime + ".csv"
-fileName = os.path.join(parent, relative) # USE THIS IN REAL TESTS
-# fileName = location + "/positions " + logTime + ".csv" 
-# fileName = 'test.csv' # For test purposes
-with open(fileName, mode ='w', newline='') as posLog1: 
-    logger1 = csv.writer(posLog1)
-    logger1.writerow(['Event', 'X', 'Y', 'Z', 'Timestamp', 'ms Since Last', 'xPOI', 'yPOI'])
+# location = os.path.dirname(__file__)
+# parent = os.path.dirname(location)
+# logTime = time.strftime("%Y-%m-%d %H-%M-%S")
+# relative = "logs/positions/desired " + logTime + ".csv"
+# fileName = os.path.join(parent, relative) # USE THIS IN REAL TESTS
+# # fileName = location + "/positions " + logTime + ".csv" 
+# # fileName = 'test.csv' # For test purposes
+# with open(fileName, mode ='w', newline='') as posLog1: 
+#     logger1 = csv.writer(posLog1)
+#     logger1.writerow(['Event', 'X', 'Y', 'Z', 'Timestamp', 'ms Since Last', 'xPOI', 'yPOI'])
 
 font = cv2.FONT_HERSHEY_SIMPLEX
 fontscale = 0.5
@@ -31,16 +31,16 @@ thick = 1
 
 class mouseTracker:
 
-    def __init__(self, triangleSide):
+    def __init__(self,triangleSide):
         # Resolution in mm/pixel (Geomagic touch res ~0.055 mm)
-        self.resolution = 0.025
         self.sideLength = triangleSide
-        self.canvasX = int(self.sideLength/self.resolution)
+        self.canvasX = 750 #int(self.sideLength/self.resolution)
+        self.resolution = self.sideLength/self.canvasX
         self.canvasY = int(mt.sqrt(3)*(self.canvasX/2))
         self.centreX = int(self.canvasX/2)
         self.centreY = int(self.canvasY - mt.tan(mt.pi/6)*(self.canvasX/2))
-        self.radRestrictPix = 17/self.resolution #16 mm max contraction
-        self.radRestrPixSma = 2.25/self.resolution #4 mm minimum contraction
+        self.radRestrictPix = self.canvasX*0.9 #17/self.resolution #16 mm max contraction
+        self.radRestrPixSma = self.canvasX*0.1#2.25/self.resolution #4 mm minimum contraction
         self.mouseEvent = 0
         self.trueMouseEvent = 0
 
@@ -62,11 +62,11 @@ class mouseTracker:
 
         # Give initial values for when class instance is made
         # Cast coordinates as floats for immutability, which allows tracking
-        self.xCoord = float(self.centreX*self.resolution)#
-        self.yCoord = float((mt.tan(mt.pi/6))*(self.centreX*self.resolution))#
+        self.xCoord = float(self.centreX/self.canvasX)#float(self.centreX*self.resolution)#
+        self.yCoord = float((mt.tan(mt.pi/6))*(self.centreX/self.canvasX))#float((mt.tan(mt.pi/6))*(self.centreX*self.resolution))#
         self.zCoord = 0
-        self.xPix = int(self.xCoord/self.resolution)#centreX#750#int(self.xCoord/resolution)#
-        self.yPix = self.canvasY - int(self.yCoord/self.resolution)#centreY#canvasY-5#
+        self.xPix = self.centreX#int(self.xCoord/self.resolution)
+        self.yPix = self.centreY#self.canvasY - int(self.yCoord/self.resolution)
         self.xCallback = self.xPix
         self.yCallback = self.yPix
         self.mouseDown = False
@@ -177,9 +177,9 @@ class mouseTracker:
                         # Find values in terms of triangle geometry, not pixels:
                         self.xPix = self.xCallback
                         self.yPix = self.yCallback
-                        self.xCoord = self.xPix*self.resolution
+                        self.xCoord = self.xPix/self.canvasX #self.xPix*self.resolution
                         yPrime = self.canvasY - self.yPix
-                        self.yCoord = yPrime*self.resolution
+                        self.yCoord = yPrime/self.canvasY # yPrime*self.resolution
                         # Collect data in list to be exported on exit
                         self.logData.append([self.trueMouseEvent] + [self.desX] + [self.desY] + [self.desZ] + [now] + [self.timeDiff] + \
                             [self.xCallback] + [self.yCallback])
@@ -219,8 +219,13 @@ class mouseTracker:
         # cv2.setMouseCallback(self.windowName, self.mouseInfo, pathCoords)
         # If path coordinates not specified, use mouse. Path has priority
         if pathCoords is not None:
+            # Shift input points so that origin is in bottom corner
+            pathCoords[0] = pathCoords[0] + self.sideLength/2
+            pathCoords[1] = pathCoords[1] + mt.tan(mt.pi/6)*self.sideLength/2
+
             self.xCallback = round(pathCoords[0]/self.resolution)
             self.yCallback = self.canvasY - round(pathCoords[1]/self.resolution)
+
             self.desX = round(desiredPoints[0]/self.resolution)*self.resolution
             self.desY = round(desiredPoints[1]/self.resolution)*self.resolution
             self.desZ = round(desiredPoints[2]/self.resolution)*self.resolution
@@ -268,7 +273,7 @@ class mouseTracker:
         numMillis = numMillis*1000
         self.timeDiff = numMillis - self.prevMillis
         self.prevMillis = numMillis
-        return self.xCoord, self.yCoord, self.timeDiff, self.stopFlag
+        return self.xCoord, self.yCoord, self.stopFlag
 
 
 
@@ -276,9 +281,28 @@ class mouseTracker:
         # cv2.waitKey = 27
         self.stopFlag = True
         cv2.destroyAllWindows()
-        with open(fileName, 'a', newline='') as posLog:
-            logger = csv.writer(posLog)
-            logger.writerows(self.logData)
+        # with open(fileName, 'a', newline='') as posLog:
+        #     logger = csv.writer(posLog)
+        #     logger.writerows(self.logData)
         return self.stopFlag
 
+
+
+
+if __name__ == "__main__":
+    triangleSide = 45
+    mouseTrack = mouseTracker(triangleSide)
+    mouseTrack.createTracker()
+    flagStop = False
+    pressL = 0
+    pressR = 0
+    pressT = 0
+    count = 0
+    while flagStop is False:
+        [targetX, targetY, flagStop] = mouseTrack.iterateTracker(pressL, pressR, pressT)
+        # print(targetX, targetY)
+        pressL = 10 + 10*mt.sin(0.01*count)
+        pressR = pressL*mt.cos(0.01*count)
+        pressT = pressL*mt.sin(0.01*count)
+        count = count + 1
 
