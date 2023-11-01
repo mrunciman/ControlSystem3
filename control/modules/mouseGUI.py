@@ -238,6 +238,7 @@ class mouseTracker:
         cv2.polylines(self.bkGd, [self.vts], True, structColour, structThickness)
         # Create a window with a given name
         cv2.namedWindow(self.windowName)
+        cv2.moveWindow(self.windowName, 1000, 0)
         # Bind mouseInfo mouse callback function to window
         cv2.setMouseCallback(self.windowName, self.mouseInfo)
 
