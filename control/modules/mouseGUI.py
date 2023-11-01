@@ -24,25 +24,46 @@ import os
 #     logger1 = csv.writer(posLog1)
 #     logger1.writerow(['Event', 'X', 'Y', 'Z', 'Timestamp', 'ms Since Last', 'xPOI', 'yPOI'])
 
-font = cv2.FONT_HERSHEY_SIMPLEX
-fontscale = 0.5
-colour = (0, 128, 0)
-thick = 1
+font = cv2.FONT_HERSHEY_DUPLEX
+colourText = (0, 128, 0)
+thickText = 1
+
+cableColour = (0, 128, 0)
+cableColourLight = (0, 192, 0)
+cableThickness = 3
+
+maxCircleColour = (220, 220, 220)
+maxThickness = 2
+
+minCircleColour = (192, 192, 192)
+minThickness = 2
+
+structColour = (0, 0, 0)
+structThickness = 3
+
+handleBoxColour = (0, 0, 0)
+handleBoxThickness = 1
+
+colourPOI = (0,0,0)
+thicknessPOI = -1
+
+
 
 class mouseTracker:
 
-    def __init__(self,triangleSide):
+    def __init__(self,triangleSide, minCable, maxCable):
         # Resolution in mm/pixel (Geomagic touch res ~0.055 mm)
         self.sideLength = triangleSide
-        self.canvasX = 750 #int(self.sideLength/self.resolution)
+        self.canvasX = 550 
         self.resolution = self.sideLength/self.canvasX
         self.canvasY = int(mt.sqrt(3)*(self.canvasX/2))
         self.centreX = int(self.canvasX/2)
         self.centreY = int(self.canvasY - mt.tan(mt.pi/6)*(self.canvasX/2))
-        self.radRestrictPix = self.canvasX*0.9 #17/self.resolution #16 mm max contraction
-        self.radRestrPixSma = self.canvasX*0.1#2.25/self.resolution #4 mm minimum contraction
+        self.radRestrictPix = self.canvasX*(maxCable/triangleSide)
+        self.radRestrPixSma = self.canvasX*(minCable/triangleSide)
         self.mouseEvent = 0
         self.trueMouseEvent = 0
+        self.fontscale = 0.5*(self.canvasX/750)
 
         # Create background image
         self.bkGd = np.zeros(( self.canvasY+1, self.canvasX+1, 3), np.uint8)
@@ -55,18 +76,18 @@ class mouseTracker:
         self.vts = np.array([self.vt1, self.vt2, self.vt3])
         self.path = mpltPath.Path(self.vts)
         self.vts = self.vts.reshape((-1,1,2))
-        # Radius of circles that are drawn 
-        self.radius = 3
+        # Radius of end effector circle
+        self.radius = 5
         # Create an 2num+1 pixel side square around current point
-        self.num = 10
+        self.num = 7
 
         # Give initial values for when class instance is made
         # Cast coordinates as floats for immutability, which allows tracking
-        self.xCoord = float(self.centreX/self.canvasX)#float(self.centreX*self.resolution)#
-        self.yCoord = float((mt.tan(mt.pi/6))*(self.centreX/self.canvasX))#float((mt.tan(mt.pi/6))*(self.centreX*self.resolution))#
+        self.xCoord = float(self.centreX/self.canvasX)
+        self.yCoord = float((mt.tan(mt.pi/6))*(self.centreX/self.canvasX))
         self.zCoord = 0
-        self.xPix = self.centreX#int(self.xCoord/self.resolution)
-        self.yPix = self.centreY#self.canvasY - int(self.yCoord/self.resolution)
+        self.xPix = self.centreX
+        self.yPix = self.centreY
         self.xCallback = self.xPix
         self.yCallback = self.yPix
         self.mouseDown = False
@@ -104,6 +125,10 @@ class mouseTracker:
 
     def drawCables(self, pathCoords = None):
         now = time.time()
+        touching = False
+        insideTri = False
+        insideAll = False
+
         # Draw a 5pixel side square around current point
         p1 = [self.xPix - self.num, self.yPix - self.num]
         p2 = [self.xPix + self.num, self.yPix - self.num]
@@ -113,7 +138,7 @@ class mouseTracker:
         neighPath = mpltPath.Path(neighbour)
         neighShape = neighbour.reshape((-1, 1, 2))
         # Draw 'handle' box around EE
-        cv2.polylines(self.bkGd, [neighShape], True, (0, 0, 0), 1)
+        cv2.polylines(self.bkGd, [neighShape], True, handleBoxColour, handleBoxThickness)
         # Check if position is within neighbourhood on down click
         # If inside, move end effector and log.
         touching = neighPath.contains_point([self.xCallback, self.yCallback])
@@ -142,14 +167,15 @@ class mouseTracker:
             # square end effector handle, redraw cables light green
             if insideAll == True:
                 if touching == True:
-                    cv2.line(self.bkGd, (self.vt1[0], self.vt1[1]), (self.xCallback, self.yCallback), (0, 192, 0), 1)
-                    cv2.line(self.bkGd, (self.vt2[0], self.vt2[1]), (self.xCallback, self.yCallback), (0, 192, 0), 1)
-                    cv2.line(self.bkGd, (self.vt3[0], self.vt3[1]), (self.xCallback, self.yCallback), (0, 192, 0), 1)
+                    cv2.line(self.bkGd, (self.vt1[0], self.vt1[1]), (self.xCallback, self.yCallback), cableColourLight , cableThickness)
+                    cv2.line(self.bkGd, (self.vt2[0], self.vt2[1]), (self.xCallback, self.yCallback), cableColourLight, cableThickness)
+                    cv2.line(self.bkGd, (self.vt3[0], self.vt3[1]), (self.xCallback, self.yCallback), cableColourLight, cableThickness)
 
         if pathCoords is not None:
             self.mouseDown = True
             self.touchDown = True
             self.mouseEvent = cv2.EVENT_MOUSEMOVE
+            insideAll = True
 
         if insideAll == True:
             if self.mouseDown == True:
@@ -159,27 +185,28 @@ class mouseTracker:
                         # Reset background
                         self.bkGd[:,:] = (255, 255, 255)
                         # Draw objects:
-                        cv2.circle(self.bkGd, (self.xCallback, self.yCallback), self.radius, (0, 0, 0), -1)
-                        # Entry point triangle
-                        cv2.polylines(self.bkGd, [self.vts], True, (0, 0, 0), 1)
-                        # Draw circles with radius of max reach
-                        cv2.circle(self.bkGd, (self.vt1[0], self.vt1[1]), int(self.radRestrictPix), (192, 192, 192), 1)
-                        cv2.circle(self.bkGd, (self.vt2[0], self.vt2[1]), int(self.radRestrictPix), (192, 192, 192), 1)
-                        cv2.circle(self.bkGd, (self.vt3[0], self.vt3[1]), int(self.radRestrictPix), (192, 192, 192), 1)
                         # Draw circles with radius of min reach
-                        cv2.circle(self.bkGd, (self.vt1[0], self.vt1[1]), int(self.radRestrPixSma), (192, 192, 192), 1)
-                        cv2.circle(self.bkGd, (self.vt2[0], self.vt2[1]), int(self.radRestrPixSma), (192, 192, 192), 1)
-                        cv2.circle(self.bkGd, (self.vt3[0], self.vt3[1]), int(self.radRestrPixSma), (192, 192, 192), 1)
+                        cv2.circle(self.bkGd, (self.vt1[0], self.vt1[1]), int(self.radRestrPixSma), minCircleColour, minThickness)
+                        cv2.circle(self.bkGd, (self.vt2[0], self.vt2[1]), int(self.radRestrPixSma), minCircleColour, minThickness)
+                        cv2.circle(self.bkGd, (self.vt3[0], self.vt3[1]), int(self.radRestrPixSma), minCircleColour, minThickness)
+                        # Draw circles with radius of max reach
+                        cv2.circle(self.bkGd, (self.vt1[0], self.vt1[1]), int(self.radRestrictPix), maxCircleColour, maxThickness)
+                        cv2.circle(self.bkGd, (self.vt2[0], self.vt2[1]), int(self.radRestrictPix), maxCircleColour, maxThickness)
+                        cv2.circle(self.bkGd, (self.vt3[0], self.vt3[1]), int(self.radRestrictPix), maxCircleColour, maxThickness)
                         # Draw cables
-                        cv2.line(self.bkGd, (self.vt1[0], self.vt1[1]), (self.xCallback, self.yCallback), (0, 128, 0), 1)
-                        cv2.line(self.bkGd, (self.vt2[0], self.vt2[1]), (self.xCallback, self.yCallback), (0, 128, 0), 1)
-                        cv2.line(self.bkGd, (self.vt3[0], self.vt3[1]), (self.xCallback, self.yCallback), (0, 128, 0), 1)
+                        cv2.line(self.bkGd, (self.vt1[0], self.vt1[1]), (self.xCallback, self.yCallback), cableColour, cableThickness)
+                        cv2.line(self.bkGd, (self.vt2[0], self.vt2[1]), (self.xCallback, self.yCallback), cableColour, cableThickness)
+                        cv2.line(self.bkGd, (self.vt3[0], self.vt3[1]), (self.xCallback, self.yCallback), cableColour, cableThickness)
+                        # Position of end effector
+                        cv2.circle(self.bkGd, (self.xCallback, self.yCallback), self.radius, colourPOI, thicknessPOI)
+                        # Entry point triangle
+                        cv2.polylines(self.bkGd, [self.vts], True, structColour, structThickness)
                         # Find values in terms of triangle geometry, not pixels:
                         self.xPix = self.xCallback
                         self.yPix = self.yCallback
-                        self.xCoord = self.xPix/self.canvasX #self.xPix*self.resolution
+                        self.xCoord = self.xPix/self.canvasX
                         yPrime = self.canvasY - self.yPix
-                        self.yCoord = yPrime/self.canvasY # yPrime*self.resolution
+                        self.yCoord = yPrime/self.canvasY
                         # Collect data in list to be exported on exit
                         self.logData.append([self.trueMouseEvent] + [self.desX] + [self.desY] + [self.desZ] + [now] + [self.timeDiff] + \
                             [self.xCallback] + [self.yCallback])
@@ -192,21 +219,23 @@ class mouseTracker:
 # Call function to instantiate canvas and set callback function
     def createTracker(self):
         # Create a blank image, a window and bind the callback function to window
-        cv2.polylines(self.bkGd, [self.vts], True, (0, 0, 0), 1)
-        # Initial position of end effector (25, 14.435)
-        cv2.circle(self.bkGd, (self.xPix, self.yPix), self.radius, (0, 0, 0), -1)
-        # Draw circles with radius equal to max reach
-        cv2.circle(self.bkGd, (self.vt1[0], self.vt1[1]), int(self.radRestrictPix), (192, 192, 192), 1)
-        cv2.circle(self.bkGd, (self.vt2[0], self.vt2[1]), int(self.radRestrictPix), (192, 192, 192), 1)
-        cv2.circle(self.bkGd, (self.vt3[0], self.vt3[1]), int(self.radRestrictPix), (192, 192, 192), 1)
+
         # Draw circles with radius of min reach
-        cv2.circle(self.bkGd, (self.vt1[0], self.vt1[1]), int(self.radRestrPixSma), (192, 192, 192), 1)
-        cv2.circle(self.bkGd, (self.vt2[0], self.vt2[1]), int(self.radRestrPixSma), (192, 192, 192), 1)
-        cv2.circle(self.bkGd, (self.vt3[0], self.vt3[1]), int(self.radRestrPixSma), (192, 192, 192), 1)
+        cv2.circle(self.bkGd, (self.vt1[0], self.vt1[1]), int(self.radRestrPixSma), minCircleColour, minThickness)
+        cv2.circle(self.bkGd, (self.vt2[0], self.vt2[1]), int(self.radRestrPixSma), minCircleColour, minThickness)
+        cv2.circle(self.bkGd, (self.vt3[0], self.vt3[1]), int(self.radRestrPixSma), minCircleColour, minThickness)
+        # Draw circles with radius equal to max reach
+        cv2.circle(self.bkGd, (self.vt1[0], self.vt1[1]), int(self.radRestrictPix), maxCircleColour, maxThickness)
+        cv2.circle(self.bkGd, (self.vt2[0], self.vt2[1]), int(self.radRestrictPix), maxCircleColour, maxThickness)
+        cv2.circle(self.bkGd, (self.vt3[0], self.vt3[1]), int(self.radRestrictPix), maxCircleColour, maxThickness)
         # Draw cables in intial position
-        cv2.line(self.bkGd, (self.vt1[0], self.vt1[1]), (self.xPix, self.yPix), (0, 128, 0), 1)
-        cv2.line(self.bkGd, (self.vt2[0], self.vt2[1]), (self.xPix, self.yPix), (0, 128, 0), 1)
-        cv2.line(self.bkGd, (self.vt3[0], self.vt3[1]), (self.xPix, self.yPix), (0, 128, 0), 1)
+        cv2.line(self.bkGd, (self.vt1[0], self.vt1[1]), (self.xPix, self.yPix), cableColour, cableThickness)
+        cv2.line(self.bkGd, (self.vt2[0], self.vt2[1]), (self.xPix, self.yPix), cableColour, cableThickness)
+        cv2.line(self.bkGd, (self.vt3[0], self.vt3[1]), (self.xPix, self.yPix), cableColour, cableThickness)
+        # Initial position of end effector (25, 14.435)
+        cv2.circle(self.bkGd, (self.xPix, self.yPix), self.radius, colourPOI, thicknessPOI)
+        # Entry point triangle
+        cv2.polylines(self.bkGd, [self.vts], True, structColour, structThickness)
         # Create a window with a given name
         cv2.namedWindow(self.windowName)
         # Bind mouseInfo mouse callback function to window
@@ -245,23 +274,23 @@ class mouseTracker:
         P_LHS_Text = "LHS Pressure / mbar = {:.2f}".format(LHSPress)
         P_RHS_Text = "RHS Pressure / mbar = {:.2f}".format(RHSPress)
         P_TOP_Text = "TOP Pressure / mbar = {:.2f}".format(TOPPress)
-        pPlaceLHS = (15,25)
-        pPlaceRHS = (15,45)
-        pPlaceTOP = (15,65)
+        pPlaceLHS = (15, 25)
+        pPlaceRHS = (15, int(25 + 20*(self.canvasX/750)))
+        pPlaceTOP = (15, int(25 + 40*(self.canvasX/750)))
         pressPlEnd = (int(self.canvasX*0.4), int(self.canvasY/6))
         cv2.rectangle(self.bkGd, (0,0), pressPlEnd, (255,255,255), -1)
-        cv2.putText(self.bkGd, P_LHS_Text, pPlaceLHS, font, fontscale, colour, thick, cv2.LINE_AA)
-        cv2.putText(self.bkGd, P_RHS_Text, pPlaceRHS, font, fontscale, colour, thick, cv2.LINE_AA)
-        cv2.putText(self.bkGd, P_TOP_Text, pPlaceTOP, font, fontscale, colour, thick, cv2.LINE_AA)
+        cv2.putText(self.bkGd, P_LHS_Text, pPlaceLHS, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
+        cv2.putText(self.bkGd, P_RHS_Text, pPlaceRHS, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
+        cv2.putText(self.bkGd, P_TOP_Text, pPlaceTOP, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
 
         # Redraw position text if moving
         if self.mouseEvent == 0:
             posText = "({:.2f}, {:.2f})".format(self.xCoord, self.yCoord)
-            placeEE = (self.xPix - 60, self.yPix - 15)
-            placeEERec = (self.xPix - 60, self.yPix - 30) 
-            placeEEEnd = (self.xPix + 60, self.yPix - 12)
+            placeEE = (self.xPix - int(50*(self.canvasX/750)), self.yPix - int(15*(self.canvasX/750)))
+            placeEERec = (self.xPix - int(50*(self.canvasX/750)), self.yPix - int(30*(self.canvasX/750))) 
+            placeEEEnd = (self.xPix + int(50*(self.canvasX/750)), self.yPix - int(12*(self.canvasX/750)))
             cv2.rectangle(self.bkGd, placeEERec, placeEEEnd, (255, 255, 255), -1)
-            cv2.putText(self.bkGd, posText, placeEE, font, fontscale, colour, thick, cv2.LINE_AA)
+            cv2.putText(self.bkGd, posText, placeEE, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
         # Display image
         cv2.imshow(self.windowName, self.bkGd)
         # Close on Esc key
@@ -291,7 +320,9 @@ class mouseTracker:
 
 if __name__ == "__main__":
     triangleSide = 45
-    mouseTrack = mouseTracker(triangleSide)
+    minCable = 10
+    maxCable = 40
+    mouseTrack = mouseTracker(triangleSide, minCable, maxCable)
     mouseTrack.createTracker()
     flagStop = False
     pressL = 0
