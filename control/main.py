@@ -24,6 +24,7 @@ from modules import optiStream
 from modules import omniStream
 from modules import clusterData
 from modules import threadArdComms
+from modules import mouseGUI
 from visual_navigation.cam_pose import PoseEstimator
 
 
@@ -59,6 +60,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     medPressR = kinematics.forceDetector()
     medPressT = kinematics.forceDetector()
     medPressP = kinematics.forceDetector()
+    mouseTrack = mouseGUI.mouseTracker(sideLength, kineSolve.MIN_CABLE, kineSolve.MAX_CABLE_DIST)
 
     SAMP_FREQ = 1/kineSolve.TIMESTEP
     CALIBRATION_MODE = 0
@@ -135,7 +137,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     # Try to connect to phantom omni. If not connected, use pre-determined coords.
     # if usePathFile:
     if not omni_connected:
-        with open('control/paths/gridPath 2023-03-03 16-29-08 centre 15-8.66025 30x15.0grid 0.048x1.5spacing.csv', newline = '') as csvPath:
+        with open('control/paths/gridPath 2022-05-12 11-04-35 10x10grid 1x1spacing.csv', newline = '') as csvPath:
             coordReader = csv.reader(csvPath)
             for row in coordReader:
                 xPath.append(float(row[0]))
@@ -389,12 +391,13 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
         ################################################################
         # Begin main loop
+        mouseTrack.createTracker()
         while(flagStop == False):
 
             if not omni_connected:
             # CHOOSE WHICH BEHAVIOUR TO EXECUTE
                 # Gross raster until end of path
-                if pathCounter >= len(xPath)/9:
+                if pathCounter >= len(xPath):
                     break               
                 else:
                     XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
@@ -412,6 +415,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             # XYZPathCoords are desired coords in 3D.
             [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
             # [targetXideal, targetYideal, targetOpP] = 0, 0, 10 # HOMING ONLY  [0, -13.47, 50.4]
+            [targetX_mouse, targetY_mouse, flagStop] = mouseTrack.iterateTracker(pressL, pressR, pressT, [targetXideal, targetYideal], XYZPathCoords)
 
             # if not omni_connected: 
             #     [targetXideal, targetYideal, targetOpP] = 0, 0, 10
@@ -564,7 +568,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             prevTimeR = timeR
             prevTimeT = timeT
             prevPathCounter = pathCounter
-            # pathCounter += 1
+            pathCounter += 1
             # if pumpDataUpdated: pathCounter += 1
 
             # Stop operation if Stop button hit
@@ -650,6 +654,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 # phntmOmni.omniClose()
                 classSettings.socketOmni = phntmOmni.sock
 
+
+            mouseTrack.closeTracker()
 
         except TypeError as exTE:
             tb_linesTE = traceback.format_exception(exTE.__class__, exTE, exTE.__traceback__)
@@ -1023,6 +1029,7 @@ rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass, button
 sv_ttk.set_theme("dark")
 
 #Begin Tk loop
+# rootWindow.attributes('-topmost',True)
 rootWindow.mainloop()
 
 #TODO close threads and disconnect properly if window closed

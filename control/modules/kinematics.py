@@ -52,7 +52,7 @@ class kineSolver:
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
             mt.cos((mt.pi/2*self.FACT_ANG))*mt.sin((mt.pi/2*self.FACT_ANG)))/((mt.pi/2*self.FACT_ANG)**2)
-        print(self.MAX_VOL)
+        # print(self.MAX_VOL)
         self.DEAD_VOL = self.CAL_FACTOR*self.MAX_VOL
         self.MAX_VOL_RATE = 1000 # mm^3/s
         
@@ -141,6 +141,8 @@ class kineSolver:
                                        [self.RAD_END*mt.cos(330 * mt.pi/180), self.RAD_END*mt.sin(330 * mt.pi/180), 0],\
                                        [self.RAD_END*mt.cos(90 * mt.pi/180),  self.RAD_END*mt.sin(90 * mt.pi/180),  0]])
         self.ATTACH_POINTS = np.transpose(self.ATTACH_POINTS)
+
+        self.attach_points_rot = self.ATTACH_POINTS
         # Z axis out of screen - conssitent with 'master' controller
 
         # Entry point array - global frame defined at bottom lhs corner (from behind instrument)
@@ -181,7 +183,7 @@ class kineSolver:
         # self.L_c = (self.MAX_CABLE_DIST - self.DIST_TO_CENT)/self.MECH_ADV
         L_c_centre = 20.19
         self.L_c = self.STROKE * ((self.RANGE - (L_c_centre - self.MIN_CABLE))/self.RANGE)
-        print("Contraction at centre: ", self.L_c)
+        # print("Contraction at centre: ", self.L_c)
         # Store current value of contraction 
         self.cL_c = self.L_c
         self.MIN_CONTRACT = 0.1
@@ -251,6 +253,27 @@ class kineSolver:
             # print("root_theta: ", root_theta)
             theta_approx = float(root_theta[root_theta > 0])
             # print("theta_approx: ", theta_approx)
+
+            rotOutOfPlane_yaw = np.array([[mt.cos(ang_around_shaft), -mt.sin(ang_around_shaft), 0],\
+                                          [mt.sin(ang_around_shaft),  mt.cos(ang_around_shaft), 0],\
+                                          [0,                         0,                        1]])
+            
+            rotOutOfPlane_pitch = np.array([[ mt.cos(theta_approx), 0, mt.sin(theta_approx)],\
+                                            [ 0, 1, 0],\
+                                            [-mt.sin(theta_approx), 0, mt.cos(theta_approx)]])
+            
+            rotOutOfPlane_roll = np.array([[1, 0, 0],\
+                                            [0, mt.cos(self.ALPHA_YAW), -mt.sin(self.ALPHA_YAW)],\
+                                            [0, mt.sin(self.ALPHA_YAW),  mt.cos(self.ALPHA_YAW)]])
+            
+            rotCombined = np.dot(rotOutOfPlane_yaw, rotOutOfPlane_pitch)
+
+
+            self.attach_points_rot = np.dot(rotCombined, self.ATTACH_POINTS)
+            print(self.attach_points_rot)
+
+
+
 
             # Continuum joint radius
             cont_rad = self.CONT_ARC_S/theta_approx
