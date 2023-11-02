@@ -174,7 +174,7 @@ class omniStreamer():
 
         offsetX = (minX + maxX)/2
         offsetY = (minY + maxY)/2 # -45.5
-        offsetZ = (maxZ) # Z will go from zero to rangeWorkspaceZ
+        offsetZ = (minZ + maxZ) 
 
         # print(self.omniX, self.omniY, self.omniZ)
 
@@ -184,7 +184,7 @@ class omniStreamer():
         # y is -ve down and +ve up                   vertical
         yUnit = (self.omniY - offsetY)/(rangeYOmni)
         # z is -ve towards body, +ve towards user    depth
-        zUnit = (self.omniZ - offsetZ)/(rangeZOmni)
+        zUnit = (self.omniZ - offsetZ)/(rangeZOmni) - 0.2
         # print(xUnit, yUnit, zUnit)
 
         sensX = 1.5
