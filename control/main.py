@@ -36,7 +36,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     minPress = -15
     deactivateButtons(dictButtons)
     
-    [useVisionFeedback, visionFeedFlag, startWithCalibration, useOmni, socketOmni, useOptitrack, useFibrebot, useMassSpec, usePathFile, flagStop]\
+    [useVisionFeedback, visionFeedFlag, startWithCalibration, useOmni, socketOmni, useOptitrack, useFibrebot, useMassSpec, usePathFile, goHome, flagStop]\
         = list(vars(classSettings).values())
     
     print("Settings: ", vars(classSettings))
@@ -137,7 +137,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     # Try to connect to phantom omni. If not connected, use pre-determined coords.
     # if usePathFile:
     if not omni_connected:
-        with open('control/paths/gridPath 2022-05-12 11-04-35 10x10grid 1x1spacing.csv', newline = '') as csvPath:
+        with open('control/paths/gridPath 2023-03-03 16-29-08 centre 15-8.66025 30x15.0grid 0.048x1.5spacing.csv', newline = '') as csvPath:
             coordReader = csv.reader(csvPath)
             for row in coordReader:
                 xPath.append(float(row[0]))
@@ -163,6 +163,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     targetY = XYZPathCoords[1]
     targetZ = XYZPathCoords[2]
 
+
+    HOMING_POSITION = [0, 0, 10]
 
     # Fibre related variables
     fibreDone = False
@@ -213,6 +215,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
     # Set initial pressure and calibration variables
     pressL, pressR, pressT, pressP = 0, 0, 0, 0
+    pressList = [pressL, pressR, pressT, regulatorSensor]
     prevPressL, prevPressR, prevPressT, prevPressP = 0, 0, 0, 0
     pressLMed, pressRMed, pressTMed, pressPMed, pressAMed = 0, 0, 0, 0, 0
     timeL, timeR, timeT, timeP = 0, 0, 0, 0
@@ -391,7 +394,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
         ################################################################
         # Begin main loop
-        mouseTrack.createTracker()
+        mouseTrack.createTracker(kineSolve.attach_points_rot)
         while(flagStop == False):
 
             if not omni_connected:
@@ -411,16 +414,14 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 XYZPathCoords = [xMap, yMap, zMap]
                 # print(XYZPathCoords)
             
+            if classSettings.goToHome or not omni_connected:
+                XYZPathCoords = HOMING_POSITION
+
             # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
             # XYZPathCoords are desired coords in 3D.
             [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
-            # [targetXideal, targetYideal, targetOpP] = 0, 0, 10 # HOMING ONLY  [0, -13.47, 50.4]
-            [targetX_mouse, targetY_mouse, flagStop] = mouseTrack.iterateTracker(pressL, pressR, pressT, [targetXideal, targetYideal], XYZPathCoords)
-
-            # if not omni_connected: 
-            #     [targetXideal, targetYideal, targetOpP] = 0, 0, 10
-                # print("Haptic not connected")
-            # print("Open loop : ", targetXideal, targetYideal, targetOpP) 
+            POIcoords = [targetXideal, targetYideal]
+            [targetX_mouse, targetY_mouse, flagStop] = mouseTrack.iterateTracker(pressList, kineSolve.attach_points_rot, POIcoords, XYZPathCoords)
 
             # Return target cable lengths at target coords and jacobian at current coords
             [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
@@ -436,10 +437,6 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             targetR = scaleTargR 
             targetT = scaleTargT
             targetP = targetOpP
-            if not omni_connected: 
-                [targetL, targetR, targetT, targetP] = 20.18931022920578, 20.18931022920578, 20.189310229205777, 10 # Homing
-            # [targetL, targetR, targetT, targetP] = 20.18931022920578, 20.18931022920578, 20.189310229205777, 10 # Homing
-
 
             tStepP = int(targetP*kineSolve.STEPS_PER_MM_PRI)
             tStepP += targDir*antiHystSteps
@@ -471,20 +468,6 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             desiredThetaT = kineSolve.volToAngle(tVolT_Scaled)
             desiredThetaP = 360.0*targetOpP/kineSolve.LEAD
             # print(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, "\n")
-
-            # # CALCULATE FREQS FROM VALID STEP NUMBER
-            # # tStepL is target pump position, cStepL is current, speed controlled position.
-            # fStepL = (tStepL - cStepL)*SAMP_FREQ
-            # fStepR = (tStepR - cStepR)*SAMP_FREQ
-            # fStepT = (tStepT - cStepT)*SAMP_FREQ
-            # fStepP = (tStepP - cStepP)*SAMP_FREQ
-            # [LStep, RStep, TStep, PStep] = kineSolve.freqScale(fStepL, fStepR, fStepT, fStepP)
-            # # RStep = dStepR scaled for speed (w rounding differences)
-            # StepNoL += LStep
-            # StepNoR += RStep 
-            # StepNoT += TStep
-            # StepNoP += PStep
-            # print(StepNoL, StepNoR, StepNoT, StepNoP)
 
             # Log desired positions
             if pumpDataUpdated:
@@ -684,6 +667,7 @@ class controlSettings:
         self.useFibrebot = False
         self.useMassSpec = False
         self.usePathFile = False
+        self.goToHome = False
         self.stopFlag = False
 
 
@@ -729,7 +713,7 @@ def activateButtons(dictButtons, stopFlag):
 
 def deactivateButtons(dictButtons):
     for b in dictButtons:
-        if b != "stopButton":
+        if b not in ["stopButton", "homeButton"]:
             dictButtons[b].config(state = 'disabled')
 
 
@@ -858,6 +842,13 @@ visButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonO
 buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 # visButton.config(command = (lambda s, f, b : toggleButton(s, f, b))(settingsClass, attrStr, buttonObj))
 
+homeButton = Button(contentFrame, text = "Home Position")
+attrStr = 'goToHome'
+buttonObj = homeButton
+buttonDict.update({"homeButton" : buttonObj})
+homeButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+
 
 
 #Start and stop buttons
@@ -875,7 +866,6 @@ buttonObj = stopButton
 resetButton.config(command = partial(resetFunction, settingsClass, buttonObj, moveButton))
 buttonObj = resetButton
 buttonDict.update({"resetButton" : buttonObj})
-
 
 
 
@@ -991,6 +981,8 @@ for b in buttonDict:
     else:
         buttonDict[b].grid(column = columnNo, row = rowZerothColumn + 1, pady = yPadding, padx = xPadding)
         columnNo = columnNo + 1
+# columnNo = 0
+# homeButton.grid(column = columnNo, row = rowZerothColumn + 2, pady = yPadding, padx = xPadding)
 moveButtonRow = rowZerothColumn
 
 columnNo = 3
@@ -1017,7 +1009,7 @@ for pL in pressureLabels:
 columnNo = 3
 for p in pressureDict:
     if "pressure" in p:
-        pressureDict[p].grid(column = columnNo, row = moveButtonRow, pady = yPadding, padx = xPadding)
+        pressureDict[p].grid(column = columnNo, row = moveButtonRow - 1, pady = yPadding, padx = xPadding)
         columnNo = columnNo + 1
 
 

@@ -212,7 +212,7 @@ class kineSolver:
         self.N_PLANE = self.N_CROSS/la.norm(self.N_CROSS)
 
         self.SHAFT_LENGTH_UJ = 45 # mm
-        self.SHAFT_LENGTH = self.SHAFT_LENGTH_UJ - self.CONT_ARC_S # mm     SHAFT_LENGTH_UJ - CONT_ARC
+        self.SHAFT_LENGTH = self.SHAFT_LENGTH_UJ - self.CONT_ARC_S # mm
 
         # Set limits on shaft extension
         # self.minShaftExt = self.SHAFT_LENGTH + 1
@@ -227,12 +227,12 @@ class kineSolver:
     def intersect(self, tDesX, tDesY, tExt):
         # CONTINUUM JOINT
         # Transform coords to reference base of continuum joint, not parallel mech centre
-        tDesZ = tExt + self.LEVER_BASE_Z
+        tZShifted = tExt - self.LEVER_BASE_Z # Use vertically shifted value to keep y_bend_plane positive
         #Desired point P_des
-        P_des = np.array([tDesX, tDesY, tDesZ])
+        P_des = np.array([tDesX, tDesY, tExt]) # Where parallel mechanism is at z = 0
         # print("P_des: ", P_des)
 
-        # Project desired point onto plane coincidnet with lever base point and 
+        # Project desired point onto plane coincident with lever base point and 
         # parallel to entry point plane
         proj_lever_base = [tDesX, tDesY, self.LEVER_POINT[2]]
         # Distance to centre of projected point
@@ -242,7 +242,7 @@ class kineSolver:
         # Else use universal joint model
         if (proj_rad > self.MIN_CONT_RAD): 
             x_bend_plane = proj_rad
-            y_bend_plane = tDesZ
+            y_bend_plane = tZShifted # Use vertically shifted value to keep y_bend_plane positive
             # angle between x axis at base point and projected point
             ang_around_shaft = mt.atan2(tDesY - self.LEVER_POINT[1], tDesX - self.LEVER_POINT[0])
 
@@ -252,27 +252,24 @@ class kineSolver:
             root_theta = np.roots(theta_poly)
             # print("root_theta: ", root_theta)
             theta_approx = float(root_theta[root_theta > 0])
+            # print("around_shaft: ", ang_around_shaft)
             # print("theta_approx: ", theta_approx)
 
             rotOutOfPlane_yaw = np.array([[mt.cos(ang_around_shaft), -mt.sin(ang_around_shaft), 0],\
-                                          [mt.sin(ang_around_shaft),  mt.cos(ang_around_shaft), 0],\
-                                          [0,                         0,                        1]])
+                                            [mt.sin(ang_around_shaft),  mt.cos(ang_around_shaft), 0],\
+                                            [0,                         0,                        1]])
             
             rotOutOfPlane_pitch = np.array([[ mt.cos(theta_approx), 0, mt.sin(theta_approx)],\
                                             [ 0, 1, 0],\
                                             [-mt.sin(theta_approx), 0, mt.cos(theta_approx)]])
             
-            rotOutOfPlane_roll = np.array([[1, 0, 0],\
-                                            [0, mt.cos(self.ALPHA_YAW), -mt.sin(self.ALPHA_YAW)],\
-                                            [0, mt.sin(self.ALPHA_YAW),  mt.cos(self.ALPHA_YAW)]])
+            rotOutOfPlane_yawRev = np.array([[mt.cos(-ang_around_shaft), -mt.sin(-ang_around_shaft), 0],\
+                                        [mt.sin(-ang_around_shaft),  mt.cos(-ang_around_shaft), 0],\
+                                        [0,                         0,                        1]])
             
-            rotCombined = np.dot(rotOutOfPlane_yaw, rotOutOfPlane_pitch)
-
-
-            self.attach_points_rot = np.dot(rotCombined, self.ATTACH_POINTS)
-            print(self.attach_points_rot)
-
-
+            attach_points_int0 = np.dot(rotOutOfPlane_yaw, self.ATTACH_POINTS)
+            attach_points_int1 = np.dot(rotOutOfPlane_pitch, attach_points_int0)
+            self.attach_points_rot = np.dot(rotOutOfPlane_yawRev, attach_points_int1)
 
 
             # Continuum joint radius
@@ -295,7 +292,8 @@ class kineSolver:
             # This is tip of continuum joint
             conty_glob_0 = np.matmul(cont_Rz, conty)
             # print("Zero ", conty_glob_0)
-            conty_glob = np.transpose(conty_glob_0) + self.LEVER_POINT
+            # Shift tip coords back in z direction as parallel mech is on z = 0 plane 
+            conty_glob = np.transpose(conty_glob_0) + self.LEVER_POINT 
             # print("Glob: ", conty_glob) # SHOULD BE 3 X 1
 
             # Now find distance between this point and desired point,
@@ -347,8 +345,8 @@ class kineSolver:
         targPos = np.array([[tX], [tY], [0]])
 
         # Find cable attachment points in global frame
-        currPos_GI = np.dot(self.ROT_GLOB_INST, self.ATTACH_POINTS) + currPos
-        targPos_GI = np.dot(self.ROT_GLOB_INST, self.ATTACH_POINTS) + targPos
+        currPos_GI = np.dot(self.ROT_GLOB_INST, self.attach_points_rot) + currPos
+        targPos_GI = np.dot(self.ROT_GLOB_INST, self.attach_points_rot) + targPos
         # print(currPos_GI)
         
         # Result is 3x3 matrix of vectors in global frame pointing from attachment points to

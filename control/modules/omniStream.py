@@ -187,8 +187,8 @@ class omniStreamer():
         zUnit = (self.omniZ - offsetZ)/(rangeZOmni) - 0.2
         # print(xUnit, yUnit, zUnit)
 
-        sensX = 1.5
-        sensY = 1.5
+        sensX = 2
+        sensY = 2
         sensZ = 1.5
 
         signX = -1
@@ -201,7 +201,7 @@ class omniStreamer():
 
         centreWorkspaceX = 0
         centreWorkspaceY = 2.6263
-        centreWorkspaceZ = 43.25
+        centreWorkspaceZ = 20# 43.25
 
 
         # x is +ve to the left and -ve to the right  horizontal
@@ -213,7 +213,7 @@ class omniStreamer():
         # print(xMapped, yMapped, zMapped)
         # print()
 
-        #TODO Add rotation of coordinates after mapping
+        # Add rotation of coordinates after mapping
         mapMatrix = np.array([  [xMapped],\
                                 [yMapped],\
                                 [zMapped]])
