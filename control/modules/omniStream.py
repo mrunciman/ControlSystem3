@@ -31,6 +31,10 @@ class omniStreamer():
         self.relative = "modules\Transformation_And_Forces.exe"
         self.fileName = os.path.join(self.parent, self.relative).replace('\\', '/') # For subprocess it looks like we need forward slashes in path
 
+        self.alpha = 0
+        self.beta = 0
+        self.gamma = 0
+
     def connectOmni(self, noSubProcess):
         # problem with this was that it waited for program to terminate, which never happens, but stdin=None, stdin=subprocess.DEVNULL, stdout=None, stderr=None argumetns sorted this
         # print(fileName)
@@ -124,6 +128,13 @@ class omniStreamer():
                                             [fltMatrix[1], fltMatrix[5], fltMatrix[9]],\
                                             [fltMatrix[2], fltMatrix[6], fltMatrix[10]]])
                     
+                    self.alpha=np.arctan2(self.rotMatrix[0,1], self.rotMatrix[0,0]) / np.pi * 180
+
+                    self.beta= - np.arctan2(-self.rotMatrix[1,2], self.rotMatrix[2,2]) / np.pi * 180
+
+                    self.gamma= - np.arctan2(-self.rotMatrix[0, 2], np.sqrt(self.rotMatrix[1, 2] * self.rotMatrix[1,2] + self.rotMatrix[2, 2] * self.rotMatrix[2, 2])) / np.pi * 180
+
+
                     self.manualTimeoutCounter = 0
                     return 1
 
@@ -263,10 +274,11 @@ if __name__ == "__main__":
     count = 0
     limit = 400
     forces = [0, 0, 0]
+    mag = 5
     while (count < limit):
 
         # Set forces to send to device
-        # forces = [2*math.sin(0.1*count), 2*math.cos(0.1*count), 2*math.cos(0.1*count)]
+        # forces = [mag*math.sin(0.1*count), mag*math.cos(0.1*count), mag*math.cos(0.1*count)]
         # Both send forces and receive pose information
         # print(phntmOmni.omniButton)
         omniDataReceived = phntmOmni.getOmniCoords(forces)
@@ -274,9 +286,10 @@ if __name__ == "__main__":
         # if omniDataReceived == 2: break
         [xMap, yMap, zMap] = phntmOmni.omniMap()
         # print(xMap, yMap, zMap)
+        # print(phntmOmni.alpha, phntmOmni.beta, phntmOmni.gamma)
         # print(phntmOmni.tMatrix)
         # print(phntmOmni.omniServer.stdout)
-        time.sleep(0.5)
+        time.sleep(0.1)
         count += 1
         # print(math.sin(count))
     phntmOmni.omniClose()
