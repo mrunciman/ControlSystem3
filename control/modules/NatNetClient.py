@@ -19,8 +19,12 @@ import struct
 from threading import Thread
 import copy
 import time
-from modules import DataDescriptions
-from modules import MoCapData
+try:
+    from modules import DataDescriptions
+    from modules import MoCapData
+except:
+    import DataDescriptions
+    import MoCapData
 
 def trace( *args ):
     # uncomment the one you want to use

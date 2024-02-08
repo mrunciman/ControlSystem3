@@ -4,9 +4,14 @@ import time
 import sys
 import numpy as np
 from numpy import linalg as la
-from modules import NatNetClient
-from modules import DataDescriptions
-from modules import MoCapData
+try: 
+    from modules import NatNetClient
+    from modules import DataDescriptions
+    from modules import MoCapData
+except:
+    import NatNetClient
+    import DataDescriptions
+    import MoCapData
 
 # location = os.path.dirname(__file__)
 # parent = os.path.dirname(location)
