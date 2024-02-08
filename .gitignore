@@ -2,5 +2,6 @@ control/__pycache__/
 control/modules/__pycache__/
 control/logs/
 venv/
+venv-deploy/
 control/arduino/SyringeControl/.vscode/
 .vscode/
