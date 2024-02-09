@@ -1,3 +1,4 @@
+venv-deploy/
 control/__pycache__/
 control/modules/__pycache__/**
 **__pycache__/
@@ -15,3 +16,5 @@ control/modules/__pycache__/arduinoInterface.cpython-38.pyc
 control/modules/__pycache__/kinematics.cpython-38.pyc
 control/modules/__pycache__/pumpLog.cpython-38.pyc
 nodetect.png
+control/modules/__pycache__/__init__.cpython-38.pyc
+control/modules/__pycache__/mouseGUI.cpython-38.pyc

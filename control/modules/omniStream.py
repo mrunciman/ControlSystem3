@@ -39,8 +39,15 @@ class omniStreamer():
         # problem with this was that it waited for program to terminate, which never happens, but stdin=None, stdin=subprocess.DEVNULL, stdout=None, stderr=None argumetns sorted this
         # print(fileName)
         if not noSubProcess:
-            self.omniServer = subprocess.run(self.fileName,\
-                check = True, capture_output = False, stdin = subprocess.DEVNULL, stdout = None, stderr = None)
+            # self.omniServer = subprocess.run(self.fileName,\
+            #     check = True, capture_output = False, stdin = subprocess.DEVNULL, stdout = None, stderr = None)
+
+            self.omniServer = subprocess.Popen(self.fileName, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+
+        #     with subprocess.Popen(self.fileName, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL) as subPopen:
+        #         self.omniServer = subPopen
+        #         print("Context manager")
+
         try:
             if not noSubProcess:
                 self.sock.connect(self.server_addr)
@@ -285,7 +292,7 @@ if __name__ == "__main__":
 
         # if omniDataReceived == 2: break
         [xMap, yMap, zMap] = phntmOmni.omniMap()
-        # print(xMap, yMap, zMap)
+        print(xMap, yMap, zMap)
         # print(phntmOmni.alpha, phntmOmni.beta, phntmOmni.gamma)
         # print(phntmOmni.tMatrix)
         # print(phntmOmni.omniServer.stdout)
@@ -293,3 +300,4 @@ if __name__ == "__main__":
         count += 1
         # print(math.sin(count))
     phntmOmni.omniClose()
+    phntmOmni.omniServer.kill()

@@ -137,7 +137,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     # Try to connect to phantom omni. If not connected, use pre-determined coords.
     # if usePathFile:
     if not omni_connected:
-        with open('control/paths/gridPath 2023-03-03 16-29-08 centre 15-8.66025 30x15.0grid 0.048x1.5spacing.csv', newline = '') as csvPath:
+        with open('C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime/paths/gridPath 2023-03-03 16-29-08 centre 15-8.66025 30x15.0grid 0.048x1.5spacing.csv', newline = '') as csvPath:
             coordReader = csv.reader(csvPath)
             for row in coordReader:
                 xPath.append(float(row[0]))
@@ -635,6 +635,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
             if omni_connected:
                 # phntmOmni.omniClose()
+                phntmOmni.omniServer.kill()
                 classSettings.socketOmni = phntmOmni.sock
 
 
