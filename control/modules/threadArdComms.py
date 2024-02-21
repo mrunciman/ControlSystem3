@@ -8,6 +8,7 @@ import time
 startByte = "<"
 endByte = ">"
 CORRECT_LENGTH = 13
+# CORRECT_LENGTH = 17
 
 CALIBRATION_MODE = 0
 HOLD_MODE = 1
@@ -31,6 +32,7 @@ class ardThreader:
         self.pressData = [0, 0, 0, 0, 0]
         self.ardTime = 0
         self.calibrationFlag = 'N'
+        self.loadData = [0.0, 0.0, 0.0, 0.0]
         # self.calibrationByte = 0
 
     def startThreader(self):
@@ -179,6 +181,7 @@ class LocalReaderThread(threading.Thread):
         self.positionD = [0.0, 0.0, 0.0, 0.0]
         self.pressD = [0, 0, 0, 0, 0]
         self.ardT = 0
+        self.loadD = [0.0, 0.0, 0.0, 0.0]
 
     def stop(self):
         """Stop the reader thread"""
@@ -339,6 +342,8 @@ class SerialReaderProtocolLine(LineReader):
 
             self.transport.caliFlag = stepPress[11]
             # print(self.transport.caliFlag)
+
+            # self.transport.loadD = [float(z) for z in stepPress[11:15]]
 
             # self.transport.caliByte = int(stepPress[12]).to_bytes(1, 'big')
             # print(self.transport.caliByte)
