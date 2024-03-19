@@ -28,7 +28,7 @@ class omniStreamer():
 
         self.location = os.path.dirname(__file__)
         self.parent = os.path.dirname(self.location)
-        self.relative = "modules\Transformation_And_Forces.exe"
+        self.relative = "modules/Transformation_And_Forces.exe"
         self.fileName = os.path.join(self.parent, self.relative).replace('\\', '/') # For subprocess it looks like we need forward slashes in path
 
         self.alpha = 0
@@ -39,10 +39,13 @@ class omniStreamer():
         # problem with this was that it waited for program to terminate, which never happens, but stdin=None, stdin=subprocess.DEVNULL, stdout=None, stderr=None argumetns sorted this
         # print(fileName)
         if not noSubProcess:
-            # self.omniServer = subprocess.run(self.fileName,\
-            #     check = True, capture_output = False, stdin = subprocess.DEVNULL, stdout = None, stderr = None)
-
-            self.omniServer = subprocess.Popen(self.fileName, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            # self.omniServer = subprocess.run([self.fileName],\
+            #     capture_output = False, check = True, stdout=subprocess.DEVNULL, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            # with subprocess.run(self.fileName, check = True, capture_output = False, stdin=subprocess.DEVNULL,  stderr=subprocess.DEVNULL) as subP:
+            #     self.omniServer = subP    
+            
+            self.omniServer = subprocess.Popen(self.fileName, stdin=None, stdout=subprocess.DEVNULL)
 
         #     with subprocess.Popen(self.fileName, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL) as subPopen:
         #         self.omniServer = subPopen
@@ -53,7 +56,7 @@ class omniStreamer():
                 self.sock.connect(self.server_addr)
             # self.sock.setblocking(0)
             self.sock.settimeout(0.01)
-            # print("Connected to {:s}".format(repr(self.server_addr)))
+            print("Connected to {:s}".format(repr(self.server_addr)))
             # print(self.sock)
             return self.checkConnection()
         except AttributeError as ae:
@@ -279,7 +282,7 @@ if __name__ == "__main__":
     omni_connected = phntmOmni.connectOmni(0)
     print("Haptic device connected? ", omni_connected)
     count = 0
-    limit = 400
+    limit = 100
     forces = [0, 0, 0]
     mag = 5
     while (count < limit):
@@ -292,7 +295,7 @@ if __name__ == "__main__":
 
         # if omniDataReceived == 2: break
         [xMap, yMap, zMap] = phntmOmni.omniMap()
-        print(xMap, yMap, zMap)
+        # print(xMap, yMap, zMap)
         # print(phntmOmni.alpha, phntmOmni.beta, phntmOmni.gamma)
         # print(phntmOmni.tMatrix)
         # print(phntmOmni.omniServer.stdout)

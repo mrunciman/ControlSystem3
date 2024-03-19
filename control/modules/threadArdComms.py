@@ -7,7 +7,7 @@ import time
 
 startByte = "<"
 endByte = ">"
-CORRECT_LENGTH = 13
+CORRECT_LENGTH = 18
 
 CALIBRATION_MODE = 0
 HOLD_MODE = 1
@@ -21,7 +21,7 @@ class ardThreader:
 
     def __init__(self):
         self.ser = serial.Serial()
-        self.ser.port = 'COM8'
+        self.ser.port = 'COM6'
         self.ser.baudrate = 115200
         self.ser.timeout = 1
         self.connected = False
@@ -29,9 +29,10 @@ class ardThreader:
 
         self.positionData = [0.0, 0.0, 0.0, 0.0]
         self.pressData = [0, 0, 0, 0, 0]
+        self.loadData= [0, 0, 0, 0]
         self.ardTime = 0
-        self.calibrationFlag = 'N'
-        # self.calibrationByte = 0
+        self.calibrationFlag = 0
+        self.calibrationByte = 0
 
     def startThreader(self):
         try:
@@ -110,14 +111,14 @@ class ardThreader:
         # F is forward
         # B is backward
         # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
-        # if buttonState == 0:#
-        #     msg = msg + "N"
-        # elif buttonState == 1:
-        #     msg = msg + "F"
-        # elif buttonState == 2:
-        #     msg = msg + "B"
-        # else:
-        #     msg = msg + "N"
+        if buttonState == 0:#
+            msg = msg + "N"
+        elif buttonState == 1:
+            msg = msg + "F"
+        elif buttonState == 2:
+            msg = msg + "B"
+        else:
+            msg = msg + "N"
         return msg
 
 
@@ -127,14 +128,17 @@ class ardThreader:
         self.pressData = self.t.pressD
         self.ardTime = self.t.ardT
         self.calibrationFlag = self.t.caliFlag
+        self.calibrationByte = self.t.caliByte
+        self.loadData = self.t.loadD
         # the last four digits of calibration byte represent the calibration status of the motors
         # The order is PTRL
-        # self.calibrationByte = self.t.caliByte
-        # print("Motor angles: ", self.positionData)
-        # print("Pressures: ",self.pressData)
-        # print("Time: ",self.ardTime)
+
+        # print("Motor angles:   ", self.positionData)
+        # print("Pressures:      ", self.pressData)
+        # print("Time:           ", self.ardTime)
+        # print("Load cell data: ", self.loadData)
         # print("Calibration completed? ", self.calibrationFlag, self.calibrationByte)
-        return self.positionData, self.pressData, self.ardTime
+        return self.positionData, self.pressData, self.ardTime, self.loadData
     
 
     def stopThreader(self):
@@ -174,10 +178,11 @@ class LocalReaderThread(threading.Thread):
         self._connection_made = threading.Event()
         self.protocol = None
 
-        self.caliFlag = 'N'
-        # self.caliByte = 0
+        self.caliFlag = 0
+        self.caliByte = 0
         self.positionD = [0.0, 0.0, 0.0, 0.0]
         self.pressD = [0, 0, 0, 0, 0]
+        self.loadD = [0, 0, 0, 0]
         self.ardT = 0
 
     def stop(self):
@@ -340,8 +345,11 @@ class SerialReaderProtocolLine(LineReader):
             self.transport.caliFlag = stepPress[11]
             # print(self.transport.caliFlag)
 
-            # self.transport.caliByte = int(stepPress[12]).to_bytes(1, 'big')
+            self.transport.caliByte = int(stepPress[12]).to_bytes(1, 'big')
             # print(self.transport.caliByte)
+
+            self.transport.loadD = [int(z) for z in stepPress[13:17]] # FOR FUTURE USE
+            # print(self.transport.loadD)
 
 
 
@@ -357,19 +365,19 @@ class SerialReaderProtocolLine(LineReader):
 if __name__ == '__main__':
 
     ardThread = ardThreader()
-    limit = 150
+    limit = 15
     count = 0
 
     ardThread.startThreader()
     if ardThread.connected:
-        ardThread.sendStep(23, 34, 45, 56, 67, 0, 0)
+        ardThread.sendStep(0, 0, 0, 0, 0, 1, 1, 0)
         while(count < limit):
             time.sleep(0.1)
             count = count + 1
-            ardThread.sendStep(23, 34, 45, 56, 67, 0, 0)
-            ardThread.getData()
-            print()
+            ardThread.sendStep(0, 0, 0, 0, 0, 1, 1, 0)
+            [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = ardThread.getData()
+            print(ardThread.loadData)
 
 
-    ardThread.t.stop()
-    ardThread.ser.close
+    ardThread.stopThreader()
+    ardThread.closeSerial()

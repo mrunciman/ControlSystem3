@@ -224,6 +224,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     dLHS, dRHS, dTOP = 0, 0, 0
     collisionAngle = 1j
 
+    # Load cell data
+    loadL, loadR, loadT, loadP = 0, 0, 0, 0
+
     # Current position
     cStepL = tStepL
     cStepR = tStepR
@@ -307,7 +310,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 #     time.sleep(rampTime/countLimit)
                 #     omniButtons = phntmOmni.omniButton
                 #     pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, omniButtons)
-                #     [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
+                #     [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
                 #     pressList = [pressL, pressR, pressT, regulatorSensor]
                 #     # Change pressurebars
                 #     updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
@@ -332,6 +335,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     print("Zeroing hydraulic actuators...")
                     dictLabel["calibrationLabel"].config(fg = "red")
                     pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE, omniButtons)
+
+                prevCaliState = pumpController.calibrationByte
                     
                 while (not calibrated):
 
@@ -345,9 +350,11 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                         print("Overpressure: ", max(pressL, pressR, pressT), " kPa")
                         raise
 
-                    [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
+                    [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
                     [timeL, timeR, timeT, timeP] = [timeL]*4
-                    # print(pumpController.calibrationFlag)
+                    if prevCaliState != pumpController.calibrationByte:
+                        prevCaliState = pumpController.calibrationByte
+                        print(pumpController.calibrationByte)
                     # print(pressL, pressR, pressT, regulatorSensor, "\n")
 
                     pressList = [pressL, pressR, pressT, regulatorSensor]
@@ -368,10 +375,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                         time.sleep(0.007)
                         pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE, omniButtons)
 
-                    ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, timeL)
-                    ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, timeR)
-                    ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, timeT)
-                    ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, timeP)
+                    ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, loadL, timeL)
+                    ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, loadR, timeR)
+                    ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, loadT, timeT)
+                    ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, loadP, timeP)
                     # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
                     ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
                     # Ensure same number of rows in position log file
@@ -474,32 +481,32 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
             if pumpsConnected:
-                if startWithCalibration:
-                    # Reduce speed when making first move after calibration.
-                    if firstMoveDelay < firstMoveDivider:
-                        firstMoveDelay += 1
-                        # RStep = dStepR scaled for speed (w rounding differences)
-                        initStepNoL = int(desiredThetaL*(firstMoveDelay/firstMoveDivider))
-                        initStepNoR = int(desiredThetaR*(firstMoveDelay/firstMoveDivider))
-                        initStepNoT = int(desiredThetaT*(firstMoveDelay/firstMoveDivider))
-                        initStepNoP = int(desiredThetaP*(firstMoveDelay/firstMoveDivider))
-                        # Send scaled step number to arduinos:
-                        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, initStepNoP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE, omniButtons)
-                    else:
-                        # Send step number to arduinos:
-                        pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE, omniButtons)
+                # if startWithCalibration:
+                #     # Reduce speed when making first move after calibration.
+                if firstMoveDelay < firstMoveDivider:
+                    firstMoveDelay += 1
+                    # RStep = dStepR scaled for speed (w rounding differences)
+                    initStepNoL = int(desiredThetaL*(firstMoveDelay/firstMoveDivider))
+                    initStepNoR = int(desiredThetaR*(firstMoveDelay/firstMoveDivider))
+                    initStepNoT = int(desiredThetaT*(firstMoveDelay/firstMoveDivider))
+                    initStepNoP = int(desiredThetaP*(firstMoveDelay/firstMoveDivider))
+                    # Send scaled step number to arduinos:
+                    pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, initStepNoP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE, omniButtons)
+                else:
+                    # Send step number to arduinos:
+                    pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE, omniButtons)
 
                 # Log values from arduinos
                 if pumpDataUpdated:
-                    ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, timeL)
-                    ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, timeR)
-                    ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, timeT)
-                    ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, timeP)
+                    ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, loadL, timeL)
+                    ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, loadR, timeR)
+                    ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, loadT, timeT)
+                    ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, loadP, timeP)
                     # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
                     ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
 
                 # Get current pump position, pressure and times from arduinos
-                [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
+                [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
                 [timeL, timeR, timeT, timeP] = [timeL]*4
 
                 pressLMed = medPressL.newPressMed(pressL)
@@ -583,10 +590,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
             if pumpsConnected:
                 # Save values gathered from arduinos
-                ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, timeL)
-                ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, timeR)
-                ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, timeT)
-                ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, timeP)
+                ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, loadL, timeL)
+                ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, loadR, timeR)
+                ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, loadT, timeT)
+                ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, loadP, timeP)
                 # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
                 ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
                 ardLogging.ardSave()
@@ -598,7 +605,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, HOLD_MODE, DEFLATION_MODE, omniButtons)
                 pumpController.stopThreader()
                 time.sleep(0.2)
-                [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = pumpController.getData()
+                [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
                 [timeL, timeR, timeT, timeP] = [timeL]*4
                 print("Connection to pump controller closed.")
                 print(realStepL, pressL, timeL)
@@ -634,9 +641,13 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
 
             if omni_connected:
-                # phntmOmni.omniClose()
+                # try:
+                phntmOmni.omniClose()
                 phntmOmni.omniServer.kill()
+                omni_connected = False
                 classSettings.socketOmni = phntmOmni.sock
+                # except SocketError:
+
 
 
             mouseTrack.closeTracker()
@@ -899,7 +910,7 @@ barAndPadWidth = 100
 padSize = int((barAndPadWidth-barWidth)/2)
 numberBars = 4
 # Other constants
-PRESS_MAX_KPA = 150
+PRESS_MAX_KPA = 1500
 VAC_PRESS = -15
 guiPressFactor = 1 - abs(VAC_PRESS)/(PRESS_MAX_KPA - VAC_PRESS)
 
