@@ -8,6 +8,7 @@ import time
 startByte = "<"
 endByte = ">"
 CORRECT_LENGTH = 18
+# CORRECT_LENGTH = 17
 
 CALIBRATION_MODE = 0
 HOLD_MODE = 1
@@ -184,6 +185,7 @@ class LocalReaderThread(threading.Thread):
         self.pressD = [0, 0, 0, 0, 0]
         self.loadD = [0, 0, 0, 0]
         self.ardT = 0
+        self.loadD = [0.0, 0.0, 0.0, 0.0]
 
     def stop(self):
         """Stop the reader thread"""
