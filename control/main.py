@@ -18,6 +18,7 @@ from modules import fibrebotInterface
 from modules import massSpecInterface
 from modules import kinematics
 # from modules import mouseGUI
+from modules import SimplePS4Controller
 from modules import pumpLog
 from modules import positionInput
 from modules import optiStream
@@ -126,6 +127,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         print("Haptic device connected? ", omni_connected)
     else: 
         omni_connected = False
+        ps4 = SimplePS4Controller.SimplePS4Controller() # Create an object from controller
+        if ps4.controller is not None:
+            ps4.start() #start and listen to events
     
     if omni_connected:
         dictLabel["omniLabel"].config(fg = "green") 
@@ -407,7 +411,12 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             if not omni_connected:
             # CHOOSE WHICH BEHAVIOUR TO EXECUTE
                 # Gross raster until end of path
-                if pathCounter >= len(xPath):
+
+                if ps4.controller is not None:
+                  ps4.getStickData()
+                  [xPS4, yPS4, zPS4] = ps4.incrementXYCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
+                  XYZPathCoords = [xPS4, yPS4, zPS4]
+                elif pathCounter >= len(xPath):
                     break               
                 else:
                     XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
@@ -647,6 +656,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 omni_connected = False
                 classSettings.socketOmni = phntmOmni.sock
                 # except SocketError:
+
+            if ps4.controller is not None:
+                ps4.stop_ps4()
 
 
 

@@ -14,7 +14,10 @@ import os
 import pygame
 import threading
 import time
-from clsControllerData import ControllerData
+try:
+    from modules.clsControllerData import ControllerData
+except ModuleNotFoundError as e:
+    from clsControllerData import ControllerData
 
 
 
@@ -88,11 +91,27 @@ class SimplePS4Controller(threading.Thread):
         self._stopper = threading.Event()
         self.cTime = time.ctime
         self.paused = False
+
         """Initialize the joystick components"""
         pygame.init()
         pygame.joystick.init()
-        self.controller = pygame.joystick.Joystick(0)
-        self.controller.init()        
+        try:
+          self.controller = pygame.joystick.Joystick(0)
+          self.controller.init()
+        except pygame.error as e:
+            print(e)
+
+        self.xStick = None
+        self.yStick = None
+        self.pStick = None
+
+        self.R2_DEADTHRESH = 0.5
+        self.XY_DEADTHRESH = 0.1
+        self.PRISM_CHANGE = 0.1
+        self.XY_SENSITIVITY = 1
+        self.P_SENSITIVITY = 1
+
+                
 
     def stop_ps4(self):
         self._stopper.set()
@@ -163,7 +182,7 @@ class SimplePS4Controller(threading.Thread):
                     #print("buttuns Data")
                     #print(self.button_data)
                     #print("Axis Data")
-                    print(self.axis_data)
+                    # print(self.axis_data)
                     ControllerData.button_data=self.button_data
                     ControllerData.axis_data = self.axis_data
                     ControllerData.simplfyData()
@@ -173,9 +192,28 @@ class SimplePS4Controller(threading.Thread):
             self.cTime= time.ctime()
             #print(self.cTime)
 
+    def getStickData(self):
+        # needs verification
+        if (abs(ControllerData.R_Ball_H) > self.XY_DEADTHRESH):
+            self.xStick = self.XY_SENSITIVITY*ControllerData.R_Ball_H
+        if (abs(ControllerData.R_Ball_V) > self.XY_DEADTHRESH):
+            self.yStick = self.XY_SENSITIVITY*ControllerData.R_Ball_V
+        if (ControllerData.R1):
+            self.pStick = -self.P_SENSITIVITY*self.PRISM_CHANGE
+        elif (ControllerData.R2 > self.R2_DEADTHRESH):
+            self.pStick = self.P_SENSITIVITY*self.PRISM_CHANGE
+        else:
+            self.pStick = 0
 
+    def incrementXYZCoords(self, cX, cY, cZ):
+        nX = cX + self.xStick
+        nY = cY + self.yStick
+        nZ = cZ + self.pStick
+        return nX, nY, nZ
 
-
+    def incrementPrism(self, cP):
+        nP = cP + self.pStick
+        return nP
 
 
 
@@ -185,30 +223,35 @@ if __name__ == "__main__":
     # ps4.listen()
 
     ps4 = SimplePS4Controller() # Create an object from controller
-    ps4.start() #start and listen to events
+    if ps4.controller is not None:
+        ps4.start() #start and listen to events
 
 
 
-    i=100
-    while(i>0):
-       
-        time.sleep(1)
-        # os.system('cls')
-        if ControllerData.newData == True: # hmmm , I got a new data from the controller 
-            # print("Button Data")
-            # print(ControllerData.button_data)         
-            print(ControllerData.axis_data)
-            # x = ControllerData.axis_data[0]
+        i=100
+        while(i>0):
+        
+            time.sleep(0.1)
+            # os.system('cls')
+            if ControllerData.newData == True: # hmmm , I got a new data from the controller 
+                # print("Button Data")
+                # print(ControllerData.button_data)         
+                # print(ControllerData.axis_data)
+                # x = ControllerData.axis_data[0]
 
-            # y = (ControllerData.axis_data[1]*-1) # flip the y data 
-            # angle =  ControllerData.getAngle360(0,0,ControllerData.L_Ball_H,ControllerData.L_Ball_V)
-            # print("Angle : "+str(angle))
-            # print ("Simplified Data")
-            # ControllerData.printSimplifiedValues()
-            # Set the New Data as Old data ( I got it , and used it )
-            ControllerData.newData=False
-        # print(ps4.cTime)
-        # print ("timer"+str(i))
-        i = i-1
+                # y = (ControllerData.axis_data[1]*-1) # flip the y data 
+                # angle =  ControllerData.getAngle360(0,0,ControllerData.L_Ball_H,ControllerData.L_Ball_V)
+                # print("Angle : "+str(angle))
+                # print ("Simplified Data")
+                # ControllerData.printSimplifiedValues()
+                # Set the New Data as Old data ( I got it , and used it )
+                ControllerData.newData=False
+            # print(ps4.cTime)
+            # print ("timer"+str(i))
+            i = i-1
 
-    ps4.stop_ps4() #stop listening
+        ps4.stop_ps4() #stop listening
+
+
+
+
