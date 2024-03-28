@@ -414,7 +414,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
                 if ps4.controller is not None:
                   ps4.getStickData()
-                  [xPS4, yPS4, zPS4] = ps4.incrementXYCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
+                  [xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
                   XYZPathCoords = [xPS4, yPS4, zPS4]
                 elif pathCounter >= len(xPath):
                     break               
@@ -657,7 +657,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 classSettings.socketOmni = phntmOmni.sock
                 # except SocketError:
 
-            if ps4.controller is not None:
+            elif ps4.controller is not None:
                 ps4.stop_ps4()
 
 

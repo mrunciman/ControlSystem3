@@ -22,56 +22,56 @@ except ModuleNotFoundError as e:
 
 
 
-class PS4Controller(object):
-    """Class representing the PS4 controller. Pretty straightforward functionality."""
+# class PS4Controller(object):
+#     """Class representing the PS4 controller. Pretty straightforward functionality."""
 
-    controller = None
-    axis_data = None
-    button_data = None
-    hat_data = None
+#     controller = None
+#     axis_data = None
+#     button_data = None
+#     hat_data = None
 
-    def init(self):
-        """Initialize the joystick components"""
+#     def init(self):
+#         """Initialize the joystick components"""
         
-        pygame.init()
-        pygame.joystick.init()
-        self.controller = pygame.joystick.Joystick(0)
-        self.controller.init()
+#         pygame.init()
+#         pygame.joystick.init()
+#         self.controller = pygame.joystick.Joystick(0)
+#         self.controller.init()
 
-    def listen(self):
-        """Listen for events to happen"""
+#     def listen(self):
+#         """Listen for events to happen"""
         
-        if not self.axis_data:
-            self.axis_data = {}
+#         if not self.axis_data:
+#             self.axis_data = {}
 
-        if not self.button_data:
-            self.button_data = {}
-            for i in range(self.controller.get_numbuttons()):
-                self.button_data[i] = False
+#         if not self.button_data:
+#             self.button_data = {}
+#             for i in range(self.controller.get_numbuttons()):
+#                 self.button_data[i] = False
 
-        if not self.hat_data:
-            self.hat_data = {}
-            for i in range(self.controller.get_numhats()):
-                self.hat_data[i] = (0, 0)
+#         if not self.hat_data:
+#             self.hat_data = {}
+#             for i in range(self.controller.get_numhats()):
+#                 self.hat_data[i] = (0, 0)
 
-        while True:
-            for event in pygame.event.get():
-                if event.type == pygame.JOYAXISMOTION:
-                    self.axis_data[event.axis] = round(event.value,2)
-                elif event.type == pygame.JOYBUTTONDOWN:
-                    self.button_data[event.button] = True
-                elif event.type == pygame.JOYBUTTONUP:
-                    self.button_data[event.button] = False
-                elif event.type == pygame.JOYHATMOTION:
-                    self.hat_data[event.hat] = event.value
+#         while True:
+#             for event in pygame.event.get():
+#                 if event.type == pygame.JOYAXISMOTION:
+#                     self.axis_data[event.axis] = round(event.value,2)
+#                 elif event.type == pygame.JOYBUTTONDOWN:
+#                     self.button_data[event.button] = True
+#                 elif event.type == pygame.JOYBUTTONUP:
+#                     self.button_data[event.button] = False
+#                 elif event.type == pygame.JOYHATMOTION:
+#                     self.hat_data[event.hat] = event.value
 
-                # Insert your code on what you would like to happen for each event here!
-                # In the current setup, I have the state simply printing out to the screen.
+#                 # Insert your code on what you would like to happen for each event here!
+#                 # In the current setup, I have the state simply printing out to the screen.
                 
-                # os.system('cls')
-                # print(self.button_data)
-                # print(self.axis_data)
-                # print(self.hat_data)
+#                 # os.system('cls')
+#                 # print(self.button_data)
+#                 # print(self.axis_data)
+#                 # print(self.hat_data)
 
 
 
@@ -106,9 +106,9 @@ class SimplePS4Controller(threading.Thread):
         self.pStick = None
 
         self.R2_DEADTHRESH = 0.5
-        self.XY_DEADTHRESH = 0.1
+        self.XY_DEADTHRESH = 0.0
         self.PRISM_CHANGE = 0.1
-        self.XY_SENSITIVITY = 1
+        self.XY_SENSITIVITY = 10
         self.P_SENSITIVITY = 1
 
                 
@@ -142,6 +142,7 @@ class SimplePS4Controller(threading.Thread):
         
         if not self.axis_data:
             self.axis_data = {}
+            # print(self.controller.get_axis())
 
         if not self.button_data:
             self.button_data = {}
@@ -159,10 +160,12 @@ class SimplePS4Controller(threading.Thread):
                 return
             if not self.paused:
                 for event in pygame.event.get():
+                    # print(event)
                     #print "Changed!"
                     ControllerData.changed=True
                     ControllerData.newData=True
                     if event.type == pygame.JOYAXISMOTION:
+                        # print(event)
                         self.axis_data[event.axis] = round(event.value,2)
 
                     elif event.type == pygame.JOYBUTTONDOWN:
@@ -189,26 +192,40 @@ class SimplePS4Controller(threading.Thread):
                 else:
                     ControllerData.changed =False
 
-            self.cTime= time.ctime()
+            # self.cTime= time.ctime()
             #print(self.cTime)
 
     def getStickData(self):
         # needs verification
+        print("Data getter:", ControllerData.R_Ball_H, ControllerData.R_Ball_V, ControllerData.R2)
         if (abs(ControllerData.R_Ball_H) > self.XY_DEADTHRESH):
             self.xStick = self.XY_SENSITIVITY*ControllerData.R_Ball_H
+            self.axis_data[3]
+            # print("R_Ball_H", ControllerData.R_Ball_H)
         if (abs(ControllerData.R_Ball_V) > self.XY_DEADTHRESH):
             self.yStick = self.XY_SENSITIVITY*ControllerData.R_Ball_V
         if (ControllerData.R1):
             self.pStick = -self.P_SENSITIVITY*self.PRISM_CHANGE
-        elif (ControllerData.R2 > self.R2_DEADTHRESH):
+        elif (abs(ControllerData.R2) > self.R2_DEADTHRESH):
             self.pStick = self.P_SENSITIVITY*self.PRISM_CHANGE
+            # print("R2", ControllerData.R2)
         else:
             self.pStick = 0
 
     def incrementXYZCoords(self, cX, cY, cZ):
-        nX = cX + self.xStick
-        nY = cY + self.yStick
-        nZ = cZ + self.pStick
+        if self.xStick is not None:
+            nX = cX + self.xStick
+        else:
+            nX = cX
+
+        if self.yStick is not None:
+            nY = cY + self.yStick
+        else:
+            nY = cY
+        if self.pStick is not None:
+            nZ = cZ + self.pStick
+        else:
+            nZ = cZ
         return nX, nY, nZ
 
     def incrementPrism(self, cP):
@@ -218,13 +235,13 @@ class SimplePS4Controller(threading.Thread):
 
 
 if __name__ == "__main__":
-    # ps4 = PS4Controller()
-    # ps4.init()
-    # ps4.listen()
+
+    cX, cY, cZ = 0, 0, 0
 
     ps4 = SimplePS4Controller() # Create an object from controller
     if ps4.controller is not None:
         ps4.start() #start and listen to events
+        print("Connected to ps4 controller")
 
 
 
@@ -233,9 +250,14 @@ if __name__ == "__main__":
         
             time.sleep(0.1)
             # os.system('cls')
-            if ControllerData.newData == True: # hmmm , I got a new data from the controller 
+            if ControllerData.newData == True:
                 # print("Button Data")
-                # print(ControllerData.button_data)         
+                # print(ControllerData.button_data)
+                ps4.getStickData()
+                [xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(cX, cY, cZ)
+                cX, cY, cZ = xPS4, yPS4, zPS4
+                print("Sticks:", ps4.xStick, ps4.yStick, ps4.pStick)
+                print("Coords:", cX, cY, cZ)
                 # print(ControllerData.axis_data)
                 # x = ControllerData.axis_data[0]
 
@@ -244,7 +266,7 @@ if __name__ == "__main__":
                 # print("Angle : "+str(angle))
                 # print ("Simplified Data")
                 # ControllerData.printSimplifiedValues()
-                # Set the New Data as Old data ( I got it , and used it )
+
                 ControllerData.newData=False
             # print(ps4.cTime)
             # print ("timer"+str(i))
