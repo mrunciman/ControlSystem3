@@ -130,6 +130,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         ps4 = SimplePS4Controller.SimplePS4Controller() # Create an object from controller
         if ps4.controller is not None:
             ps4.start() #start and listen to events
+            print("PS4 Controller connected")
     
     if omni_connected:
         dictLabel["omniLabel"].config(fg = "green") 
@@ -408,30 +409,41 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         mouseTrack.createTracker(kineSolve.attach_points_rot)
         while(flagStop == False):
 
-            if not omni_connected:
-            # CHOOSE WHICH BEHAVIOUR TO EXECUTE
-                # Gross raster until end of path
-
-                if ps4.controller is not None:
-                  ps4.getStickData()
-                  [xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
-                  XYZPathCoords = [xPS4, yPS4, zPS4]
-                elif pathCounter >= len(xPath):
-                    break               
+            if classSettings.goToHome:
+                XYZPathCoords = HOMING_POSITION
+            elif useOmni:
+                if omni_connected:
+                    omniDataReceived = phntmOmni.getOmniCoords()
+                    omniButtons = phntmOmni.omniButton
+                    frameRotAngle = dictLabel["rotationSlider"].get()
+                    if (omniDataReceived == 2): break
+                    [xMap, yMap, zMap] = phntmOmni.omniMap(frameRotAngle)
+                    XYZPathCoords = [xMap, yMap, zMap]
                 else:
-                    XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
+                    XYZPathCoords = HOMING_POSITION
                     # print(XYZPathCoords)
-            else:
-                omniDataReceived = phntmOmni.getOmniCoords()
-                omniButtons = phntmOmni.omniButton
-                frameRotAngle = dictLabel["rotationSlider"].get()
-                if (omniDataReceived == 2): break
-                [xMap, yMap, zMap] = phntmOmni.omniMap(frameRotAngle)
-                XYZPathCoords = [xMap, yMap, zMap]
+            elif ps4.controller is not None:
+                ps4.getStickData()
+                [xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
+                XYZPathCoords = [xPS4, yPS4, zPS4]
+                # print(XYZPathCoords)
+                # elif pathCounter >= len(xPath):
+                #     break               
+            else: #Nothing is connected, stay at home position
+                # XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
+                XYZPathCoords = HOMING_POSITION
+                # print(XYZPathCoords)
+            # else:
+            #     omniDataReceived = phntmOmni.getOmniCoords()
+            #     omniButtons = phntmOmni.omniButton
+            #     frameRotAngle = dictLabel["rotationSlider"].get()
+            #     if (omniDataReceived == 2): break
+            #     [xMap, yMap, zMap] = phntmOmni.omniMap(frameRotAngle)
+            #     XYZPathCoords = [xMap, yMap, zMap]
                 # print(XYZPathCoords)
             
-            if classSettings.goToHome or not omni_connected:
-                XYZPathCoords = HOMING_POSITION
+            # if classSettings.goToHome or not omni_connected:
+            #     XYZPathCoords = HOMING_POSITION
 
             # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
             # XYZPathCoords are desired coords in 3D.
@@ -649,13 +661,14 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 fibrebotLink.fibreSerial.close()
 
 
-            if omni_connected:
-                # try:
-                phntmOmni.omniClose()
-                phntmOmni.omniServer.kill()
-                omni_connected = False
-                classSettings.socketOmni = phntmOmni.sock
-                # except SocketError:
+            if useOmni:
+                if omni_connected:
+                    # try:
+                    phntmOmni.omniClose()
+                    phntmOmni.omniServer.kill()
+                    omni_connected = False
+                    classSettings.socketOmni = phntmOmni.sock
+                    # except SocketError:
 
             elif ps4.controller is not None:
                 ps4.stop_ps4()
