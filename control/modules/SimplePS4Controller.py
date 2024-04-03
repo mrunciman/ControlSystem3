@@ -53,6 +53,8 @@ class SimplePS4Controller(threading.Thread):
         self.yStick = None
         self.pStick = None
 
+        self.ps4Buttons = 0 # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
+
         self.R1 = False
         self.R2 = 0
         self.RstickH = 0
@@ -201,6 +203,16 @@ class SimplePS4Controller(threading.Thread):
         nY = round(nY,2)
         nZ = round(nZ,2)
         return nX, nY, nZ
+    
+
+    def getPSButtonData(self):
+        # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
+        self.ps4Buttons = 0
+        if self.Xbutton:
+            self.ps4Buttons = 1
+        elif self.Obutton:
+            self.ps4Buttons = 2
+        return self.ps4Buttons
 
 
 

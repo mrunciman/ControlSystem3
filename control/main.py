@@ -131,6 +131,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         if ps4.controller is not None:
             ps4.start() #start and listen to events
             print("PS4 Controller connected")
+            ps4Buttons = 0
     
     if omni_connected:
         dictLabel["omniLabel"].config(fg = "green") 
@@ -280,7 +281,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         if useOmni:
             controllerButtons = omniButtons
         else:
-            controllerButtons = ps4.button_data
+            controllerButtons = ps4Buttons
         pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE, controllerButtons)
     # [pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
     # print(pumpCOMS)
@@ -313,7 +314,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 if useOmni:
                     controllerButtons = omniButtons
                 else:
-                    controllerButtons = ps4.button_data
+                    controllerButtons = ps4Buttons
                 pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
                 # count = 0
                 # countLimit = 1000
@@ -380,7 +381,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                         if useOmni:
                             controllerButtons = omniButtons
                         else:
-                            controllerButtons = ps4.button_data
+                            controllerButtons = ps4Buttons
 
                     if (pumpController.calibrationFlag == 'Y'):
                         dictLabel["calibrationLabel"].config(fg = "green")
@@ -436,6 +437,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     # print(XYZPathCoords)
             elif ps4.controller is not None:
                 ps4.getStickData()
+                ps4Buttons = ps4.getPSButtonData()
                 [xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
                 XYZPathCoords = [xPS4, yPS4, zPS4]
                 # print(XYZPathCoords)
@@ -519,7 +521,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 if useOmni:
                     controllerButtons = omniButtons
                 else:
-                    controllerButtons = ps4.button_data
+                    controllerButtons = ps4Buttons
                     
                 if firstMoveDelay < firstMoveDivider:
                     firstMoveDelay += 1
