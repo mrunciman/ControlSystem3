@@ -126,7 +126,7 @@ class mouseTracker:
 
 
     def drawCables(self, attach_points, POI = None):
-        now = time.time()
+        # now = time.time()
         touching = False
         insideTri = False
         insideAll = False
