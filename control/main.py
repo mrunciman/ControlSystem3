@@ -276,7 +276,11 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
     if pumpsConnected:
         omniButtons = phntmOmni.omniButton
-        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE, omniButtons)
+        if useOmni:
+            controllerButtons = omniButtons
+        else:
+            controllerButtons = ps4.button_data
+        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE, controllerButtons)
     # [pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
     # print(pumpCOMS)
 
@@ -305,7 +309,11 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 print("Inflating structure...")
                 time.sleep(1)
                 omniButtons = phntmOmni.omniButton
-                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE,omniButtons)
+                if useOmni:
+                    controllerButtons = omniButtons
+                else:
+                    controllerButtons = ps4.button_data
+                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
                 # count = 0
                 # countLimit = 1000
                 # rampTime = 3 # seconds
@@ -338,7 +346,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     # Perform calibration:
                     print("Zeroing hydraulic actuators...")
                     dictLabel["calibrationLabel"].config(fg = "red")
-                    pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE, omniButtons)
+                    controllerButtons = 0
+                    pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE, controllerButtons)
 
                 prevCaliState = pumpController.calibrationByte
                     
@@ -367,7 +376,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
                     if omni_connected:
                         omniDataReceived = phntmOmni.getOmniCoords()
-                        omniButtons = phntmOmni.omniButton
+                        if useOmni:
+                            controllerButtons = omniButtons
+                        else:
+                            controllerButtons = ps4.button_data
 
                     if (pumpController.calibrationFlag == 'Y'):
                         dictLabel["calibrationLabel"].config(fg = "green")
@@ -377,7 +389,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                         pressLMed, pressRMed, pressTMed, pressPMed, pressAMed = 0, 0, 0, 0, 0
                     else:
                         time.sleep(0.007)
-                        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE, omniButtons)
+                        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE, controllerButtons)
 
                     ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, loadL, timeL)
                     ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, loadR, timeR)
@@ -492,6 +504,11 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             if pumpsConnected:
                 # if startWithCalibration:
                 #     # Reduce speed when making first move after calibration.
+                if useOmni:
+                    controllerButtons = omniButtons
+                else:
+                    controllerButtons = ps4.button_data
+                    
                 if firstMoveDelay < firstMoveDivider:
                     firstMoveDelay += 1
                     # RStep = dStepR scaled for speed (w rounding differences)
@@ -500,10 +517,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     initStepNoT = int(desiredThetaT*(firstMoveDelay/firstMoveDivider))
                     initStepNoP = int(desiredThetaP*(firstMoveDelay/firstMoveDivider))
                     # Send scaled step number to arduinos:
-                    pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, initStepNoP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE, omniButtons)
+                    pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, initStepNoP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE, controllerButtons)
                 else:
                     # Send step number to arduinos:
-                    pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE, omniButtons)
+                    pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE, controllerButtons)
 
                 # Log values from arduinos
                 if pumpDataUpdated:
@@ -610,8 +627,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
                 # if calibrated:
-                omniButtons = 0
-                pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, HOLD_MODE, DEFLATION_MODE, omniButtons)
+                controllerButtons = 0
+                pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, HOLD_MODE, DEFLATION_MODE, controllerButtons)
                 pumpController.stopThreader()
                 time.sleep(0.2)
                 [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
@@ -648,14 +665,14 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 fibrebotLink.sendState("Stop")
                 fibrebotLink.fibreSerial.close()
 
-
-            if omni_connected:
-                # try:
-                phntmOmni.omniClose()
-                phntmOmni.omniServer.kill()
-                omni_connected = False
-                classSettings.socketOmni = phntmOmni.sock
-                # except SocketError:
+            if useOmni:
+                if omni_connected:
+                    # try:
+                    phntmOmni.omniClose()
+                    phntmOmni.omniServer.kill()
+                    omni_connected = False
+                    classSettings.socketOmni = phntmOmni.sock
+                    # except SocketError:
 
             elif ps4.controller is not None:
                 ps4.stop_ps4()

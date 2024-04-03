@@ -186,7 +186,7 @@ class SimplePS4Controller(threading.Thread):
                     #print(self.button_data)
                     #print("Axis Data")
                     # print(self.axis_data)
-                    ControllerData.button_data=self.button_data
+                    ControllerData.button_data = self.button_data #0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
                     ControllerData.axis_data = self.axis_data
                     ControllerData.simplfyData()
                 else:
