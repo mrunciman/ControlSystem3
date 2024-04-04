@@ -13,7 +13,11 @@
 
 import pygame
 import threading
+import time
 
+if __name__ == "__main__":
+    from cProfile import Profile
+    from pstats import SortKey, Stats 
 # try:
 #     from modules.clsControllerData import ControllerData
 # except ModuleNotFoundError as e:
@@ -217,8 +221,7 @@ class SimplePS4Controller(threading.Thread):
 
 
 
-if __name__ == "__main__":
-
+def test():
     cX, cY, cZ = 0, 0, 0
 
     ps4 = SimplePS4Controller() # Create an object from controller
@@ -228,13 +231,13 @@ if __name__ == "__main__":
 
         numLoops = 100
         loops = numLoops
-        seconds = 5
+        seconds = 2
         while(loops>0):
         
-            # time.sleep(seconds/numLoops)
-            print("Sticks:", ps4.xStick, ps4.yStick, ps4.pStick)
-            print("Coords:", cX, cY, cZ)
-            print(ps4.axis_data)
+            time.sleep(seconds/numLoops)
+            # print("Sticks:", ps4.xStick, ps4.yStick, ps4.pStick)
+            print("Coords\t:", cX, "\t", cY, "\t", cZ)
+            # print(ps4.axis_data)
             # print("Buttons:", ControllerData.button_data)
             # os.system('cls')
 
@@ -258,7 +261,17 @@ if __name__ == "__main__":
             loops = loops-1
 
         ps4.stop_ps4() #stop listening
+        print(xPS4, yPS4, zPS4)
+        return xPS4, yPS4, zPS4
 
-
-
-
+if __name__ == "__main__":
+    
+    with Profile() as profile:
+    
+        print(f"{test()}")
+        (
+            Stats(profile)
+            .strip_dirs()
+            .sort_stats(SortKey.CALLS)
+            .print_stats()
+        )

@@ -7,6 +7,7 @@ import numpy as np
 from tkinter import *
 from tkinter import messagebox
 from tkinter import ttk
+import threading
 from functools import partial
 import threading
 import sv_ttk
@@ -757,6 +758,10 @@ def onClosing(classSettings, dictButtons):
     dictButtons['stopButton'].config(bg = 'red')
     dictButtons['moveButton'].config(state = 'disabled')
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
+        for thread in threading.enumerate(): 
+            if thread.name != "MainThread":
+               thread._stopper.set()
+               thread.join()
         rootWindow.destroy()
 
 

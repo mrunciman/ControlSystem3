@@ -240,8 +240,13 @@ class LocalReaderThread(threading.Thread):
 
     def write(self, data):
         """Thread safe writing (uses lock)"""
-        with self._lock:
-            numBytes = self.serial.write(data)
+        self._lock.acquire()
+        numBytes = 0
+        try:
+            with self._lock:
+                numBytes = self.serial.write(data)
+        finally:
+            self._lock.release()
             return numBytes
         
     def close(self):
