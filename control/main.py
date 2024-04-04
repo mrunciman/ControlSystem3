@@ -522,7 +522,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     controllerButtons = omniButtons
                 else:
                     controllerButtons = ps4Buttons
-                    
+                print(controllerButtons)    
+                
                 if firstMoveDelay < firstMoveDivider:
                     firstMoveDelay += 1
                     # RStep = dStepR scaled for speed (w rounding differences)

@@ -10,10 +10,10 @@
 # https://www.codeproject.com/Members/Tareq-Gamal
 # you can Add your code In File (Demo.py) No Change in this file
 
-import os
+
 import pygame
 import threading
-import time
+
 # try:
 #     from modules.clsControllerData import ControllerData
 # except ModuleNotFoundError as e:
@@ -34,7 +34,8 @@ class SimplePS4Controller(threading.Thread):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._stopper = threading.Event()
-        self.cTime = time.ctime
+        self._lock = threading.Lock()
+        # self.cTime = time.ctime
         self.paused = False
 
         """Initialize the joystick components"""
@@ -238,6 +239,7 @@ if __name__ == "__main__":
             # os.system('cls')
 
             ps4.getStickData()
+            ps4Buttons = ps4.getPSButtonData()
             [xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(cX, cY, cZ)
             cX, cY, cZ = xPS4, yPS4, zPS4
 
