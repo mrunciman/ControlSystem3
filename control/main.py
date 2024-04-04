@@ -377,12 +377,13 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     # Change pressurebars
                     updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
 
-                    if omni_connected:
-                        omniDataReceived = phntmOmni.getOmniCoords()
-                        if useOmni:
-                            controllerButtons = omniButtons
-                        else:
-                            controllerButtons = ps4Buttons
+
+                    if useOmni:
+                        if omni_connected:
+                            omniDataReceived = phntmOmni.getOmniCoords()
+                        controllerButtons = omniButtons
+                    else:
+                        controllerButtons = ps4Buttons
 
                     if (pumpController.calibrationFlag == 'Y'):
                         dictLabel["calibrationLabel"].config(fg = "green")
@@ -760,7 +761,8 @@ def onClosing(classSettings, dictButtons):
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
         for thread in threading.enumerate(): 
             if thread.name != "MainThread":
-               thread._stopper.set()
+               thread._connection_made.set()
+               thread.set
                thread.join()
         rootWindow.destroy()
 

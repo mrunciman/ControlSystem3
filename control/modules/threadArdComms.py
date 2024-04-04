@@ -171,6 +171,7 @@ class LocalReaderThread(threading.Thread):
         # the base class constructor (Thread.__init__()) before doing anything
         # else to the thread.
         super(LocalReaderThread, self).__init__()
+        self.name = "ardThread"
         self.daemon = True
         self.serial = serial_instance
         self.protocol_factory = protocol_factory
@@ -243,8 +244,8 @@ class LocalReaderThread(threading.Thread):
         self._lock.acquire()
         numBytes = 0
         try:
-            with self._lock:
-                numBytes = self.serial.write(data)
+            # with self._lock:
+            numBytes = self.serial.write(data)
         finally:
             self._lock.release()
             return numBytes

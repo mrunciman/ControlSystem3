@@ -37,22 +37,36 @@ class SimplePS4Controller(threading.Thread):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._stopper = threading.Event()
+        self.name = "ps4Thread"
+        self.alive = True
+        self._connection_made = threading.Event()
         self._lock = threading.Lock()
-        # self.cTime = time.ctime
         self.paused = False
 
         """Initialize the joystick components"""
-        pygame.init()
-        pygame.joystick.init()
+        self._lock.acquire()
         try:
-          self.controller = pygame.joystick.Joystick(0)
-          self.controller.init()
-        except pygame.error as e:
-            print(e)
+            pygame.init()
+            pygame.joystick.init()
+            try:
+                self.controller = pygame.joystick.Joystick(0)
+                self.controller.init()
+            except pygame.error as e:
+                print(e)
+        finally:
+            self._lock.release()
 
         self.axis_data = {0:0, 1:0, 2:0, 3:0, 4:-1, 5:-1, 6:0, 7:0}
-        self.button_data = {}
+        if not self.button_data:
+            self.button_data = {}
+            for i in range(self.controller.get_numbuttons()):
+                self.button_data[i] = False
+
+        if not self.hat_data:
+            self.hat_data = {}
+            for i in range(self.controller.get_numhats()):
+                self.hat_data[i] = (0, 0)
+
 
         self.xStick = None
         self.yStick = None
@@ -73,12 +87,12 @@ class SimplePS4Controller(threading.Thread):
         self.XY_DEADTHRESH = 0.1
         self.PRISM_CHANGE = 0.1
         self.XY_SENSITIVITY = 10
-        self.P_SENSITIVITY = 10
+        self.P_SENSITIVITY = 1
 
                 
 
     def stop_ps4(self):
-        self._stopper.set()
+        self._connection_made.set()
         try:
             self.join()
             print("Is ps4 thread still alive? ", self.is_alive())
@@ -87,14 +101,12 @@ class SimplePS4Controller(threading.Thread):
 
 
     def stopped(self):
-        return self._stopper.isSet()
+        return self._connection_made.isSet()
 
 
     def pause(self):
         self.paused = True
-        #this is should make the calling thread wait if pause() is
-        #called while the thread is 'doing the thing', until it is
-        #finished 'doing the thing'
+        #this is should make the calling thread wait if pause() is called 
 
     #should just resume the thread
     def resume(self):
@@ -104,64 +116,42 @@ class SimplePS4Controller(threading.Thread):
     def run(self):
         """Listen for events to happen"""
         
-        # if not self.axis_data:
-        #     self.axis_data = {}
-
-        if not self.button_data:
-            self.button_data = {}
-            for i in range(self.controller.get_numbuttons()):
-                self.button_data[i] = False
-
-        if not self.hat_data:
-            self.hat_data = {}
-            for i in range(self.controller.get_numhats()):
-                self.hat_data[i] = (0, 0)
-
         while True:
               
             if self.stopped():
                 return
             if not self.paused:
                 
-                # ev = pygame.event.get()
-                # if ev != []:
-                    # print(ev)
-                for event in pygame.event.get():
-                    # print(event)
-                    #print "Changed!"
-                    # ControllerData.changed=True
-                    # ControllerData.newData=True
-                    if event.type == pygame.JOYAXISMOTION:
+                self._lock.acquire()
+                try:
+                    for event in pygame.event.get():
                         # print(event)
-                        self.axis_data[event.axis] = round(event.value,2)
 
-                    elif event.type == pygame.JOYBUTTONDOWN:
-                        self.button_data[event.button] = True
-                    elif event.type == pygame.JOYBUTTONUP:
-                        self.button_data[event.button] = False
-                        
-                    elif event.type == pygame.JOYHATMOTION:
-                        #print (event.value)
-                        self.hat_data[event.hat] = event.value
+                        if event.type == pygame.JOYAXISMOTION:
+                            self.axis_data[event.axis] = round(event.value,2)
 
-                 
-                    # print("Buttons", self.button_data)
-                    # print("Axes", self.axis_data)
-                        
-                    self.R1 = self.button_data[10]
-                    self.R2 = self.axis_data[5]
-                    self.RstickH = self.axis_data[2]
-                    self.RstickV = self.axis_data[3]
-                    self.Xbutton = self.button_data[0]
-                    self.Obutton = self.button_data[1]
-                    # ControllerData.button_data = self.button_data
-                    # ControllerData.axis_data = self.axis_data
-                    # ControllerData.simplfyData()
-                # else:
-                #     ControllerData.changed =False
+                        elif event.type == pygame.JOYBUTTONDOWN:
+                            self.button_data[event.button] = True
+                        elif event.type == pygame.JOYBUTTONUP:
+                            self.button_data[event.button] = False
+                            
+                        elif event.type == pygame.JOYHATMOTION:
+                            self.hat_data[event.hat] = event.value
 
-            # self.cTime= time.ctime()
-            #print(self.cTime)
+                    
+                        # print("Buttons", self.button_data)
+                        # print("Axes", self.axis_data)
+                            
+                        self.R1 = self.button_data[10]
+                        self.R2 = self.axis_data[5]
+                        self.RstickH = self.axis_data[2]
+                        self.RstickV = self.axis_data[3]
+                        self.Xbutton = self.button_data[0]
+                        self.Obutton = self.button_data[1]
+                finally:
+                    self._lock.release()
+    
+
 
     def getStickData(self):
         # print("Data getter:", self.RstickH, self.RstickV)
@@ -178,13 +168,13 @@ class SimplePS4Controller(threading.Thread):
 
 
         normR2 = (self.R2 + self.TRIGGER_SHIFT)/self.TRIGGER_RANGE
-        # print("normalised R2: ",normR2, ControllerData.R2)
-        # print(ControllerData.R1)
+        # print("normalised R2: ",normR2, self.R2)
+
         if (self.R1):
             self.pStick = -self.P_SENSITIVITY*self.PRISM_CHANGE
         elif (abs(normR2) > self.R2_DEADTHRESH):
             self.pStick = self.P_SENSITIVITY*self.PRISM_CHANGE
-            # print("R2", ControllerData.R2)
+            # print("R2", self.R2)
         else:
             self.pStick = 0
 
@@ -237,32 +227,22 @@ def test():
             time.sleep(seconds/numLoops)
             # print("Sticks:", ps4.xStick, ps4.yStick, ps4.pStick)
             print("Coords\t:", cX, "\t", cY, "\t", cZ)
-            # print(ps4.axis_data)
-            # print("Buttons:", ControllerData.button_data)
-            # os.system('cls')
 
             ps4.getStickData()
             ps4Buttons = ps4.getPSButtonData()
             [xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(cX, cY, cZ)
             cX, cY, cZ = xPS4, yPS4, zPS4
 
-            # print(ControllerData.axis_data)
-            # x = ControllerData.axis_data[0]
-
-            # y = (ControllerData.axis_data[1]*-1) # flip the y data 
-            # angle =  ControllerData.getAngle360(0,0,ControllerData.L_Ball_H,ControllerData.L_Ball_V)
-            # print("Angle : "+str(angle))
-            # print ("Simplified Data")
-            # ControllerData.printSimplifiedValues()
-
-
-            # print(ps4.cTime)
-            # print ("timer"+str(i))
             loops = loops-1
 
         ps4.stop_ps4() #stop listening
         print(xPS4, yPS4, zPS4)
         return xPS4, yPS4, zPS4
+    
+
+
+
+
 
 if __name__ == "__main__":
     
