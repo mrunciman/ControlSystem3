@@ -167,7 +167,7 @@ a = 0
 while True:
     t.update()
     a += t.gyro[2] * 0.001
-    print (str(t.gyro) + "\t" + str(a))
+
     sleep(0.001)
     # TEMP: This section is for debugging!
 
