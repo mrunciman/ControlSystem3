@@ -130,7 +130,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         omni_connected = False
         ps4 = ps4_pyUSB.ps4USB() # Create an object from controller
         if ps4.controller is not None:
-            # ps4.start() #start and listen to events
+            ps4.start() #start and listen to events
             print("PS4 Controller connected")
             ps4Buttons = 0
     
@@ -438,7 +438,6 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     XYZPathCoords = HOMING_POSITION
                     # print(XYZPathCoords)
             elif ps4.controller is not None:
-                ps4.updateAndMapPS4()
                 ps4Buttons = ps4.getPSButtonData()
                 [xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
                 XYZPathCoords = [xPS4, yPS4, zPS4]
@@ -692,8 +691,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     classSettings.socketOmni = phntmOmni.sock
                     # except SocketError:
 
-            # elif ps4.controller is not None:
-                # ps4.stop_ps4()
+            elif ps4.controller is not None:
+                ps4.stop_ps4()
 
 
 
@@ -761,8 +760,8 @@ def onClosing(classSettings, dictButtons):
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
         for thread in threading.enumerate(): 
             if thread.name != "MainThread":
-               thread._connection_made.set()
-               thread.set
+            #    thread._connection_made.set()
+            #    thread.set
                thread.join()
         rootWindow.destroy()
 

@@ -3,9 +3,8 @@
 import usb.core
 import usb.util
 import usb.backend.libusb1
-import sys
-import os
 import time
+import threading
 
 # See https://www.psdevwiki.com/ps4/DS4-USB for details on data indices
 
@@ -22,18 +21,24 @@ SETTING_DS4 = 0
 ENDPOINT_DS4_OUT = 0 # Input endpoint
 
 
-class ps4USB():
-	def __init__(self):
+class ps4USB(threading.Thread):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.name = "ps4Thread"
+		self.alive = True
+		self._connection_made = threading.Event()
+		self._lock = threading.Lock()
+		self.paused = False
+
 		self.dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID, backend=BACKEND)
 		if self.dev is not None:
 			self.cfg = self.dev.get_active_configuration()
 			# print(cfg)
 			self.interface = self.cfg[(INTERFACE_DS4, SETTING_DS4)]
 			self.endpoint = self.interface[ENDPOINT_DS4_OUT]
-			self.controller = self.endpoint.read(0x40)[0]
+			self.controller = self.endpoint.read(0x40)[0] # equals 1 on success
 		else:
 			self.controller = None
-		print(self.endpoint.read(0x40)[0])
 
 		self.data = None
 
@@ -57,27 +62,35 @@ class ps4USB():
 		self.TRIGGER_SHIFT = 1
 		self.XY_DEADTHRESH = 0.1
 		self.PRISM_CHANGE = 0.1
-		self.XY_SENSITIVITY = 10
-		self.P_SENSITIVITY = 1
+		self.XY_SENSITIVITY = 5
+		self.P_SENSITIVITY = 5
+
+
+	def stopped(self):
+		return self._connection_made.isSet()
 
 
 
-	def updateAndMapPS4(self):
-		if self.controller is not None:
-			self.data = self.endpoint.read(0x40)
-			# print(self.data)
+	def run(self):
 
-			self.RstickX = (self.data[3] - 2**7)/2**7
-			self.RstickY = (self.data[4] - 2**7)/2**7
+		while True:
+			if self.stopped():
+				return
+			if self.controller is not None:
+				self.data = self.endpoint.read(0x40)
+				# print(self.data)
 
-			self.SquButton = self.data[5] & 2**4  !=0
-			self.CroButton = self.data[5] & 2**5  !=0
-			self.CirButton = self.data[5] & 2**6  !=0
-			self.TriButton = self.data[5] & 2**7  !=0
+				self.RstickX = (self.data[3] - 2**7)/2**7
+				self.RstickY = (self.data[4] - 2**7)/2**7
 
-			self.R1 = self.data[6] & 2**1  != 0
-			self.R2 = self.data[9]/2**8
-			self.getChanges()
+				self.SquButton = self.data[5] & 2**4  !=0
+				self.CroButton = self.data[5] & 2**5  !=0
+				self.CirButton = self.data[5] & 2**6  !=0
+				self.TriButton = self.data[5] & 2**7  !=0
+
+				self.R1 = self.data[6] & 2**1  != 0
+				self.R2 = self.data[9]/2**8
+				self.getChanges()
 
 			# print(self.RstickX , self.RstickY, self.R1, self.R2)
 
@@ -140,25 +153,44 @@ class ps4USB():
 		elif self.CirButton:
 			self.ps4Buttons = 2
 		return self.ps4Buttons
+	
+
+
+	def stop_ps4(self):
+		self._connection_made.set()
+		try:
+			self.join(timeout = 1)
+		except RuntimeError as re:
+			print(re)
+		finally:
+			print("Is ps4 thread still alive? ", self.is_alive())
 
 
 
 if __name__ == "__main__":
 	ps4 = ps4USB()
+	print(ps4.controller)
+	if ps4.controller is not None:
+		ps4.start()
+
 	cX, cY, cZ = 0, 0, 0
-	num = 100
+	num = 50
 
 	while num > 0:
-		ps4.updateAndMapPS4()
+		# ps4.updateAndMapPS4()
 		ps4Buttons = ps4.getPSButtonData()
 		controllerButtons = ps4Buttons
-		print(controllerButtons)    
+		# print(controllerButtons)    
 		[xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(cX, cY, cZ)
 		cX, cY, cZ = xPS4, yPS4, zPS4
 		print(xPS4, yPS4, zPS4)
 
 		num -= 1
+
 		time.sleep(0.1)
+
+	if ps4.controller is not None:
+		ps4.stop_ps4()
 
 
 
