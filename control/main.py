@@ -144,13 +144,16 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     # Try to connect to phantom omni. If not connected, use pre-determined coords.
     # if usePathFile:
     if not omni_connected:
-        with open('C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime/paths/gridPath 2023-03-03 16-29-08 centre 15-8.66025 30x15.0grid 0.048x1.5spacing.csv', newline = '') as csvPath:
-            coordReader = csv.reader(csvPath)
-            for row in coordReader:
-                xPath.append(float(row[0]))
-                yPath.append(float(row[1]))
-                zPath.append(float(row[2]))
-            xMap, yMap, zMap = xPath[0], yPath[0], zPath[0]
+        if ps4.controller is not None:
+            xMap, yMap, zMap = 0, 0, 0
+        else:
+            with open('C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime/paths/gridPath 2023-03-03 16-29-08 centre 15-8.66025 30x15.0grid 0.048x1.5spacing.csv', newline = '') as csvPath:
+                coordReader = csv.reader(csvPath)
+                for row in coordReader:
+                    xPath.append(float(row[0]))
+                    yPath.append(float(row[1]))
+                    zPath.append(float(row[2]))
+                xMap, yMap, zMap = xPath[0], yPath[0], zPath[0]
     else:
         # omniX, omniY, omniZ = 0.0, 0.0, 0.0
         omniDataReceived = phntmOmni.getOmniCoords()
@@ -279,10 +282,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
     if pumpsConnected:
         omniButtons = phntmOmni.omniButton
-        if useOmni:
-            controllerButtons = omniButtons
-        else:
-            controllerButtons = ps4Buttons
+        controllerButtons = 0
         pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE, controllerButtons)
     # [pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
     # print(pumpCOMS)
@@ -304,42 +304,44 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         print("Mass spec serial connected? ", msConnected)
 
     try:
-        if startWithCalibration:
 
-            if pumpsConnected:
+        if pumpsConnected:
 
-                #  Inflate structure and give some time to stabilise:
-                print("Inflating structure...")
-                time.sleep(1)
-                omniButtons = phntmOmni.omniButton
-                if useOmni:
-                    controllerButtons = omniButtons
-                else:
-                    controllerButtons = ps4Buttons
-                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
-                # count = 0
-                # countLimit = 1000
-                # rampTime = 3 # seconds
-                # while (count != countLimit):
-                #     regulatorPressure = inflationPressure*(count/countLimit)
-                #     time.sleep(rampTime/countLimit)
-                #     omniButtons = phntmOmni.omniButton
-                #     pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, omniButtons)
-                #     [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
-                #     pressList = [pressL, pressR, pressT, regulatorSensor]
-                #     # Change pressurebars
-                #     updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
-                #     count = count + 1
+            #  Inflate structure and give some time to stabilise:
+            print("Inflating structure...")
+            controllerButtons = 0
+            pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
+            count = 0
+            countLimit = 100
+            rampTime = 3 # seconds
+            # while (count != countLimit):
+            #     regulatorPressure = round(inflationPressure*(count/countLimit))
+            #     # print(regulatorPressure)
+            #     time.sleep(rampTime/countLimit)
+            #     omniButtons = phntmOmni.omniButton
+            #     if useOmni:
+            #         controllerButtons = omniButtons
+            #     else:
+            #         controllerButtons = ps4Buttons
+            #     pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
+            #     [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
+            #     pressList = [pressL, pressR, pressT, regulatorSensor]
+            #     # Change pressurebars
+            #     updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
+            #     count = count + 1
 
-                #     # Stop operation if Stop button hit
-                #     flagStop = classSettings.stopFlag
-                #     if flagStop == True:
-                #         activateButtons(dictButtons, flagStop)
-                #         raise 
-                # # Wait an additional 3 s to stabilise
-                # time.sleep(1)
+            #     # Stop operation if Stop button hit
+            #     flagStop = classSettings.stopFlag
+            #     if flagStop == True:
+            #         activateButtons(dictButtons, flagStop)
+            #         raise 
+            # Wait an additional 3 s to stabilise
 
+            if not messagebox.askokcancel("Proceed?", "Inflation succesfull?"):
+                raise
 
+            if startWithCalibration:
+                
                 # Has the mechanism been calibrated/want to run without calibration?:
                 calibrated = not startWithCalibration
 
@@ -405,8 +407,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
                 print("Calibration done.")
 
-            else:
-                print("PUMP CONTROLLER NOT CONNECTED. RUNNING WITHOUT PUMPS.")
+        else:
+            print("PUMP CONTROLLER NOT CONNECTED. RUNNING WITHOUT PUMPS.")
 
         # print("Beginning path following task.")
         if fibreConnected: fibrebotLink.sendState("Run")
@@ -439,7 +441,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     # print(XYZPathCoords)
             elif ps4.controller is not None:
                 ps4Buttons = ps4.getPSButtonData()
-                [xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
+                frameRotAngle = dictLabel["rotationSlider"].get()
+                [xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], frameRotAngle)
                 XYZPathCoords = [xPS4, yPS4, zPS4]
                 # print(XYZPathCoords)
                 # elif pathCounter >= len(xPath):
@@ -525,6 +528,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     controllerButtons = ps4Buttons
                 # print(controllerButtons)    
                 
+                regulatorPressure = inflationPressure
+
                 if firstMoveDelay < firstMoveDivider:
                     firstMoveDelay += 1
                     # RStep = dStepR scaled for speed (w rounding differences)

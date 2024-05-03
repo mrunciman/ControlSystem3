@@ -122,7 +122,12 @@ class ps4USB(threading.Thread):
 
 
 
-	def incrementXYZCoords(self, cX, cY, cZ):
+	def incrementXYZCoords(self, cX, cY, cZ, rotationSlider):
+		#TODO Add rotation of incremented values
+		#TODO If motion limits reached (esp prismatic) do not change inputs
+		#TODO Why does the robot start at full prsimatic extension?
+		#TODO Encoder check on uSteppers blocking operation?
+		#TODO Load cell calibration
 		if self.xChange is not None:
 			nX = cX + self.xChange
 		else:
@@ -175,13 +180,14 @@ if __name__ == "__main__":
 
 	cX, cY, cZ = 0, 0, 0
 	num = 50
+	rotSlider = 0
 
 	while num > 0:
 		# ps4.updateAndMapPS4()
 		ps4Buttons = ps4.getPSButtonData()
 		controllerButtons = ps4Buttons
 		# print(controllerButtons)    
-		[xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(cX, cY, cZ)
+		[xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(cX, cY, cZ, rotSlider)
 		cX, cY, cZ = xPS4, yPS4, zPS4
 		print(xPS4, yPS4, zPS4)
 
