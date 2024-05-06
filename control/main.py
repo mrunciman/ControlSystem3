@@ -68,7 +68,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     CALIBRATION_MODE = 0
     HOLD_MODE = 1
     ACTIVE_MODE = 2
-    INFLATION_MODE = 0
+    ISOLATE_P_SUPPLY = 0
     DEFLATION_MODE = 1
     SET_PRESS_MODE = 3
 
@@ -109,7 +109,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
     # Desired pressure in pneumatic structure
     regulatorPressure = 0
-    inflationPressure = 100
+    inflationPressure = 100 #kPa
     regulatorSensor = 0
     
 
@@ -283,7 +283,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     if pumpsConnected:
         omniButtons = phntmOmni.omniButton
         controllerButtons = 0
-        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, DEFLATION_MODE, controllerButtons)
+        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, ISOLATE_P_SUPPLY, controllerButtons)
     # [pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
     # print(pumpCOMS)
 
@@ -312,17 +312,13 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             controllerButtons = 0
             pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
             count = 0
-            countLimit = 100
+            countLimit = 50
             rampTime = 3 # seconds
             # while (count != countLimit):
             #     regulatorPressure = round(inflationPressure*(count/countLimit))
             #     # print(regulatorPressure)
             #     time.sleep(rampTime/countLimit)
-            #     omniButtons = phntmOmni.omniButton
-            #     if useOmni:
-            #         controllerButtons = omniButtons
-            #     else:
-            #         controllerButtons = ps4Buttons
+            #     controllerButtons = 0
             #     pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
             #     [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
             #     pressList = [pressL, pressR, pressT, regulatorSensor]
@@ -659,7 +655,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 print(realStepR, pressR, timeR)
                 print(realStepT, pressT, timeT)
                 print(realStepP, pressP, timeP)
-                # pumpController.t.stop()
+                pumpController.t.stop()
                 pumpController.closeSerial()
 
 
@@ -1016,7 +1012,7 @@ pressureLabels = [press1Label, press2Label, press3Label, pressPLabel]
 
 # Creates slider to rotate input device coordinates.
 # To be placed below the pressure bars, so it is the same width as the pressure bar canvas
-rotationSlider = Scale(contentFrame, from_=180, to=-180, length = barAndPadWidth*numberBars, tickinterval=90, orient = HORIZONTAL)
+rotationSlider = Scale(contentFrame, from_=180, to=-180, length = barAndPadWidth*numberBars, tickinterval=60, orient = HORIZONTAL)
 labelDict.update({"rotationSlider" : rotationSlider})
 
 

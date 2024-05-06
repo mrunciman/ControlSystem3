@@ -5,17 +5,20 @@ import usb.util
 import usb.backend.libusb1
 import time
 import threading
+import numpy as np
 
 # See https://www.psdevwiki.com/ps4/DS4-USB for details on data indices
 
 # DS4 controller ids (might be different on your side)
 VENDOR_ID = 0x54c
-PRODUCT_ID = 0x5c4 #0x9cc
+PRODUCT_ID = 0x9cc #0x5c4 #0x9cc
 
 # Don't forget to change the path to libusb-1.0.dll
-BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+# BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 
-INTERFACE_DS4 = 0 # HID interface
+BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\InflatableRobotControl\\ControlSystemThree\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+
+INTERFACE_DS4 = 3 # 0 # HID interface number in cfg list
 SETTING_DS4 = 0
 
 ENDPOINT_DS4_OUT = 0 # Input endpoint
@@ -31,9 +34,10 @@ class ps4USB(threading.Thread):
 		self.paused = False
 
 		self.dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID, backend=BACKEND)
+		# print(self.dev)
 		if self.dev is not None:
 			self.cfg = self.dev.get_active_configuration()
-			# print(cfg)
+			# print(self.cfg)
 			self.interface = self.cfg[(INTERFACE_DS4, SETTING_DS4)]
 			self.endpoint = self.interface[ENDPOINT_DS4_OUT]
 			self.controller = self.endpoint.read(0x40)[0] # equals 1 on success
@@ -62,8 +66,8 @@ class ps4USB(threading.Thread):
 		self.TRIGGER_SHIFT = 1
 		self.XY_DEADTHRESH = 0.1
 		self.PRISM_CHANGE = 0.1
-		self.XY_SENSITIVITY = 5
-		self.P_SENSITIVITY = 5
+		self.XY_SENSITIVITY = 2.5
+		self.P_SENSITIVITY = 2.5
 
 
 	def stopped(self):
@@ -122,19 +126,41 @@ class ps4USB(threading.Thread):
 
 
 
-	def incrementXYZCoords(self, cX, cY, cZ, rotationSlider):
+	def incrementXYZCoords(self, cX, cY, cZ, degreesToRotate):
 		#TODO Add rotation of incremented values
 		#TODO If motion limits reached (esp prismatic) do not change inputs
-		#TODO Why does the robot start at full prsimatic extension?
 		#TODO Encoder check on uSteppers blocking operation?
 		#TODO Load cell calibration
+		if self.xChange is None:
+			self.xChange = 0
+
+		if self.yChange is None:
+			self.yChange = 0
+
+		# Add rotation of coordinates after mapping
+		changeMatrix = np.array([[self.xChange],\
+								 [self.yChange]])
+        
+		if degreesToRotate is not None:
+			radsToRotate = np.radians(degreesToRotate)
+		else:
+			radsToRotate = 0
+
+		changeRotated = np.array([ [np.cos(radsToRotate), -np.sin(radsToRotate)],\
+								   [np.sin(radsToRotate),  np.cos(radsToRotate)]])
+
+		changeRotated = np.dot(changeRotated, changeMatrix)
+
+		changeX = changeRotated[0]
+		changeY = changeRotated[1]
+
 		if self.xChange is not None:
-			nX = cX + self.xChange
+			nX = cX + changeX
 		else:
 			nX = cX
 
 		if self.yChange is not None:
-			nY = cY + self.yChange
+			nY = cY + changeY
 		else:
 			nY = cY
 
@@ -143,9 +169,9 @@ class ps4USB(threading.Thread):
 		else:
 			nZ = cZ
 
-		nX = round(nX,2)
-		nY = round(nY,2)
-		nZ = round(nZ,2)
+		# nX = round(nX,2)
+		# nY = round(nY,2)
+		# nZ = round(nZ,2)
 		return nX, nY, nZ
 
 
@@ -180,14 +206,14 @@ if __name__ == "__main__":
 
 	cX, cY, cZ = 0, 0, 0
 	num = 50
-	rotSlider = 0
+	rotateDegrees = 90
 
 	while num > 0:
 		# ps4.updateAndMapPS4()
 		ps4Buttons = ps4.getPSButtonData()
 		controllerButtons = ps4Buttons
 		# print(controllerButtons)    
-		[xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(cX, cY, cZ, rotSlider)
+		[xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(cX, cY, cZ, rotateDegrees)
 		cX, cY, cZ = xPS4, yPS4, zPS4
 		print(xPS4, yPS4, zPS4)
 

@@ -403,6 +403,7 @@ class kineSolver:
 
         self.cL_c = self.L_c
         # Find contraction of actuator, filtering zeros:
+        #TODO Fix this for smooth and continuous function
         if targetCable < self.MAX_CABLE_DIST:
             if targetCable > self.MIN_CABLE:
                 self.L_c = self.STROKE * (self.RANGE - (targetCable - self.MIN_CABLE))/self.RANGE
