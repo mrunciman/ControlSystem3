@@ -145,7 +145,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     # if usePathFile:
     if not omni_connected:
         if ps4.controller is not None:
-            xMap, yMap, zMap = 0, 0, 0
+            xMap, yMap, zMap = 0, 0, kineSolve.SHAFT_LENGTH_UJ + kineSolve.LEVER_BASE_Z
         else:
             with open('C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime/paths/gridPath 2023-03-03 16-29-08 centre 15-8.66025 30x15.0grid 0.048x1.5spacing.csv', newline = '') as csvPath:
                 coordReader = csv.reader(csvPath)
@@ -174,7 +174,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     targetZ = XYZPathCoords[2]
 
 
-    HOMING_POSITION = [0, 0, 10]
+    HOMING_POSITION = [0, 0, kineSolve.SHAFT_LENGTH_UJ + kineSolve.LEVER_BASE_Z]
 
     # Fibre related variables
     fibreDone = False
@@ -314,26 +314,26 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             count = 0
             countLimit = 50
             rampTime = 3 # seconds
-            # while (count != countLimit):
-            #     regulatorPressure = round(inflationPressure*(count/countLimit))
-            #     # print(regulatorPressure)
-            #     time.sleep(rampTime/countLimit)
-            #     controllerButtons = 0
-            #     pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
-            #     [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
-            #     pressList = [pressL, pressR, pressT, regulatorSensor]
-            #     # Change pressurebars
-            #     updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
-            #     count = count + 1
+            while (count != countLimit):
+                regulatorPressure = round(inflationPressure*(count/countLimit))
+                # print(regulatorPressure)
+                time.sleep(rampTime/countLimit)
+                controllerButtons = 0
+                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
+                [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
+                pressList = [pressL, pressR, pressT, regulatorSensor]
+                # Change pressurebars
+                updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
+                count = count + 1
 
-            #     # Stop operation if Stop button hit
-            #     flagStop = classSettings.stopFlag
-            #     if flagStop == True:
-            #         activateButtons(dictButtons, flagStop)
-            #         raise 
+                # Stop operation if Stop button hit
+                flagStop = classSettings.stopFlag
+                if flagStop == True:
+                    activateButtons(dictButtons, flagStop)
+                    raise 
             # Wait an additional 3 s to stabilise
 
-            if not messagebox.askokcancel("Proceed?", "Inflation succesfull?"):
+            if not messagebox.askokcancel("Proceed?", "Was inflation succesfull?"):
                 raise
 
             if startWithCalibration:
@@ -423,7 +423,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         while(flagStop == False):
 
             if classSettings.goToHome:
-                XYZPathCoords = HOMING_POSITION
+                XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
             elif useOmni:
                 if omni_connected:
                     omniDataReceived = phntmOmni.getOmniCoords()
@@ -433,7 +433,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     [xMap, yMap, zMap] = phntmOmni.omniMap(frameRotAngle)
                     XYZPathCoords = [xMap, yMap, zMap]
                 else:
-                    XYZPathCoords = HOMING_POSITION
+                    XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
                     # print(XYZPathCoords)
             elif ps4.controller is not None:
                 ps4Buttons = ps4.getPSButtonData()
@@ -445,7 +445,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 #     break               
             else: #Nothing is connected, stay at home position
                 # XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
-                XYZPathCoords = HOMING_POSITION
+                XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
                 # print(XYZPathCoords)
             # else:
             #     omniDataReceived = phntmOmni.getOmniCoords()

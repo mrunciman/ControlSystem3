@@ -14,9 +14,9 @@ VENDOR_ID = 0x54c
 PRODUCT_ID = 0x9cc #0x5c4 #0x9cc
 
 # Don't forget to change the path to libusb-1.0.dll
-# BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 
-BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\InflatableRobotControl\\ControlSystemThree\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+# BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\InflatableRobotControl\\ControlSystemThree\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 
 INTERFACE_DS4 = 3 # 0 # HID interface number in cfg list
 SETTING_DS4 = 0
@@ -127,10 +127,11 @@ class ps4USB(threading.Thread):
 
 
 	def incrementXYZCoords(self, cX, cY, cZ, degreesToRotate):
-		#TODO Add rotation of incremented values
-		#TODO If motion limits reached (esp prismatic) do not change inputs
-		#TODO Encoder check on uSteppers blocking operation?
+		#TODO If motion limits reached (esp prismatic) do not change inputs - Don't let Z coord get too low or high 
+		#TODO Encoder check on uSteppers blocking operation? - is sleep causing delay in messages to arduino? Observed pause before usteppers reset 
 		#TODO Load cell calibration
+		#TODO Check calibration routine
+		#TODO New flags for ps4 controller initialisation (try to onnect if haptic not used, or if useOmni but connection failed)
 		if self.xChange is None:
 			self.xChange = 0
 
@@ -155,12 +156,13 @@ class ps4USB(threading.Thread):
 		changeY = changeRotated[1]
 
 		if self.xChange is not None:
-			nX = cX + changeX
+			# method .item() converts numpy to native python type
+			nX = cX + changeX.item()
 		else:
 			nX = cX
 
 		if self.yChange is not None:
-			nY = cY + changeY
+			nY = cY + changeY.item()
 		else:
 			nY = cY
 
@@ -169,9 +171,9 @@ class ps4USB(threading.Thread):
 		else:
 			nZ = cZ
 
-		# nX = round(nX,2)
-		# nY = round(nY,2)
-		# nZ = round(nZ,2)
+		nX = round(nX,2)
+		nY = round(nY,2)
+		nZ = round(nZ,2)
 		return nX, nY, nZ
 
 

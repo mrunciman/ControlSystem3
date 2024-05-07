@@ -263,16 +263,14 @@ class mouseTracker:
             self.xCallback = round(POI[0]/self.resolution)
             self.yCallback = self.canvasY - round(POI[1]/self.resolution)
 
-            self.desX = round(desiredPoints[0]/self.resolution)*self.resolution
-            self.desY = round(desiredPoints[1]/self.resolution)*self.resolution
-            self.desZ = round(desiredPoints[2]/self.resolution)*self.resolution
             self.mouseEvent = cv2.EVENT_MOUSEMOVE
+            self.drawCables(attach_points, POI_canvas)
 
         else:
             xPosText = self.xCoord
             yPosText = self.yCoord
-
-        self.drawCables(attach_points, POI_canvas)
+            self.drawCables(attach_points)
+      
         # if POI is not None:
             # Draw Path points if they are given
             # for i in range(len(self.xPathCoords)):
@@ -294,6 +292,23 @@ class mouseTracker:
         cv2.putText(self.bkGd, P_LHS_Text, pPlaceLHS, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
         cv2.putText(self.bkGd, P_RHS_Text, pPlaceRHS, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
         cv2.putText(self.bkGd, P_TOP_Text, pPlaceTOP, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
+        #Draw XYZ coords if provided
+        if desiredPoints is not None:
+            self.desX = round(desiredPoints[0]/self.resolution)*self.resolution
+            self.desY = round(desiredPoints[1]/self.resolution)*self.resolution
+            self.desZ = round(desiredPoints[2]/self.resolution)*self.resolution
+
+            Pos_X_Text = "X / mm = {:.2f}".format(desiredPoints[0])
+            Pos_Y_Text = "Y / mm = {:.2f}".format(desiredPoints[1])
+            Pos_Z_Text = "Z / mm = {:.2f}".format(desiredPoints[2])
+
+            xPlace = (15, int(25 + 60*(self.canvasX/NOMINAL_CANVAS_WIDTH)))
+            yPlace = (15, int(25 + 80*(self.canvasX/NOMINAL_CANVAS_WIDTH)))
+            zPlace = (15, int(25 + 100*(self.canvasX/NOMINAL_CANVAS_WIDTH)))
+            cv2.rectangle(self.bkGd, (0,int(self.canvasY/6)), (int(self.canvasX*0.3), int(self.canvasY/3)), (255,255,255), -1)
+            cv2.putText(self.bkGd, Pos_X_Text, xPlace, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
+            cv2.putText(self.bkGd, Pos_Y_Text, yPlace, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
+            cv2.putText(self.bkGd, Pos_Z_Text, zPlace, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
 
         # Redraw position text if moving
         if self.mouseEvent == 0:
@@ -365,6 +380,10 @@ if __name__ == "__main__":
 
     mouseTrack = mouseTracker(triangleSide, minCable, maxCable)
     mouseTrack.createTracker(ATTACH_POINTS)
+
+    XYZPathCoords = [0, 0, 20]
+    POICoords = None
+
     flagStop = False
     pressL = 0
     pressR = 0
@@ -372,11 +391,14 @@ if __name__ == "__main__":
     pressList = [pressL, pressR, pressT]
     count = 0
     while flagStop is False:
-        [targetX, targetY, flagStop] = mouseTrack.iterateTracker(pressList, attach_points_rot)
+        [targetX, targetY, flagStop] = mouseTrack.iterateTracker(pressList, attach_points_rot, POICoords, XYZPathCoords)
         # print(attach_points_rot)
-        pressL = 10 + 10*mt.sin(0.01*count)
-        pressR = pressL*mt.cos(0.01*count)
-        pressT = pressL*mt.sin(0.01*count)
+        pressL = 10 + 10*mt.sin(0.1*count)
+        pressR = pressL*mt.cos(0.1*count)
+        pressT = pressL*mt.sin(0.1*count)
+        pressList = [pressL, pressR, pressT]
+
+        XYZPathCoords = [XYZPathCoords[0] + 10*mt.sin(0.01*count), XYZPathCoords[1] + mt.cos(0.01*count), XYZPathCoords[2] + 10*mt.sin(0.01*count)]
         count = count + 1
 
 
