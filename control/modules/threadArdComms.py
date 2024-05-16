@@ -130,9 +130,13 @@ class ardThreader:
         self.ardTime = self.t.ardT
         self.calibrationFlag = self.t.caliFlag
         self.calibrationByte = self.t.caliByte
-        self.loadData = self.t.loadD
+        rawLoadData = self.t.loadD
+        loadIntercepts = [-157842.064, 120690.686, 50251.4, 203841.3] #[-156889, 116872, 46333, 202873] # [0, 0, 0, 0] #[-158219, 112814, 49024, 206650] #[-156889.3692, 116872.8942, 46333.59892, 202873.5869]
+        loadGradients = [298.89, 213.08, 291.40, 263.92]
+        intermediate = [a_i - b_i for a_i, b_i in zip(rawLoadData, loadIntercepts)]
+        self.loadData = [a_j / b_j for a_j, b_j in zip(intermediate, loadGradients)]
         # the last four digits of calibration byte represent the calibration status of the motors
-        # The order is PTRL
+        # The order is LRTP
 
         # print("Motor angles:   ", self.positionData)
         # print("Pressures:      ", self.pressData)

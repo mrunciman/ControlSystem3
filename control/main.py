@@ -83,7 +83,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     pumpDataUpdated = False
     delayFactor = 1
     firstMoveDelay = 0
-    firstMoveDivider = 500
+    firstMoveDivider = 200
     delayCount = 0
     delayLim = 200
 
@@ -236,6 +236,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
     # Load cell data
     loadL, loadR, loadT, loadP = 0, 0, 0, 0
+    loadList = [loadL, loadR, loadT, loadP]
 
     # Current position
     cStepL = tStepL
@@ -296,7 +297,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             # print(fibrebotLink.fibreSerial)
 
     massSpecLink = massSpecInterface.massSpec()
-    msCOM = 'COM5'
+    msCOM = 'COMX'
     msConnected = False
     if useMassSpec:
         msConnected = massSpecLink.connect(msCOM)
@@ -306,7 +307,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     try:
 
         if pumpsConnected:
-
+            time.sleep(1.5)
             #  Inflate structure and give some time to stabilise:
             print("Inflating structure...")
             controllerButtons = 0
@@ -314,13 +315,14 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             count = 0
             countLimit = 50
             rampTime = 3 # seconds
-            while (count != countLimit):
+            while (count < countLimit):
                 regulatorPressure = round(inflationPressure*(count/countLimit))
                 # print(regulatorPressure)
+
+                [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
                 time.sleep(rampTime/countLimit)
                 controllerButtons = 0
-                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
-                [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
+
                 pressList = [pressL, pressR, pressT, regulatorSensor]
                 # Change pressurebars
                 updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
@@ -331,6 +333,18 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 if flagStop == True:
                     activateButtons(dictButtons, flagStop)
                     raise 
+
+                ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, loadL, timeL)
+                ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, loadR, timeR)
+                ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, loadT, timeT)
+                ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, loadP, timeP)
+                # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
+                ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
+                # Ensure same number of rows in position log file
+                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
+
+                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
+
             # Wait an additional 3 s to stabilise
 
             if not messagebox.askokcancel("Proceed?", "Was inflation succesfull?"):
@@ -360,7 +374,12 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                         activateButtons(dictButtons, flagStop)
                         raise
 
-                    if (max(pressL, pressR, pressT) > PRESS_MAX_KPA): # TODO Add filtered pressure values back again to use here
+                    pressLMed = medPressL.newPressMed(pressL)
+                    pressRMed = medPressR.newPressMed(pressR)
+                    pressTMed = medPressT.newPressMed(pressT)
+                    pressP = regulatorSensor
+                    pressPMed = medPressP.newPressMed(regulatorSensor)
+                    if (max(pressLMed, pressRMed, pressTMed) > PRESS_MAX_KPA): # TODO Add filtered pressure values back again to use here
                         print("Overpressure: ", max(pressL, pressR, pressT), " kPa")
                         raise
 
@@ -368,10 +387,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     [timeL, timeR, timeT, timeP] = [timeL]*4
                     if prevCaliState != pumpController.calibrationByte:
                         prevCaliState = pumpController.calibrationByte
-                        print(pumpController.calibrationByte)
+                    print(int.from_bytes(pumpController.calibrationByte,'little'), pumpController.calibrationFlag)
                     # print(pressL, pressR, pressT, regulatorSensor, "\n")
 
-                    pressList = [pressL, pressR, pressT, regulatorSensor]
+                    pressList = [pressLMed, pressRMed, pressTMed, pressPMed]
                     # Change pressurebars
                     updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
 
@@ -463,7 +482,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             # XYZPathCoords are desired coords in 3D.
             [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
             POIcoords = [targetXideal, targetYideal]
-            [targetX_mouse, targetY_mouse, flagStop] = mouseTrack.iterateTracker(pressList, kineSolve.attach_points_rot, POIcoords, XYZPathCoords)
+            [targetX_mouse, targetY_mouse, flagStop] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_rot, POIcoords, XYZPathCoords)
 
             # Return target cable lengths at target coords and jacobian at current coords
             [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
@@ -560,6 +579,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
                 # pressList = [pressL, pressR, pressT, regulatorSensor]
                 pressList = [pressLMed, pressRMed, pressTMed, pressPMed]
+                loadList = [loadL, loadR, loadT, loadP]
  
                 # Change pressurebars
                 updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
@@ -577,7 +597,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 if (kineSolve.TIMESTEP < 0.01): kineSolve.TIMESTEP = 0.01
                 # print((timeL - prevTimeL)/1000)
             else:
-                pumpDataUpdated = False
+                pumpDataUpdated = True
                 kineSolve.TIMESTEP = 0.01
 
             # Update current position, cable lengths, and volumes as previous targets
@@ -720,7 +740,7 @@ class controlSettings:
         self.useVisionFeedback = False
         self.visionFeedFlag = False
         self.startWithCalibration = True
-        self.useOmni = True
+        self.useOmni = False
         self.socketOmni = None
         self.useOptitrack = False
         self.useFibrebot = False
