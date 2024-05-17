@@ -108,6 +108,8 @@ class mouseTracker:
         self.desY = []
         self.desZ = []
 
+        self.insideBounds = False
+
 
 
     # Mouse callback function
@@ -153,6 +155,7 @@ class mouseTracker:
         proxVt2 = self.radRestrPixSma < la.norm(radDiff2) < self.radRestrictPix
         proxVt3 = self.radRestrPixSma < la.norm(radDiff3) < self.radRestrictPix
         insideAll = insideTri*proxVt1*proxVt2*proxVt3
+        self.insideBounds = insideAll
         # print(insideAll)
 
         # Check if mouse button was pressed down (event = 1)
@@ -177,7 +180,7 @@ class mouseTracker:
             self.mouseDown = True
             self.touchDown = True
             self.mouseEvent = cv2.EVENT_MOUSEMOVE
-            insideAll = True
+            # insideAll = True
 
         if insideAll == True:
             if self.mouseDown == True:
@@ -329,7 +332,7 @@ class mouseTracker:
         numMillis = numMillis*1000
         self.timeDiff = numMillis - self.prevMillis
         self.prevMillis = numMillis
-        return self.xCoord, self.yCoord, self.stopFlag
+        return self.xCoord, self.yCoord, self.stopFlag, self.insideBounds
 
 
 
@@ -390,9 +393,10 @@ if __name__ == "__main__":
     pressT = 0
     pressList = [pressL, pressR, pressT]
     count = 0
+    insideBounds = False
     while flagStop is False:
-        [targetX, targetY, flagStop] = mouseTrack.iterateTracker(pressList, attach_points_rot, POICoords, XYZPathCoords)
-        # print(attach_points_rot)
+        [targetX, targetY, flagStop, insideBounds] = mouseTrack.iterateTracker(pressList, attach_points_rot, POICoords, XYZPathCoords)
+        # print(insideBounds)
         pressL = 10 + 10*mt.sin(0.1*count)
         pressR = pressL*mt.cos(0.1*count)
         pressT = pressL*mt.sin(0.1*count)
