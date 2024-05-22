@@ -14,9 +14,9 @@ VENDOR_ID = 0x54c
 PRODUCT_ID = 0x9cc #0x5c4 #0x9cc
 
 # Don't forget to change the path to libusb-1.0.dll
-# BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 
-BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\InflatableRobotControl\\ControlSystemThree\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+# BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\InflatableRobotControl\\ControlSystemThree\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 
 INTERFACE_DS4 = 3 # 0 # HID interface number in cfg list
 SETTING_DS4 = 0
@@ -66,7 +66,7 @@ class ps4USB(threading.Thread):
 		self.TRIGGER_SHIFT = 1
 		self.XY_DEADTHRESH = 0.1
 		self.PRISM_CHANGE = 0.1
-		self.XY_SENSITIVITY = 2.5
+		self.XY_SENSITIVITY = 1
 		self.P_SENSITIVITY = 2.5
 
 
@@ -185,6 +185,8 @@ class ps4USB(threading.Thread):
 			self.ps4Buttons = 1
 		elif self.CirButton:
 			self.ps4Buttons = 2
+		elif self.SquButton:
+			self.ps4Buttons = 3
 		return self.ps4Buttons
 	
 

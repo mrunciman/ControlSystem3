@@ -88,6 +88,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     firstMoveDivider = 200
     delayCount = 0
     delayLim = 200
+    reflateFlag = 0
 
     ############################################################
     pathCounter = 0
@@ -139,13 +140,20 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     ps4 = ps4_pyUSB.ps4USB() # Create an object from controller
     if ps4.controller is not None:
         ps4.start() #start and listen to events
+        xPS4, yPS4, zPS4 = 0, 0, 0
         print("PS4 Controller connected")
         ps4Buttons = 0
     
     if omni_connected:
-        dictLabel["omniLabel"].config(fg = "green") 
+        if ps4.controller is not None:
+            dictLabel["omniLabel"].config(fg = "green")
+        else:
+            dictLabel["omniLabel"].config(fg = "magenta")
     else:
-        dictLabel["omniLabel"].config(fg = "red")
+        if ps4.controller is not None:
+            dictLabel["omniLabel"].config(fg = "cyan")
+        else:
+            dictLabel["omniLabel"].config(fg = "red")
     
     omniButtons = 0 #phntmOmni.omniButton # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
 
@@ -315,9 +323,14 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         # if msConnected:
         print("Mass spec serial connected? ", msConnected)
 
+
+    ###############################################################################################
+    # The most important try statement
     try:
 
         if pumpsConnected:
+            if not messagebox.askokcancel("Inflate structure?", "Would you like to inflate the structure?"):
+                raise
             time.sleep(1.5)
             #  Inflate structure and give some time to stabilise:
             print("Inflating structure...")
@@ -325,7 +338,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             count = 0
             countLimit = 50
             rampTime = 3 # seconds
-            while (count < countLimit):
+            while (count <= countLimit):
                 regulatorPressure = round(inflationPressure*(count/countLimit))
                 # print(regulatorPressure)
 
@@ -353,6 +366,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
 
                 pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
+            time.sleep(0.07)
+            pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
 
             # Wait an additional 3 s to stabilise
 
@@ -395,7 +410,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     [timeL, timeR, timeT, timeP] = [timeL]*4
                     if prevCaliState != pumpController.calibrationByte:
                         prevCaliState = pumpController.calibrationByte
-                    print(int.from_bytes(pumpController.calibrationByte,'little'), pumpController.calibrationFlag)
+                    # print(int.from_bytes(pumpController.calibrationByte,'little'), pumpController.calibrationFlag)
                     # print(pressL, pressR, pressT, regulatorSensor, "\n")
 
                     pressList = [pressLMed, pressRMed, pressTMed, pressPMed]
@@ -442,46 +457,60 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         while(flagStop == False):
 
             if classSettings.goToHome:
+                controllerButtons = 0
                 XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
             elif useOmni:
                 if omni_connected:
                     omniDataReceived = phntmOmni.getOmniCoords()
                     omniButtons = phntmOmni.omniButton
+                    controllerButtons = omniButtons
                     frameRotAngle = dictLabel["rotationSlider"].get()
                     if (omniDataReceived == 2): break
                     [xMap, yMap, zMap] = phntmOmni.omniMap(frameRotAngle)
                     XYZPathCoords = [xMap, yMap, zMap]
                 else:
+                    controllerButtons = 0
                     XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
                     # print(XYZPathCoords)
             else:
                 if ps4.controller is not None:
                     ps4Buttons = ps4.getPSButtonData()
+                    if ps4Buttons == 3:
+                        regulatorPressure = regulatorPressure + reflateFlag
+                        reflateFlag = 0 if reflateFlag else 1
+                        # print(regulatorPressure, reflateFlag)
+                    controllerButtons = ps4Buttons
                     frameRotAngle = dictLabel["rotationSlider"].get()
+                    prevxPS4 = xPS4
+                    prevyPS4 = yPS4
                     prevzPS4 = zPS4
                     [xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], frameRotAngle)
-                    if targetOpP >= kineSolve.MAX_EXTEND:
+                    # Prevent motion if going out of reachable workspace:
+                    if (targetOpP >= kineSolve.MAX_EXTEND) and (zPS4 >= prevzPS4):
                         zPS4 = prevzPS4
+                    elif (targetOpP <= kineSolve.MIN_EXTEND) and (zPS4 <= prevzPS4):
+                        zPS4 = prevzPS4
+                    if abs(targetXideal) > kineSolve.SIDE_LENGTH/2:
+                        xPS4 = prevxPS4
+                    if abs(targetYideal) > kineSolve.SIDE_LENGTH/2:
+                        yPS4 = prevyPS4
                     XYZPathCoords = [xPS4, yPS4, zPS4]
-                # print(XYZPathCoords)
+                    # print(XYZPathCoords)
                 # elif pathCounter >= len(xPath):
                 #     break               
                 else: #Nothing is connected, stay at home position
-                # XYZPathCoords = [xPath[pathCounter], yPath[pathCounter], zPath[pathCounter]]
+                    controllerButtons = 0
                     XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
-                # print(XYZPathCoords)
 
-            
-            # if classSettings.goToHome or not omni_connected:
-            #     XYZPathCoords = HOMING_POSITION
+
 
             # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
             # XYZPathCoords are desired coords in 3D.
             [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
             POIcoords = [targetXideal, targetYideal]
+            # If no controller connected, set POICoords to None to make mouse control possible
             if (omni_connected == False) and (ps4.controller is None):
-                POIcoords = None # This will allow mouse control of GUI
-            # TODO if no controller connected, set POICoords to None
+                POIcoords = None
             [targetX_mouse, targetY_mouse, flagStop, insideBounds] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_rot, POIcoords, XYZPathCoords)
 
             # Return target cable lengths at target coords and jacobian at current coords
@@ -549,7 +578,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                         controllerButtons = 0
                 # print(controllerButtons)    
                 
-                regulatorPressure = inflationPressure
+                # regulatorPressure = inflationPressure
 
                 if firstMoveDelay < firstMoveDivider:
                     firstMoveDelay += 1

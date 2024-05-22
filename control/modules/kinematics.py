@@ -25,7 +25,7 @@ class kineSolver:
 
         # 'Flat' muscle length:
         # self.L_0 = 30
-        self.L_0 = 35
+        self.L_0 = 54
         self.STROKE = self.L_0/4
 
         # Excess length of cable between entry point and muscle, in mm
@@ -39,7 +39,7 @@ class kineSolver:
         self.D_t = 30 # Total width of actuator
         self.D_c = (self.D_t - self.D_s)/2 # Width of each individual conic end
         # Number of length subdivisions
-        self.NUM_L = 3
+        self.NUM_L = 4
         self.FACT_V = ((self.L_0**2)/self.NUM_L)*(self.D_c/3 + self.D_s/2)
         # Syringe cross sectional area, diameter = 26.5 mm
         self.SYRINGE_RADIUS = 12.5/2
