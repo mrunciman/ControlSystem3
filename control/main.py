@@ -485,6 +485,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     prevyPS4 = yPS4
                     prevzPS4 = zPS4
                     [xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], frameRotAngle)
+
+                    [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
+                    [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
+                    
                     # Prevent motion if going out of reachable workspace:
                     if (targetOpP >= kineSolve.MAX_EXTEND) and (zPS4 >= prevzPS4):
                         zPS4 = prevzPS4
@@ -566,16 +570,16 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             if pumpsConnected:
                 # if startWithCalibration:
                 #     # Reduce speed when making first move after calibration.
-                if useOmni:
-                    if omni_connected:
-                        controllerButtons = omniButtons
-                    else:
-                        controllerButtons = 0
-                else:
-                    if ps4.controller is not None:
-                        controllerButtons = ps4Buttons
-                    else:
-                        controllerButtons = 0
+                # if useOmni:
+                #     if omni_connected:
+                #         controllerButtons = omniButtons
+                #     else:
+                #         controllerButtons = 0
+                # else:
+                #     if ps4.controller is not None:
+                #         controllerButtons = ps4Buttons
+                #     else:
+                #         controllerButtons = 0
                 # print(controllerButtons)    
                 
                 # regulatorPressure = inflationPressure
@@ -620,7 +624,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
 
                 # Check for high pressure
-                if (max(pressL, pressR, pressT) > PRESS_MAX_KPA): # TODO Add filtered pressure values back again to use here
+                if (max(pressLMed, pressRMed, pressTMed) > PRESS_MAX_KPA): # TODO Add filtered pressure values back again to use here
                     print("Overpressure: ", max(pressL, pressR, pressT), " kPa")
                     break
 
