@@ -317,8 +317,8 @@ class mouseTracker:
         if self.mouseEvent == 0:
             posText = "({:.2f}, {:.2f})".format(xPosText, yPosText)
             placeEE = (self.xPix - int(50*(self.canvasX/NOMINAL_CANVAS_WIDTH)), self.yPix - int(15*(self.canvasX/NOMINAL_CANVAS_WIDTH)))
-            placeEERec = (self.xPix - int(50*(self.canvasX/NOMINAL_CANVAS_WIDTH)), self.yPix - int(30*(self.canvasX/NOMINAL_CANVAS_WIDTH))) 
-            placeEEEnd = (self.xPix + int(50*(self.canvasX/NOMINAL_CANVAS_WIDTH)), self.yPix - int(12*(self.canvasX/NOMINAL_CANVAS_WIDTH)))
+            placeEERec = (self.xPix - int(80*(self.canvasX/NOMINAL_CANVAS_WIDTH)), self.yPix - int(35*(self.canvasX/NOMINAL_CANVAS_WIDTH))) 
+            placeEEEnd = (self.xPix + int(100*(self.canvasX/NOMINAL_CANVAS_WIDTH)), self.yPix - int(10*(self.canvasX/NOMINAL_CANVAS_WIDTH)))
             cv2.rectangle(self.bkGd, placeEERec, placeEEEnd, (255, 255, 255), -1)
             cv2.putText(self.bkGd, posText, placeEE, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
         # Display image

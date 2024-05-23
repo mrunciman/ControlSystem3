@@ -456,10 +456,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         mouseTrack.createTracker(kineSolve.attach_points_rot)
         while(flagStop == False):
 
-            if classSettings.goToHome:
-                controllerButtons = 0
-                XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
-            elif useOmni:
+            useOmni = classSettings.useOmni
+            if useOmni:
                 if omni_connected:
                     omniDataReceived = phntmOmni.getOmniCoords()
                     omniButtons = phntmOmni.omniButton
@@ -484,20 +482,23 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     prevxPS4 = xPS4
                     prevyPS4 = yPS4
                     prevzPS4 = zPS4
-                    [xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], frameRotAngle)
-
-                    [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
-                    [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
-                    
+                    [temp_xPS4, temp_yPS4, temp_zPS4] = ps4.incrementXYZCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], frameRotAngle)
                     # Prevent motion if going out of reachable workspace:
+                    [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(temp_xPS4, temp_yPS4, temp_zPS4)
+                    [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
+                    if (targetOpL >= kineSolve.MAX_CABLE_DIST) or (targetOpR >= kineSolve.MAX_CABLE_DIST) or (targetOpT >= kineSolve.MAX_CABLE_DIST):
+                        xPS4, yPS4, zPS4 = prevxPS4, prevyPS4, prevzPS4
+                    else:
+                        xPS4, yPS4, zPS4 = temp_xPS4, temp_yPS4, temp_zPS4
+                    # Check limits on prismatic
                     if (targetOpP >= kineSolve.MAX_EXTEND) and (zPS4 >= prevzPS4):
                         zPS4 = prevzPS4
                     elif (targetOpP <= kineSolve.MIN_EXTEND) and (zPS4 <= prevzPS4):
                         zPS4 = prevzPS4
-                    if abs(targetXideal) > kineSolve.SIDE_LENGTH/2:
-                        xPS4 = prevxPS4
-                    if abs(targetYideal) > kineSolve.SIDE_LENGTH/2:
-                        yPS4 = prevyPS4
+                    # if abs(targetXideal) > kineSolve.SIDE_LENGTH/2:
+                    #     xPS4 = prevxPS4
+                    # if abs(targetYideal) > kineSolve.SIDE_LENGTH/2:
+                    #     yPS4 = prevyPS4
                     XYZPathCoords = [xPS4, yPS4, zPS4]
                     # print(XYZPathCoords)
                 # elif pathCounter >= len(xPath):
@@ -506,6 +507,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     controllerButtons = 0
                     XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
 
+            if classSettings.goToHome:
+                controllerButtons = 0
+                XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
 
 
             # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
@@ -742,16 +746,16 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 fibrebotLink.fibreSerial.close()
 
 
-            if useOmni:
-                if omni_connected:
-                    # try:
-                    phntmOmni.omniClose()
-                    phntmOmni.omniServer.kill()
-                    omni_connected = False
-                    classSettings.socketOmni = phntmOmni.sock
-                    # except SocketError:
 
-            elif ps4.controller is not None:
+            if omni_connected:
+                # try:
+                phntmOmni.omniClose()
+                phntmOmni.omniServer.kill()
+                omni_connected = False
+                classSettings.socketOmni = phntmOmni.sock
+                # except SocketError:
+
+            if ps4.controller is not None:
                 ps4.stop_ps4()
 
 
