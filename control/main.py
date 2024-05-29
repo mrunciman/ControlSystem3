@@ -477,7 +477,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 if ps4.controller is not None:
                     ps4Buttons = ps4.getPSButtonData()
                     if ps4Buttons == 3:
-                        regulatorPressure = regulatorPressure + reflateFlag
+                        regulatorPressure = inflationPressure if reflateFlag else inflationPressure
                         reflateFlag = 0 if reflateFlag else 1
                         # print(regulatorPressure, reflateFlag)
                     controllerButtons = ps4Buttons

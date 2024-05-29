@@ -77,7 +77,7 @@ class ardThreader:
         else:
             msg = 'H_N'
         message = 'B' + msg + '[' + stringList[0] + ',' + stringList[1] + ',' + stringList[2] + ',' + stringList[3] + ',' + stringList[4] + ',]' + "\n"
-        # print("Message: ", repr(message))
+        print("Message: ", repr(message))
         message = message.encode('utf-8', 'replace')
         numBytes = self.t.write(message)
         # print(numBytes)
