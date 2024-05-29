@@ -477,9 +477,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 if ps4.controller is not None:
                     ps4Buttons = ps4.getPSButtonData()
                     if ps4Buttons == 3:
-                        regulatorPressure = inflationPressure if reflateFlag else inflationPressure
+                        regulatorPressure = inflationPressure + 1 if reflateFlag else inflationPressure
                         reflateFlag = 0 if reflateFlag else 1
-                        # print(regulatorPressure, reflateFlag)
+                        print(regulatorPressure, reflateFlag)
                     controllerButtons = ps4Buttons
                     frameRotAngle = dictLabel["rotationSlider"].get()
                     prevxPS4 = xPS4
@@ -560,7 +560,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             [tVolR, vDotR, dDotR, fStepR, tStepR, tSpeedR, LcRealR, angleR] = kineSolve.volRate(cVolR, cableR, targetR)
             [tVolT, vDotT, dDotT, fStepT, tStepT, tSpeedT, LcRealT, angleT] = kineSolve.volRate(cVolT, cableT, targetT)
             # print("\n",tStepL, tStepR, tStepT, "\n")
-            # print("\nVolumes in ml: ",tVolL/1000, tVolR/1000, tVolT/1000, targetOpP, "\n")
+            print("\nL_cs in mm : ", LcRealL, LcRealR, LcRealT, targetP)
+            print("Volumes in ml: ",tVolL/1000, tVolR/1000, tVolT/1000, targetOpP, "\n")
 
             [tVolL_Scaled, tVolR_Scaled, tVolT_Scaled] = kineSolve.volRateScale(tVolL, tVolR, tVolT, cVolL, cVolR, cVolT)
 
