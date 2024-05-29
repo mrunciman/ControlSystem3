@@ -59,12 +59,13 @@ class ardThreader:
         the real step count (stepCount) from arduino.
         steps = sendStep(serialConnection, stepNumber)
         """
+        # self.ser.reset_output_buffer()
         inputList = [stepNumber1, stepNumber2, stepNumber3, stepNumber4, desiredPressure]
         stringList = ['', '', '', '', '']
 
         for i in range(len(inputList)):
             if type(inputList[i]) != str:
-                stringList[i] = "{:10.4f}".format(inputList[i])
+                stringList[i] = "{:7.2f}".format(inputList[i])
             else:
                 stringList[i] = inputList[i]
 
@@ -74,8 +75,8 @@ class ardThreader:
         if controlState is not None:
             msg = self.setState(controlState, inflationState, buttonsValue)
         else:
-            msg = 'HD'
-        message = msg + stringList[0] + ',' + stringList[1] + ',' + stringList[2] + ',' + stringList[3] + ',' + stringList[4] + "\n"
+            msg = 'H_N'
+        message = 'B' + msg + '[' + stringList[0] + ',' + stringList[1] + ',' + stringList[2] + ',' + stringList[3] + ',' + stringList[4] + ',]' + "\n"
         # print("Message: ", repr(message))
         message = message.encode('utf-8', 'replace')
         numBytes = self.t.write(message)
@@ -125,24 +126,26 @@ class ardThreader:
 
 
     def getData(self):
-        self.positionData = self.t.positionD
-        self.pressData = self.t.pressD
-        self.ardTime = self.t.ardT
-        self.calibrationFlag = self.t.caliFlag
-        self.calibrationByte = self.t.caliByte
-        rawLoadData = self.t.loadD
-        loadIntercepts = [-157842.064, 120690.686, 50251.4, 203841.3] #[-156889, 116872, 46333, 202873] # [0, 0, 0, 0] #[-158219, 112814, 49024, 206650] #[-156889.3692, 116872.8942, 46333.59892, 202873.5869]
-        loadGradients = [298.89, 213.08, 291.40, 263.92]
-        intermediate = [a_i - b_i for a_i, b_i in zip(rawLoadData, loadIntercepts)]
-        self.loadData = [a_j / b_j for a_j, b_j in zip(intermediate, loadGradients)]
-        # the last four digits of calibration byte represent the calibration status of the motors
-        # The order is LRTP
+        if self.t.errorFlag != 1:
+            self.positionData = self.t.positionD
+            self.pressData = self.t.pressD
+            self.ardTime = self.t.ardT
+            self.calibrationFlag = self.t.caliFlag
+            self.calibrationByte = self.t.caliByte
+            rawLoadData = self.t.loadD
+            # loadIntercepts = [-157842.064, 120690.686, 50251.4, 203841.3] #[-156889, 116872, 46333, 202873] # [0, 0, 0, 0] #[-158219, 112814, 49024, 206650] #[-156889.3692, 116872.8942, 46333.59892, 202873.5869]
+            # loadGradients = [298.89, 213.08, 291.40, 263.92]
+            # intermediate = [a_i - b_i for a_i, b_i in zip(rawLoadData, loadIntercepts)]
+            # self.loadData = [a_j / b_j for a_j, b_j in zip(intermediate, loadGradients)]
+            self.loadData = rawLoadData
+            # the last four digits of calibration byte represent the calibration status of the motors
+            # The order is LRTP
 
-        # print("Motor angles:   ", self.positionData)
-        # print("Pressures:      ", self.pressData)
-        # print("Time:           ", self.ardTime)
-        # print("Load cell data: ", self.loadData)
-        # print("Calibration completed? ", self.calibrationFlag, self.calibrationByte)
+            # print("Motor angles:   ", self.positionData)
+            # print("Pressures:      ", self.pressData)
+            # print("Time:           ", self.ardTime)
+            # print("Load cell data: ", self.loadData)
+            # print("Calibration completed? ", self.calibrationFlag, self.calibrationByte)
         return self.positionData, self.pressData, self.ardTime, self.loadData
     
 
@@ -188,9 +191,10 @@ class LocalReaderThread(threading.Thread):
         self.caliByte = 0
         self.positionD = [0.0, 0.0, 0.0, 0.0]
         self.pressD = [0, 0, 0, 0, 0]
-        self.loadD = [0, 0, 0, 0]
+        # self.loadD = [0, 0, 0, 0]
         self.ardT = 0
         self.loadD = [0.0, 0.0, 0.0, 0.0]
+        self.errorFlag = 0
 
     def stop(self):
         """Stop the reader thread"""
@@ -306,7 +310,7 @@ class SerialReaderProtocolLine(LineReader):
     
     def handle_line(self, line):
         """New line waiting to be processed"""
-        # print(line)
+        print(line)
         #Example of "line" string: '0.00,-00075,     0.00,-48,     0.00,-31,     0.00,-21,-88,13001,E'
         #Future example of "line" string: '0.00, 0.00, 0.00, 0.00, -00075, -48, -31, -21, -88,13001,E'
         startOK = False
@@ -343,25 +347,30 @@ class SerialReaderProtocolLine(LineReader):
             # print(self.transport.positionD)
             # pos = [stepPress[0], stepPress[2], stepPress[4], stepPress[6]]
             # self.transport.positionD = [float(x) for x in pos]
-            self.transport.positionD = [float(x) for x in stepPress[1:5]] # FOR FUTURE USE
-            # print(self.transport.positionD)
+            self.transport.errorFlag = 0
+            try:
+                self.transport.positionD = [float(x) for x in stepPress[1:5]] # FOR FUTURE USE
+                # print(self.transport.positionD)
 
-            # press = [stepPress[1], stepPress[3], stepPress[5], stepPress[7], stepPress[8]]
-            # self.transport.pressD = [int(y) for y in press]
-            self.transport.pressD = [float(y) for y in stepPress[5:10]] # FOR FUTURE USE
-            # print(self.transport.pressD)
+                # press = [stepPress[1], stepPress[3], stepPress[5], stepPress[7], stepPress[8]]
+                # self.transport.pressD = [int(y) for y in press]
+                self.transport.pressD = [float(y) for y in stepPress[5:10]] # FOR FUTURE USE
+                # print(self.transport.pressD)
 
-            self.transport.ardT = int(stepPress[10])
-            # print(self.transport.ardT)
+                self.transport.ardT = int(stepPress[10])
+                # print(self.transport.ardT)
 
-            self.transport.caliFlag = stepPress[11]
-            # print(self.transport.caliFlag)
+                self.transport.caliFlag = stepPress[11]
+                # print(self.transport.caliFlag)
 
-            self.transport.caliByte = int(stepPress[12]).to_bytes(1, 'big')
-            # print(self.transport.caliByte)
+                self.transport.caliByte = int(stepPress[12]).to_bytes(1, 'big')
+                # print(self.transport.caliByte)
 
-            self.transport.loadD = [int(z) for z in stepPress[13:17]] # FOR FUTURE USE
-            # print(self.transport.loadD)
+                self.transport.loadD = [float(z) for z in stepPress[13:17]] # FOR FUTURE USE
+                # print(self.transport.loadD)
+            except Exception as e:
+                self.transport.errorFlag = 1
+                print(e)
 
 
 

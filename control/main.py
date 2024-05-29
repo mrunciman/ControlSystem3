@@ -47,7 +47,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     ############################################################
     # Instantiate classes:
     # sideLength = 18.78 # mm, from workspace2 model
-    sideLength = 38 # mm, from workspace2 model
+    sideLength = 35 # mm, from workspace2 model
 
     kineSolve = kinematics.kineSolver(sideLength)
     # mouseTrack = mouseGUI.mouseTracker(sideLength)
@@ -329,15 +329,15 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     try:
 
         if pumpsConnected:
+            time.sleep(1.5)
             if not messagebox.askokcancel("Inflate structure?", "Would you like to inflate the structure?"):
                 raise
-            time.sleep(1.5)
             #  Inflate structure and give some time to stabilise:
             print("Inflating structure...")
             pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
             count = 0
             countLimit = 50
-            rampTime = 3 # seconds
+            rampTime = 5 # seconds
             while (count <= countLimit):
                 regulatorPressure = round(inflationPressure*(count/countLimit))
                 # print(regulatorPressure)
@@ -394,6 +394,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     # Stop operation if Stop button hit
                     flagStop = classSettings.stopFlag
                     if flagStop == True:
+                        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
+                        time.sleep(0.1)
+                        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
                         activateButtons(dictButtons, flagStop)
                         raise
 
@@ -424,7 +427,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                         desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, StepNoA = 0, 0, 0, 0, 0
                         pressLMed, pressRMed, pressTMed, pressPMed, pressAMed = 0, 0, 0, 0, 0
                     else:
-                        time.sleep(0.007)
+                        time.sleep(0.009)
                         pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE, controllerButtons)
 
                     ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, loadL, timeL)
