@@ -47,7 +47,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     ############################################################
     # Instantiate classes:
     # sideLength = 18.78 # mm, from workspace2 model
-    sideLength = 35 # mm, from workspace2 model
+    sideLength = 34 # mm, from workspace2 model
 
     kineSolve = kinematics.kineSolver(sideLength)
     # mouseTrack = mouseGUI.mouseTracker(sideLength)
@@ -329,6 +329,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     try:
 
         if pumpsConnected:
+            dictPress["pressureL"].config(fg = "white")
+            dictPress["pressureR"].config(fg = "white")
+            dictPress["pressureT"].config(fg = "white")
+            dictPress["pressureStruct"].config(fg = "white")
             time.sleep(1.5)
             if not messagebox.askokcancel("Inflate structure?", "Would you like to inflate the structure?"):
                 raise
@@ -414,6 +418,14 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     if prevCaliState != pumpController.calibrationByte:
                         prevCaliState = pumpController.calibrationByte
                     # print(int.from_bytes(pumpController.calibrationByte,'little'), pumpController.calibrationFlag)
+                    if (int.from_bytes(pumpController.calibrationByte,'little') & 1 != 0):
+                        dictPress["pressureL"].config(fg = "green")
+                    if (int.from_bytes(pumpController.calibrationByte,'little') & 2 != 0):
+                        dictPress["pressureR"].config(fg = "green")
+                    if (int.from_bytes(pumpController.calibrationByte,'little') & 4 != 0):
+                        dictPress["pressureT"].config(fg = "green")
+                    if (int.from_bytes(pumpController.calibrationByte,'little') & 8 != 0):
+                        dictPress["pressureStruct"].config(fg = "cyan")
                     # print(pressL, pressR, pressT, regulatorSensor, "\n")
 
                     pressList = [pressLMed, pressRMed, pressTMed, pressPMed]
@@ -457,6 +469,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         ################################################################
         # Begin main loop
         mouseTrack.createTracker(kineSolve.attach_points_rot)
+        dictPress["pressureL"].config(fg = "white")
+        dictPress["pressureR"].config(fg = "white")
+        dictPress["pressureT"].config(fg = "white")
+        dictPress["pressureStruct"].config(fg = "white")
         while(flagStop == False):
 
             useOmni = classSettings.useOmni
@@ -479,7 +495,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     if ps4Buttons == 3:
                         regulatorPressure = inflationPressure + 1 if reflateFlag else inflationPressure
                         reflateFlag = 0 if reflateFlag else 1
-                        print(regulatorPressure, reflateFlag)
+                        # print(regulatorPressure, reflateFlag)
                     controllerButtons = ps4Buttons
                     frameRotAngle = dictLabel["rotationSlider"].get()
                     prevxPS4 = xPS4
@@ -560,8 +576,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             [tVolR, vDotR, dDotR, fStepR, tStepR, tSpeedR, LcRealR, angleR] = kineSolve.volRate(cVolR, cableR, targetR)
             [tVolT, vDotT, dDotT, fStepT, tStepT, tSpeedT, LcRealT, angleT] = kineSolve.volRate(cVolT, cableT, targetT)
             # print("\n",tStepL, tStepR, tStepT, "\n")
-            print("\nL_cs in mm : ", LcRealL, LcRealR, LcRealT, targetP)
-            print("Volumes in ml: ",tVolL/1000, tVolR/1000, tVolT/1000, targetOpP, "\n")
+            # print("\nL_cs in mm : ", LcRealL, LcRealR, LcRealT, targetP)
+            # print("Volumes in ml: ",tVolL/1000, tVolR/1000, tVolT/1000, targetOpP, "\n")
 
             [tVolL_Scaled, tVolR_Scaled, tVolT_Scaled] = kineSolve.volRateScale(tVolL, tVolR, tVolT, cVolL, cVolR, cVolT)
 
@@ -770,6 +786,11 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             tb_linesTE = traceback.format_exception(exTE.__class__, exTE, exTE.__traceback__)
             tb_textTE = ''.join(tb_linesTE)
             print(tb_textTE)
+
+        dictPress["pressureL"].config(fg = "white")
+        dictPress["pressureR"].config(fg = "white")
+        dictPress["pressureT"].config(fg = "white")
+        dictPress["pressureStruct"].config(fg = "white")
         
         
         print("Move Robot complete.")

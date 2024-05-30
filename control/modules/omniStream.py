@@ -29,6 +29,7 @@ class omniStreamer():
         self.location = os.path.dirname(__file__)
         self.parent = os.path.dirname(self.location)
         self.relative = "modules/Transformation_And_Forces.exe"
+        # self.relative = "modules/hold.exe"
         self.fileName = os.path.join(self.parent, self.relative).replace('\\', '/') # For subprocess it looks like we need forward slashes in path
 
         self.alpha = 0
@@ -121,7 +122,7 @@ class omniStreamer():
                     self.omniZ = float(numdata[15])
                     self.omniButton = int(numdata[17])
                     # print(self.omniButton)
-                    # print("x: ", self.omniX, ", y: ", self.omniY, ", z: ", self.omniZ)
+                    print("x: ", self.omniX, ", y: ", self.omniY, ", z: ", self.omniZ)
                     
                     # matrix is the transformation matrix of device tip, listed by columns
                     matrix = numdata[1:17]
@@ -282,15 +283,15 @@ if __name__ == "__main__":
     omni_connected = phntmOmni.connectOmni(0)
     print("Haptic device connected? ", omni_connected)
     count = 0
-    limit = 100
-    forces = [0, 0, 0]
+    limit = 1000
+    forces = None #[0, 0, 0]
     mag = 5
     while (count < limit):
 
         # Set forces to send to device
         # forces = [mag*math.sin(0.1*count), mag*math.cos(0.1*count), mag*math.cos(0.1*count)]
         # Both send forces and receive pose information
-        # print(phntmOmni.omniButton)
+        print(phntmOmni.omniButton)
         omniDataReceived = phntmOmni.getOmniCoords(forces)
 
         # if omniDataReceived == 2: break
@@ -299,8 +300,10 @@ if __name__ == "__main__":
         # print(phntmOmni.alpha, phntmOmni.beta, phntmOmni.gamma)
         # print(phntmOmni.tMatrix)
         # print(phntmOmni.omniServer.stdout)
-        time.sleep(0.1)
+        time.sleep(0.05)
         count += 1
         # print(math.sin(count))
     phntmOmni.omniClose()
     phntmOmni.omniServer.kill()
+
+

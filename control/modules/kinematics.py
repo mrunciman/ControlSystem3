@@ -26,7 +26,9 @@ class kineSolver:
         # 'Flat' muscle length:
         # self.L_0 = 30
         self.L_0 = 54
-        self.STROKE = self.L_0/4
+        self.MIN_CONTRACT = 0.1
+        self.MAX_CONTRACT = 12.6
+        self.STROKE = self.MAX_CONTRACT - self.MIN_CONTRACT
 
         # Excess length of cable between entry point and muscle, in mm
         # self.Lx = 10
@@ -47,7 +49,7 @@ class kineSolver:
         # Real volume calc: there are numLs beams of length L0/numLs
         # self.FACT_V = ((self.ACT_WIDTH/1000)*(self.L_0/1000)**2)/(2*self.NUM_L)
         self.M3_to_MM3 = 1e9
-        self.VOL_FACTOR = 1 #1.15 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
+        self.VOL_FACTOR = 1.1 #1.15 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
         self.CAL_FACTOR = 0.005 # % of max volume still in actuator after calibration
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
@@ -173,8 +175,8 @@ class kineSolver:
         self.MECH_ADV = 2 # Mechanical advantage of pulleys
 
         # self.MAX_CABLE_DIST = self.SIDE_LENGTH # mt.sqrt((self.RAD_END*mt.cos(mt.pi/3))**2 + (45 - 3*self.RAD_END*mt.cos(mt.pi/6))**2)
-        self.MIN_CABLE = 11.29 #see Sizing.sldprt
-        self.MAX_CABLE_DIST = 28.79 # see Sizing.sldprt
+        self.MIN_CABLE = 5 #see Sizing.sldprt
+        self.MAX_CABLE_DIST = (self.STROKE*self.MECH_ADV) + self.MIN_CABLE # see Sizing.sldprt
         self.RANGE = self.STROKE*self.MECH_ADV #self.MAX_CABLE_DIST - self.MIN_CABLE
         # self.MAX_CABLE_DIST = self.MECH_ADV*(self.L_0/4) + self.MIN_CABLE
 
@@ -182,11 +184,12 @@ class kineSolver:
         #Initialise at centre
         # self.L_c = (self.MAX_CABLE_DIST - self.DIST_TO_CENT)/self.MECH_ADV
         L_c_centre = 20.19
-        self.L_c = self.STROKE * ((self.RANGE - (L_c_centre - self.MIN_CABLE))/self.RANGE)
+        targetCentre = 19.63
+        self.L_c = ((self.MAX_CABLE_DIST - targetCentre)/self.MECH_ADV) + self.MIN_CONTRACT #self.STROKE * ((self.RANGE - (L_c_centre - self.MIN_CABLE))/self.RANGE)
         # print("Contraction at centre: ", self.L_c)
         # Store current value of contraction 
         self.cL_c = self.L_c
-        self.MIN_CONTRACT = 0.1
+
         
         ###################################################################
         # Extension/Retraction Geometry
@@ -406,9 +409,10 @@ class kineSolver:
         #TODO Fix this for smooth and continuous function
         if targetCable < self.MAX_CABLE_DIST:
             if targetCable > self.MIN_CABLE:
-                self.L_c = self.STROKE * (self.RANGE - (targetCable - self.MIN_CABLE))/self.RANGE
+                # self.L_c = self.STROKE * (self.RANGE - (targetCable - self.MIN_CABLE))/self.RANGE
+                self.L_c = ((self.MAX_CABLE_DIST - targetCable)/self.MECH_ADV) + self.MIN_CONTRACT
             else:
-                self.L_c = self.STROKE
+                self.L_c = self.MAX_CONTRACT
         else:
             self.L_c = self.MIN_CONTRACT
         # print(self.L_c)
