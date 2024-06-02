@@ -35,7 +35,7 @@ from visual_navigation.cam_pose import PoseEstimator
 def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     print("'Move robot' button pressed")
 
-    minPress = -15
+    minPress = VAC_PRESS
     deactivateButtons(dictButtons)
     
     [useVisionFeedback, visionFeedFlag, startWithCalibration, useOmni, socketOmni, useOptitrack, useFibrebot, useMassSpec, usePathFile, goHome, flagStop]\
@@ -62,7 +62,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     medPressR = kinematics.forceDetector()
     medPressT = kinematics.forceDetector()
     medPressP = kinematics.forceDetector()
-    mouseTrack = mouseGUI.mouseTracker(sideLength, kineSolve.MIN_CABLE, kineSolve.MAX_CABLE_DIST)
+    mouseTrack = mouseGUI.mouseTracker(sideLength, kineSolve.MIN_CABLE + kineSolve.RAD_END, kineSolve.MAX_CABLE_DIST)
 
     SAMP_FREQ = 1/kineSolve.TIMESTEP
     CALIBRATION_MODE = 0
@@ -76,7 +76,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
     # Other constants
     # PRESS_MAX_KPA = 900
-    VAC_PRESS = -15
+    # VAC_PRESS = -15
 
     CLOSEMESSAGE = "Closed"
 
@@ -566,7 +566,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             # If stopped, preserve previous direction as target direction: 
             elif tStepP == cStepP:
                 targDir = cDir
-            # print(targetL, targetR, targetT, targetP)
+            # print("Target cable lengths: ", targetL, targetR, targetT, targetP)
             # print(lhsV, rhsV, topV, actualX, actualY)
             # print(cVolL, cVolR, cVolT)
 
@@ -623,10 +623,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
                 # Log values from arduinos
                 if pumpDataUpdated:
-                    ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, loadL, timeL)
-                    ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, loadR, timeR)
-                    ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, loadT, timeT)
-                    ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, loadP, timeP)
+                    ardLogging.ardLog(realStepL, LcRealL, targetL, desiredThetaL, pressL, pressLMed, loadL, timeL)
+                    ardLogging.ardLog(realStepR, LcRealR, targetR, desiredThetaR, pressR, pressRMed, loadR, timeR)
+                    ardLogging.ardLog(realStepT, LcRealT, targetT, desiredThetaT, pressT, pressTMed, loadT, timeT)
+                    ardLogging.ardLog(realStepP, LcRealP, targetP, desiredThetaP, pressP, pressPMed, loadP, timeP)
                     # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
                     ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
 
@@ -648,7 +648,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
 
                 # Check for high pressure
-                if (max(pressLMed, pressRMed, pressTMed) > PRESS_MAX_KPA): # TODO Add filtered pressure values back again to use here
+                if (max(pressLMed, pressRMed, pressTMed) > 85): # TODO Add filtered pressure values back again to use here
                     print("Overpressure: ", max(pressL, pressR, pressT), " kPa")
                     break
 
@@ -1050,8 +1050,8 @@ barAndPadWidth = 100
 padSize = int((barAndPadWidth-barWidth)/2)
 numberBars = 4
 # Other constants
-PRESS_MAX_KPA = 1500
-VAC_PRESS = -15
+PRESS_MAX_KPA = 110
+VAC_PRESS = -40
 guiPressFactor = 1 - abs(VAC_PRESS)/(PRESS_MAX_KPA - VAC_PRESS)
 
 pressureDict.update({"lengthBar" : barLength})

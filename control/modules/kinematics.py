@@ -49,12 +49,12 @@ class kineSolver:
         # Real volume calc: there are numLs beams of length L0/numLs
         # self.FACT_V = ((self.ACT_WIDTH/1000)*(self.L_0/1000)**2)/(2*self.NUM_L)
         self.M3_to_MM3 = 1e9
-        self.VOL_FACTOR = 1.1 #1.15 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
+        self.VOL_FACTOR = 0.9 #1.0 #1.15 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
         self.CAL_FACTOR = 0.005 # % of max volume still in actuator after calibration
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
             mt.cos((mt.pi/2*self.FACT_ANG))*mt.sin((mt.pi/2*self.FACT_ANG)))/((mt.pi/2*self.FACT_ANG)**2)
-        # print(self.MAX_VOL)
+        print("Max volume of actuator: ", self.MAX_VOL)
         self.DEAD_VOL = self.CAL_FACTOR*self.MAX_VOL
         self.MAX_VOL_RATE = 1000 # mm^3/s
         
@@ -137,7 +137,7 @@ class kineSolver:
                                        [0,                      0,                       1]])
 
         # r (radius) is radius of end effector
-        self.RAD_END = 3.5/2 # millimetres, zero is possible because of rotating shaft coupling
+        self.RAD_END = 3.0/2 # millimetres, zero is possible because of rotating shaft coupling
         # This matrix defines the three instrument attachment points wrt instrument frame, rows are right, left, top
         self.ATTACH_POINTS = np.array([[self.RAD_END*mt.cos(210 * mt.pi/180), self.RAD_END*mt.sin(210 * mt.pi/180), 0],\
                                        [self.RAD_END*mt.cos(330 * mt.pi/180), self.RAD_END*mt.sin(330 * mt.pi/180), 0],\
@@ -183,8 +183,8 @@ class kineSolver:
 
         #Initialise at centre
         # self.L_c = (self.MAX_CABLE_DIST - self.DIST_TO_CENT)/self.MECH_ADV
-        L_c_centre = 20.19
-        targetCentre = 19.63
+        # L_c_centre = 20.19
+        targetCentre = 19.63 # See Sizing.sldprt
         self.L_c = ((self.MAX_CABLE_DIST - targetCentre)/self.MECH_ADV) + self.MIN_CONTRACT #self.STROKE * ((self.RANGE - (L_c_centre - self.MIN_CABLE))/self.RANGE)
         # print("Contraction at centre: ", self.L_c)
         # Store current value of contraction 
@@ -407,7 +407,7 @@ class kineSolver:
         self.cL_c = self.L_c
         # Find contraction of actuator, filtering zeros:
         #TODO Fix this for smooth and continuous function
-        if targetCable < self.MAX_CABLE_DIST:
+        if targetCable <= self.MAX_CABLE_DIST:
             if targetCable > self.MIN_CABLE:
                 # self.L_c = self.STROKE * (self.RANGE - (targetCable - self.MIN_CABLE))/self.RANGE
                 self.L_c = ((self.MAX_CABLE_DIST - targetCable)/self.MECH_ADV) + self.MIN_CONTRACT
@@ -428,6 +428,8 @@ class kineSolver:
         thetaApprox = abs(mt.sqrt(6*(self.L_c/1000)/(self.L_0/1000)))
         normV = thetaApprox*(thetaApprox**4 - 18*thetaApprox**2 + 96)/144
         # Multiply theta-dependent part with geometry-dependent part:
+        # SUB_VOL_FACTOR = 0.9
+        # self.VOL_FACTOR = SUB_VOL_FACTOR*(1 + 0.025*(volume/self.MAX_VOL))
         volume = normV*self.FACT_V
         volComp = volume*self.VOL_FACTOR - self.DEAD_VOL
 
@@ -533,8 +535,8 @@ class kineSolver:
             volSign = np.sign(volRate)
             volMax = np.amax(volAbs)
             # If largest frequency is above MAX_FREQ then scale
-            if volMax > self.MAX_VOL_RATE:
-                volFact = self.MAX_VOL_RATE/volMax
+            if volMax > self.MAX_VOL:
+                volFact = self.MAX_VOL/volMax
                 volScaled = volFact*volAbs
                 volScaled = volScaled*volSign
                 volChange = volScaled*self.TIMESTEP
