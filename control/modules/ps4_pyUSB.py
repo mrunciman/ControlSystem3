@@ -66,7 +66,7 @@ class ps4USB(threading.Thread):
 		self.TRIGGER_SHIFT = 1
 		self.XY_DEADTHRESH = 0.1
 		self.PRISM_CHANGE = 0.1
-		self.XY_SENSITIVITY = 1
+		self.XY_SENSITIVITY = 0.5
 		self.P_SENSITIVITY = 2.5
 
 

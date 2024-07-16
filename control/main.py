@@ -163,6 +163,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         if omni_connected:
             # omniX, omniY, omniZ = 0.0, 0.0, 0.0
             omniDataReceived = phntmOmni.getOmniCoords()
+            # print("Omni Data Reeceived", omniDataReceived == True)
             [xMap, yMap, zMap] = phntmOmni.omniMap()
             
         else:
@@ -409,7 +410,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     pressTMed = medPressT.newPressMed(pressT)
                     pressP = regulatorSensor
                     pressPMed = medPressP.newPressMed(regulatorSensor)
-                    if (max(pressLMed, pressRMed, pressTMed) > PRESS_MAX_KPA): # TODO Add filtered pressure values back again to use here
+                    if (max(pressLMed, pressRMed, pressTMed) > PRESS_MAX_KPA):
                         print("Overpressure: ", max(pressL, pressR, pressT), " kPa")
                         raise
 
@@ -1050,7 +1051,7 @@ barAndPadWidth = 100
 padSize = int((barAndPadWidth-barWidth)/2)
 numberBars = 4
 # Other constants
-PRESS_MAX_KPA = 110
+PRESS_MAX_KPA = 90
 VAC_PRESS = -40
 guiPressFactor = 1 - abs(VAC_PRESS)/(PRESS_MAX_KPA - VAC_PRESS)
 
