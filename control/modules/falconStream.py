@@ -14,22 +14,21 @@ np.set_printoptions(suppress=True, precision = 2)
 # fileName = 'C:/Users/msrun/Documents/InflatableRobotControl/ControlSystemThree/control/modules/HelloHapticDevice.exe'
 MAX_FORCE = 2 # N
 
-class omniStreamer():
+class falconStreamer():
     def __init__(self):
-        self.server_addr = ('localhost', 8888)
+        self.server_addr = ('localhost', 8889)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.omniX = 0.0 # mm
-        self.omniY = 0.0
-        self.omniZ = 0.0
+        self.falconX = 0.0 # mm
+        self.falconY = 0.0
+        self.falconZ = 0.0
         self.tMatrix = []
-        self.omniServer = None
-        self.omniButton = 0 # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
+        self.falconServer = None
+        self.falconButton = 0 # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
         # Omni Tip is com, middle contact is front button, base contact is back button.
         self.manualTimeoutCounter = 0
 
         self.location = os.path.dirname(__file__)
         self.parent = os.path.dirname(self.location)
-        # self.relative = "modules/Transformation_And_Forces.exe"
         self.relative = "modules/hold.exe"
         self.fileName = os.path.join(self.parent, self.relative).replace('\\', '/') # For subprocess it looks like we need forward slashes in path
 
@@ -37,7 +36,7 @@ class omniStreamer():
         self.beta = 0
         self.gamma = 0
 
-    def connectOmni(self, noSubProcess):
+    def connectFalcon(self, noSubProcess):
         # problem with this was that it waited for program to terminate, which never happens, but stdin=None, stdin=subprocess.DEVNULL, stdout=None, stderr=None argumetns sorted this
         # print(fileName)
         if not noSubProcess:
@@ -47,7 +46,7 @@ class omniStreamer():
             # with subprocess.run(self.fileName, check = True, capture_output = False, stdin=subprocess.DEVNULL,  stderr=subprocess.DEVNULL) as subP:
             #     self.omniServer = subP    
             
-            self.omniServer = subprocess.Popen(self.fileName, stdin=None, stdout=subprocess.DEVNULL)
+            self.falconServer = subprocess.Popen(self.fileName, stdin=None, stdout=subprocess.DEVNULL)
 
         #     with subprocess.Popen(self.fileName, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL) as subPopen:
         #         self.omniServer = subPopen
@@ -59,7 +58,7 @@ class omniStreamer():
             # self.sock.setblocking(0)
             self.sock.settimeout(0.01)
             print("Connected to {:s}".format(repr(self.server_addr)))
-            # print(self.sock)
+            print(self.sock)
             return self.checkConnection()
         except AttributeError as ae:
             # print("Error creating the socket: {}".format(ae))
@@ -71,8 +70,8 @@ class omniStreamer():
 
     def checkConnection(self):
         while (self.manualTimeoutCounter < 250):
-            omniDataReceived = self.getOmniCoords()
-            if omniDataReceived: return True
+            falconDataReceived = self.getFalconCoords()
+            if falconDataReceived: return True
         return False
 
 # [-0.500,-0.500,00.000]
@@ -83,7 +82,7 @@ class omniStreamer():
 # 8 - 13
 # 15 - 20
 # 21
-    def getOmniCoords(self, forces = None):
+    def getFalconCoords(self, forces = None):
         try:
             handshake = b'1'
             if forces is not None:
@@ -118,12 +117,12 @@ class omniStreamer():
                 startIndex = numdata.index('S')
                 # print("start index: ", startIndex)
                 if ((startIndex == 0) & (len(numdata) == 19)):
-                    self.omniX = float(numdata[13])
-                    self.omniY = float(numdata[14])
-                    self.omniZ = float(numdata[15])
-                    self.omniButton = int(numdata[17])
-                    # print(self.omniButton)
-                    # print("x: ", self.omniX, ", y: ", self.omniY, ", z: ", self.omniZ)
+                    self.falconX = float(numdata[13])
+                    self.falconY = float(numdata[14])
+                    self.falconZ = float(numdata[15])
+                    sefalcon = int(numdata[17])
+                    # print(sefalcon)
+                    # print("x: ", self.falconX, ", y: ", self.falconY, ", z: ", self.falconZ)
                     
                     # matrix is the transformation matrix of device tip, listed by columns
                     matrix = numdata[1:17]
@@ -153,7 +152,7 @@ class omniStreamer():
         except socket.timeout:
             self.manualTimeoutCounter += 1
             if self.manualTimeoutCounter > 250:
-                print("Check connection to Geomagic Touch / Phantom Omni")
+                print("Check connection to Falcon controller")
                 return 0
         except socket.error as se:
             print("Exception on socket: {}".format(se))
@@ -164,18 +163,18 @@ class omniStreamer():
 
 
 
-    def omniMap(self, degreesToRotate = None):#, xFromOmni, yFromOmni, zFromOmni):
+    def falconMap(self, degreesToRotate = None):#, xFromOmni, yFromOmni, zFromOmni):
         #Calibrated position in inkwell:
         #  x:  0.00000 , y:  -65.51071 , z:  -88.11420
-        # self.omniX = self.omniX + 220
-        # self.omniY = self.omniY + 110
-        # self.omniZ = -(self.omniZ - 125)
-        # if (self.omniX < 0):
-        #     self.omniX = 0
-        # if (self.omniY < 0):
-        #     self.omniY = 0
-        # if (self.omniZ < 0):
-        #     self.omniZ = 0
+        # self.falconX = self.falconX + 220
+        # self.falconY = self.falconY + 110
+        # self.falconZ = -(self.falconZ - 125)
+        # if (self.falconX < 0):
+        #     self.falconX = 0
+        # if (self.falconY < 0):
+        #     self.falconY = 0
+        # if (self.falconZ < 0):
+        #     self.falconZ = 0
 
 
         #Calibrated position in inkwell
@@ -199,19 +198,19 @@ class omniStreamer():
         offsetY = (minY + maxY)/2 # -45.5
         offsetZ = (minZ + maxZ) 
 
-        # print(self.omniX, self.omniY, self.omniZ)
+        # print(self.falconX, self.falconY, self.falconZ)
 
         # Fixing coords from Omni to go from -0.5*range to 0.5 range
         # x is -ve to the left and +ve to the right  horizontal
-        xUnit = (self.omniX - offsetX)/(rangeXOmni)
+        xUnit = (self.falconX - offsetX)/(rangeXOmni)
         # y is -ve down and +ve up                   vertical
-        yUnit = (self.omniY - offsetY)/(rangeYOmni)
+        yUnit = (self.falconY - offsetY)/(rangeYOmni)
         # z is -ve towards body, +ve towards user    depth
-        zUnit = (self.omniZ - offsetZ)/(rangeZOmni) - 0.2
+        zUnit = (self.falconZ - offsetZ)/(rangeZOmni) - 0.2
         # print(xUnit, yUnit, zUnit)
 
-        sensX = 2
-        sensY = 2
+        sensX = 0.5
+        sensY = 0.5
         sensZ = 1.5
 
         signX = -1
@@ -258,9 +257,9 @@ class omniStreamer():
 
 
 
-        # xMapped = -1*(self.omniX*((46-(-46))/440)) + 9.455 # abs just for test       approx 0.2093
-        # yMapped = 1*(self.omniY*((55-(-35))/310))  + 5.4591 #                        approx 0.2903
-        # zMapped = -1*(self.omniZ*((75-30)/215))*2 + 10 # Omni direction is opposite to real direction     approx 0.2091
+        # xMapped = -1*(self.falconX*((46-(-46))/440)) + 9.455 # abs just for test       approx 0.2093
+        # yMapped = 1*(self.falconY*((55-(-35))/310))  + 5.4591 #                        approx 0.2903
+        # zMapped = -1*(self.falconZ*((75-30)/215))*2 + 10 # Omni direction is opposite to real direction     approx 0.2091
         # if (xMapped < 0):
         #     xMapped = 0
         # if (yMapped < 0):
@@ -274,43 +273,46 @@ class omniStreamer():
         
         
 
-    def omniClose(self):
+    def falconClose(self):
         self.sock.close()
 
 
 if __name__ == "__main__":
-    phntmOmni = omniStreamer()
+    falconIn = falconStreamer()
 
-    omni_connected = phntmOmni.connectOmni(0)
-    print("Haptic device connected? ", omni_connected)
+    falcon_connected = falconIn.connectFalcon(0)
+    print("Haptic device connected? ", falcon_connected)
     count = 0
-    limit = 10000
+    limit = 50
     forces = None #[0, 0, 0]
     mag = 5
 
     angle = 0
+    if falcon_connected:
+        while (count < limit):
 
-    while (count < limit):
+            # Set forces to send to device
+            # forces = [mag*math.sin(0.1*count), mag*math.cos(0.1*count), mag*math.cos(0.1*count)]
+            # Both send forces and receive pose information
+            # print(falconIn.falconButton)
+            falconDataReceived = falconIn.getFalconCoords()
+            if falconDataReceived == 0:
+                break
 
-        # Set forces to send to device
-        # forces = [mag*math.sin(0.1*count), mag*math.cos(0.1*count), mag*math.cos(0.1*count)]
-        # Both send forces and receive pose information
-        print(phntmOmni.omniButton)
-        omniDataReceived = phntmOmni.getOmniCoords()
-        if omniDataReceived == 0:
-            break
+            if falconDataReceived == 2:
+                break
 
-        # if omniDataReceived == 2: break
-        [xMap, yMap, zMap] = phntmOmni.omniMap(angle)
-        # print(xMap, yMap, zMap)
-        # print(phntmOmni.alpha, phntmOmni.beta, phntmOmni.gamma)
-        # print(phntmOmni.tMatrix)
-        # print(phntmOmni.omniServer.stdout)
-        time.sleep(0.05)
-        count += 1
-        # print(math.sin(count))
-    phntmOmni.omniClose()
-    phntmOmni.omniServer.kill()
+            # if omniDataReceived == 2: break
+            [xMap, yMap, zMap] = falconIn.falconMap(angle)
+            # print(xMap, yMap, zMap)
+            # print(phntmOmni.alpha, phntmOmni.beta, phntmOmni.gamma)
+            # print(phntmOmni.tMatrix)
+            # print(phntmOmni.omniServer.stdout)
+            time.sleep(0.05)
+            count += 1
+            # print(math.sin(count))
+        falconIn.falconClose()
+        falconIn.falconServer.kill()
 
 
 

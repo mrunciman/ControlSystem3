@@ -24,6 +24,7 @@ from modules import pumpLog
 from modules import positionInput
 from modules import optiStream
 from modules import omniStream
+from modules import falconStream
 from modules import clusterData
 from modules import threadArdComms
 from modules import mouseGUI
@@ -38,7 +39,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     minPress = VAC_PRESS
     deactivateButtons(dictButtons)
     
-    [useVisionFeedback, visionFeedFlag, startWithCalibration, useOmni, socketOmni, useOptitrack, useFibrebot, useMassSpec, usePathFile, goHome, flagStop]\
+    [useVisionFeedback, visionFeedFlag, startWithCalibration, useOmni, socketOmni, useOptitrack, useFibrebot, useMassSpec, usePathFile, goHome, flagStop, socketFalcon]\
         = list(vars(classSettings).values())
     
     print("Settings: ", vars(classSettings))
@@ -55,6 +56,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     posLogging = positionInput.posLogger()
     opTrack = optiStream.optiTracker()
     phntmOmni = omniStream.omniStreamer()
+    falconIn = falconStream.falconStreamer()
     dataClust = clusterData.dataClustering()
     pressDetector = arduinoInterface.ardInterfacer
     pumpController = threadArdComms.ardThreader()
@@ -133,8 +135,18 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         omni_connected = True
         phntmOmni.sock = classSettings.socketOmni
 
+    if socketFalcon is None:
+        # If it's running for the first time, est flag to false
+        falcon_connected = False
+    else: 
+        # If the omni has already been connected, use existing settings
+        falcon_connected = True
+        falconIn.sock = classSettings.socketFalcon #TODO create own version
+
     omni_connected = phntmOmni.connectOmni(omni_connected)
+    falcon_connected = falconIn.connectFalcon(falcon_connected)
     print("Haptic device connected? ", omni_connected)
+    print("Falcon device connected? ", falcon_connected)
     # omni_connected = False
 
     ps4 = ps4_pyUSB.ps4USB() # Create an object from controller
@@ -159,12 +171,17 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
     # Try to connect to phantom omni. If not connected, use pre-determined coords.
     # if usePathFile:
-    if useOmni:
+    if useOmni == 1:
         if omni_connected:
             # omniX, omniY, omniZ = 0.0, 0.0, 0.0
             omniDataReceived = phntmOmni.getOmniCoords()
             # print("Omni Data Reeceived", omniDataReceived == True)
             [xMap, yMap, zMap] = phntmOmni.omniMap()
+
+    elif useOmni == 2:
+        if falcon_connected:
+            falconDataReceived = falconIn.getFalconCoords()
+            [xMap, yMap, zMap] = falconIn.falconMap()
             
         else:
             with open('C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime/paths/gridPath 2023-03-03 16-29-08 centre 15-8.66025 30x15.0grid 0.048x1.5spacing.csv', newline = '') as csvPath:
@@ -477,7 +494,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         while(flagStop == False):
 
             useOmni = classSettings.useOmni
-            if useOmni:
+            if useOmni == 1:
                 if omni_connected:
                     omniDataReceived = phntmOmni.getOmniCoords()
                     omniButtons = phntmOmni.omniButton
@@ -490,6 +507,21 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     controllerButtons = 0
                     XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
                     # print(XYZPathCoords)
+                    
+            elif useOmni == 2:
+                if falcon_connected:
+                    falconDataReceived = falconIn.getFalconCoords()
+                    falconButtons = falconIn.falconButton
+                    controllerButtons = falconButtons
+                    frameRotAngle = dictLabel["rotationSlider"].get()
+                    if (falconDataReceived == 2): break
+                    [xMap, yMap, zMap] = falconIn.falconMap(frameRotAngle)
+                    XYZPathCoords = [xMap, yMap, zMap]
+                else:
+                    controllerButtons = 0
+                    XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
+                    # print(XYZPathCoords)
+                    
             else:
                 if ps4.controller is not None:
                     ps4Buttons = ps4.getPSButtonData()
@@ -776,6 +808,14 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 classSettings.socketOmni = phntmOmni.sock
                 # except SocketError:
 
+            if falcon_connected:
+                # try:
+                falconIn.falconClose()
+                falconIn.falconServer.kill()
+                falcon_connected = False
+                classSettings.socketOmni = falconIn.sock
+                # except SocketError:
+
             if ps4.controller is not None:
                 ps4.stop_ps4()
 
@@ -817,6 +857,7 @@ class controlSettings:
         self.usePathFile = False
         self.goToHome = False
         self.stopFlag = False
+        self.socketFalcon = None
 
 
 
@@ -828,6 +869,23 @@ def toggleButton(classSettings, attrib, button):
         button.config(bg = 'green')
     else:
         button.config(bg = 'red')
+
+
+def toggleInputButton(classSettings, attrib, button):
+    inputSelect = vars(classSettings)[attrib]
+    newInputSelect = (inputSelect + 1) % 3
+    vars(classSettings)[attrib] = newInputSelect
+    # print(attrib, vars(classSettings)[attrib])
+
+    # Use ps4 controller
+    if newInputSelect == 0:
+        button.config(text = "PS4", bg = 'red')
+    #Use phantom omni
+    elif newInputSelect == 1:
+        button.config(text = "Omni", bg = 'green')
+    # Usee falcon controller
+    elif newInputSelect == 2:
+        button.config(text = "Falcon", bg = 'blue')
 
 
 def stopFunction(classSettings, stopButton, startButton):
@@ -975,7 +1033,7 @@ omniButton = Button(contentFrame, text = "Use haptic device")
 attrStr = 'useOmni'
 buttonObj = omniButton
 buttonDict.update({"omniButton" : buttonObj})
-omniButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+omniButton.config(command = partial(toggleInputButton, settingsClass, attrStr, buttonObj))
 buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
 

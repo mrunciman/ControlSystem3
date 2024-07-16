@@ -30,7 +30,6 @@ class omniStreamer():
         self.location = os.path.dirname(__file__)
         self.parent = os.path.dirname(self.location)
         self.relative = "modules/Transformation_And_Forces.exe"
-        # self.relative = "modules/hold.exe"
         self.fileName = os.path.join(self.parent, self.relative).replace('\\', '/') # For subprocess it looks like we need forward slashes in path
 
         self.alpha = 0
