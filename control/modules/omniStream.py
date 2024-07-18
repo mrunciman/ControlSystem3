@@ -23,13 +23,14 @@ class omniStreamer():
         self.omniZ = 0.0
         self.tMatrix = []
         self.omniServer = None
-        self.omniButton = 0 # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
+        self.omniButton = 0 # 0 for no buttons, 1 for dark grey (open), 2 for light grey (close) button, 3 for both
         # Omni Tip is com, middle contact is front button, base contact is back button.
         self.manualTimeoutCounter = 0
 
         self.location = os.path.dirname(__file__)
         self.parent = os.path.dirname(self.location)
         self.relative = "modules/Transformation_And_Forces.exe"
+        # self.relative = "modules/Trans_And_Forces_And_Friction.exe"
         self.fileName = os.path.join(self.parent, self.relative).replace('\\', '/') # For subprocess it looks like we need forward slashes in path
 
         self.alpha = 0
@@ -71,7 +72,8 @@ class omniStreamer():
     def checkConnection(self):
         while (self.manualTimeoutCounter < 250):
             omniDataReceived = self.getOmniCoords()
-            if omniDataReceived: return True
+            if omniDataReceived == 1: return True
+            elif omniDataReceived == 2: return False
         return False
 
 # [-0.500,-0.500,00.000]
@@ -283,7 +285,7 @@ if __name__ == "__main__":
     omni_connected = phntmOmni.connectOmni(0)
     print("Haptic device connected? ", omni_connected)
     count = 0
-    limit = 10000
+    limit = 1000
     forces = None #[0, 0, 0]
     mag = 5
 
@@ -292,10 +294,10 @@ if __name__ == "__main__":
     while (count < limit):
 
         # Set forces to send to device
-        # forces = [mag*math.sin(0.1*count), mag*math.cos(0.1*count), mag*math.cos(0.1*count)]
+        forces = [mag*math.sin(0.1*count), mag*math.cos(0.1*count), mag*math.cos(0.1*count)]
         # Both send forces and receive pose information
         print(phntmOmni.omniButton)
-        omniDataReceived = phntmOmni.getOmniCoords()
+        omniDataReceived = phntmOmni.getOmniCoords(forces)
         if omniDataReceived == 0:
             break
 

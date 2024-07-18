@@ -563,6 +563,13 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 controllerButtons = 0
                 XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
 
+            if controllerButtons == 1:
+                dictLabel["grasperLabel"].config(text = "Grasper open", fg = "green")
+            elif controllerButtons == 2:
+                dictLabel["grasperLabel"].config(text = "Grasper close", fg = "red")
+            else:
+                dictLabel["grasperLabel"].config(text = "Grasper", fg = "white")
+
 
             # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
             # XYZPathCoords are desired coords in 3D.
@@ -1094,6 +1101,10 @@ labelDict.update({"omniLabel" : omniLabel})
 calibrationLabel = Label(contentFrame, text = "Calibration")
 labelObj = calibrationLabel
 labelDict.update({"calibrationLabel" : labelObj})
+
+grasperLabel = Label(contentFrame, text = "Grasper")
+labelObj = grasperLabel
+labelDict.update({"grasperLabel" : labelObj})
 
 
 

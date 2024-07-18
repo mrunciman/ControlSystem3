@@ -57,8 +57,8 @@ class falconStreamer():
                 self.sock.connect(self.server_addr)
             # self.sock.setblocking(0)
             self.sock.settimeout(0.01)
-            print("Connected to {:s}".format(repr(self.server_addr)))
-            print(self.sock)
+            print("Connecting to {:s}".format(repr(self.server_addr)))
+            # print(self.sock)
             return self.checkConnection()
         except AttributeError as ae:
             # print("Error creating the socket: {}".format(ae))
@@ -71,7 +71,8 @@ class falconStreamer():
     def checkConnection(self):
         while (self.manualTimeoutCounter < 250):
             falconDataReceived = self.getFalconCoords()
-            if falconDataReceived: return True
+            if falconDataReceived == 1: return True
+            elif falconDataReceived == 2: return False
         return False
 
 # [-0.500,-0.500,00.000]
@@ -120,8 +121,8 @@ class falconStreamer():
                     self.falconX = float(numdata[13])
                     self.falconY = float(numdata[14])
                     self.falconZ = float(numdata[15])
-                    sefalcon = int(numdata[17])
-                    # print(sefalcon)
+                    self.falconButton = int(numdata[17])
+                    # print(self.falconButton)
                     # print("x: ", self.falconX, ", y: ", self.falconY, ", z: ", self.falconZ)
                     
                     # matrix is the transformation matrix of device tip, listed by columns
@@ -209,8 +210,8 @@ class falconStreamer():
         zUnit = (self.falconZ - offsetZ)/(rangeZOmni) - 0.2
         # print(xUnit, yUnit, zUnit)
 
-        sensX = 0.5
-        sensY = 0.5
+        sensX = 1.5
+        sensY = 1.5
         sensZ = 1.5
 
         signX = -1
@@ -281,7 +282,7 @@ if __name__ == "__main__":
     falconIn = falconStreamer()
 
     falcon_connected = falconIn.connectFalcon(0)
-    print("Haptic device connected? ", falcon_connected)
+    print("Falcon device connected? ", falcon_connected)
     count = 0
     limit = 50
     forces = None #[0, 0, 0]
@@ -294,7 +295,7 @@ if __name__ == "__main__":
             # Set forces to send to device
             # forces = [mag*math.sin(0.1*count), mag*math.cos(0.1*count), mag*math.cos(0.1*count)]
             # Both send forces and receive pose information
-            # print(falconIn.falconButton)
+            print(falconIn.falconButton)
             falconDataReceived = falconIn.getFalconCoords()
             if falconDataReceived == 0:
                 break
