@@ -77,7 +77,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     HOMING_POSITION = [0, 0, kineSolve.SHAFT_LENGTH_UJ + kineSolve.LEVER_BASE_Z]
 
     # Other constants
-    # PRESS_MAX_KPA = 900
+    # PRESS_MAX_KPA = 90
     # VAC_PRESS = -15
 
     CLOSEMESSAGE = "Closed"
@@ -87,7 +87,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     pumpDataUpdated = False
     delayFactor = 1
     firstMoveDelay = 0
-    firstMoveDivider = 200
+    firstMoveDivider = 400
     delayCount = 0
     delayLim = 200
     reflateFlag = 0
@@ -688,7 +688,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
 
                 # Check for high pressure
-                if (max(pressLMed, pressRMed, pressTMed) > 85): # TODO Add filtered pressure values back again to use here
+                if (max(pressLMed, pressRMed, pressTMed) > PRESS_MAX_KPA): # TODO Add filtered pressure values back again to use here
                     print("Overpressure: ", max(pressL, pressR, pressT), " kPa")
                     break
 
@@ -1120,7 +1120,7 @@ barAndPadWidth = 100
 padSize = int((barAndPadWidth-barWidth)/2)
 numberBars = 4
 # Other constants
-PRESS_MAX_KPA = 90
+PRESS_MAX_KPA = 100
 VAC_PRESS = -40
 guiPressFactor = 1 - abs(VAC_PRESS)/(PRESS_MAX_KPA - VAC_PRESS)
 
