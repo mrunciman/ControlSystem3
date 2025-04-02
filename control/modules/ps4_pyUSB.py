@@ -153,7 +153,7 @@ class ps4USB(threading.Thread):
 		changeRotated = np.dot(changeRotated, changeMatrix)
 
 		changeX = changeRotated[0]
-		changeY = changeRotated[1]
+		changeY = -changeRotated[1]
 
 		if self.xChange is not None:
 			# method .item() converts numpy to native python type

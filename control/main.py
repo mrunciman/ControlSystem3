@@ -538,7 +538,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     # Prevent motion if going out of reachable workspace:
                     [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(temp_xPS4, temp_yPS4, temp_zPS4)
                     [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
-                    if (targetOpL >= kineSolve.MAX_CABLE_DIST) or (targetOpR >= kineSolve.MAX_CABLE_DIST) or (targetOpT >= kineSolve.MAX_CABLE_DIST):
+                    if (targetOpL >= kineSolve.MAX_CABLE_DIST - kineSolve.RAD_END) \
+                        or (targetOpR >= kineSolve.MAX_CABLE_DIST - kineSolve.RAD_END) \
+                        or (targetOpT >= kineSolve.MAX_CABLE_DIST - kineSolve.RAD_END):
                         xPS4, yPS4, zPS4 = prevxPS4, prevyPS4, prevzPS4
                     else:
                         xPS4, yPS4, zPS4 = temp_xPS4, temp_yPS4, temp_zPS4

@@ -260,7 +260,7 @@ class mouseTracker:
             xPosText = -POI[0]
             yPosText = POI[1]
             POI_canvas = POI
-            POI_canvas[0] = -POI[0] + self.sideLength/2
+            POI_canvas[0] = POI[0] + self.sideLength/2
             POI_canvas[1] = POI[1] + mt.tan(mt.pi/6)*self.sideLength/2
 
             self.xCallback = round(POI[0]/self.resolution)
@@ -284,17 +284,20 @@ class mouseTracker:
             #             self.bkGd[bkGdY, bkGdX] = [0, 0, 255]
                 
         # Display pressures:
-        P_LHS_Text = "LHS Pressure / mbar = {:.2f}".format(listPress[0])
-        P_RHS_Text = "RHS Pressure / mbar = {:.2f}".format(listPress[1])
-        P_TOP_Text = "TOP Pressure / mbar = {:.2f}".format(listPress[2])
+        P_LHS_Text = "LHS Force / g = {:.2f}".format(listPress[0])
+        P_RHS_Text = "RHS Force / g = {:.2f}".format(listPress[1])
+        P_TOP_Text = "TOP Force / g = {:.2f}".format(listPress[2])
+        P_PRI_Text = "Tool Force / g = {:.2f}".format(listPress[3])
         pPlaceLHS = (15, 25)
         pPlaceRHS = (15, int(25 + 20*(self.canvasX/NOMINAL_CANVAS_WIDTH)))
         pPlaceTOP = (15, int(25 + 40*(self.canvasX/NOMINAL_CANVAS_WIDTH)))
+        pPlacePRI = (15, int(25 + 60*(self.canvasX/NOMINAL_CANVAS_WIDTH)))
         pressPlEnd = (int(self.canvasX*0.4), int(self.canvasY/6))
         cv2.rectangle(self.bkGd, (0,0), pressPlEnd, (255,255,255), -1)
         cv2.putText(self.bkGd, P_LHS_Text, pPlaceLHS, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
         cv2.putText(self.bkGd, P_RHS_Text, pPlaceRHS, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
         cv2.putText(self.bkGd, P_TOP_Text, pPlaceTOP, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
+        cv2.putText(self.bkGd, P_PRI_Text, pPlacePRI, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
         #Draw XYZ coords if provided
         if desiredPoints is not None:
             self.desX = round(desiredPoints[0]/self.resolution)*self.resolution
@@ -305,13 +308,16 @@ class mouseTracker:
             Pos_Y_Text = "Y / mm = {:.2f}".format(desiredPoints[1])
             Pos_Z_Text = "Z / mm = {:.2f}".format(desiredPoints[2])
 
-            xPlace = (15, int(25 + 60*(self.canvasX/NOMINAL_CANVAS_WIDTH)))
-            yPlace = (15, int(25 + 80*(self.canvasX/NOMINAL_CANVAS_WIDTH)))
-            zPlace = (15, int(25 + 100*(self.canvasX/NOMINAL_CANVAS_WIDTH)))
+            xPlace = (15, int(25 + 80*(self.canvasX/NOMINAL_CANVAS_WIDTH)))
+            yPlace = (15, int(25 + 100*(self.canvasX/NOMINAL_CANVAS_WIDTH)))
+            zPlace = (15, int(25 + 120*(self.canvasX/NOMINAL_CANVAS_WIDTH)))
             cv2.rectangle(self.bkGd, (0,int(self.canvasY/6)), (int(self.canvasX*0.3), int(self.canvasY/3)), (255,255,255), -1)
             cv2.putText(self.bkGd, Pos_X_Text, xPlace, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
             cv2.putText(self.bkGd, Pos_Y_Text, yPlace, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
             cv2.putText(self.bkGd, Pos_Z_Text, zPlace, font, self.fontscale, colourText, thickText, cv2.LINE_AA)
+
+        
+        
 
         # Redraw position text if moving
         if self.mouseEvent == 0:
