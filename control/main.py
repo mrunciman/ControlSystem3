@@ -145,16 +145,16 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
     omni_connected = phntmOmni.connectOmni(omni_connected)
     falcon_connected = falconIn.connectFalcon(falcon_connected)
-    print("Haptic device connected? ", omni_connected)
-    print("Falcon device connected? ", falcon_connected)
-    # omni_connected = False
 
     ps4 = ps4_pyUSB.ps4USB() # Create an object from controller
     if ps4.controller is not None:
         ps4.start() #start and listen to events
         xPS4, yPS4, zPS4 = 0, 0, 0
-        print("PS4 Controller connected")
         ps4Buttons = 0
+
+    print("Haptic device connected? ", omni_connected)
+    print("Falcon device connected? ", falcon_connected)
+    print("PS4Controller connected? ", ps4.controller==1)
     
     if omni_connected:
         if ps4.controller is not None:
@@ -316,7 +316,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     # startThreader opens the serial connection and starts the communication thread
     pumpController.startThreader()
     pumpsConnected = pumpController.connected
-    print("Connected to controller? ", pumpsConnected)
+    print("Connected to Control Unit? ", pumpsConnected)
     
     dictLabel["pumpLabel"].config(fg = "green") if pumpsConnected else dictLabel["pumpLabel"].config(fg = "red")
 
@@ -653,10 +653,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 if firstMoveDelay < firstMoveDivider:
                     firstMoveDelay += 1
                     # RStep = dStepR scaled for speed (w rounding differences)
-                    initStepNoL = int(desiredThetaL*(firstMoveDelay/firstMoveDivider))
-                    initStepNoR = int(desiredThetaR*(firstMoveDelay/firstMoveDivider))
-                    initStepNoT = int(desiredThetaT*(firstMoveDelay/firstMoveDivider))
-                    initStepNoP = int(desiredThetaP*(firstMoveDelay/firstMoveDivider))
+                    initStepNoL = (desiredThetaL*(firstMoveDelay/firstMoveDivider))
+                    initStepNoR = (desiredThetaR*(firstMoveDelay/firstMoveDivider))
+                    initStepNoT = (desiredThetaT*(firstMoveDelay/firstMoveDivider))
+                    initStepNoP = (desiredThetaP*(firstMoveDelay/firstMoveDivider))
                     # Send scaled step number to arduinos:
                     pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, initStepNoP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE, controllerButtons)
                 else:

@@ -112,7 +112,7 @@ class ardThreader:
         # N is no motion
         # F is forward
         # B is backward
-        # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
+        # 0 for no buttons, 1 for dark grey/cross (open), 2 for light grey/circle (close) button, 3 for both
         if buttonState == 0:#
             msg = msg + "N"
         elif buttonState == 1:

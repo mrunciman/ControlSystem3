@@ -179,7 +179,7 @@ class ps4USB(threading.Thread):
 
 
 	def getPSButtonData(self):
-        # 0 for no buttons, 1 for dark grey (open), 2 for light grey (close) button, 3 for both
+        # 0 for no buttons, 1 for dark grey/cross (open), 2 for light grey/circle (close) button, 3 for both
 		self.ps4Buttons = 0
 		if self.CroButton:
 			self.ps4Buttons = 1
