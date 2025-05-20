@@ -48,7 +48,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     ############################################################
     # Instantiate classes:
     # sideLength = 18.78 # mm, from workspace2 model
-    sideLength = 34 # mm, from workspace2 model
+    sideLength = 30 # mm, from workspace2 model
 
     kineSolve = kinematics.kineSolver(sideLength)
     # mouseTrack = mouseGUI.mouseTracker(sideLength)
@@ -569,6 +569,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 dictLabel["grasperLabel"].config(text = "Grasper open", fg = "green")
             elif controllerButtons == 2:
                 dictLabel["grasperLabel"].config(text = "Grasper close", fg = "red")
+            elif controllerButtons == 3:
+                dictLabel["grasperLabel"].config(text = "Re-inflate", fg = "orange")
             else:
                 dictLabel["grasperLabel"].config(text = "Grasper", fg = "white")
 
@@ -857,7 +859,7 @@ class controlSettings:
     def __init__(self):
         self.useVisionFeedback = False
         self.visionFeedFlag = False
-        self.startWithCalibration = True
+        self.startWithCalibration = False
         self.useOmni = False
         self.socketOmni = None
         self.useOptitrack = False

@@ -25,9 +25,9 @@ class kineSolver:
 
         # 'Flat' muscle length:
         # self.L_0 = 30
-        self.L_0 = 54
-        self.MIN_CONTRACT = 0.1
-        self.MAX_CONTRACT = 12.6
+        self.L_0 = 72
+        self.MIN_CONTRACT = 0.2
+        self.MAX_CONTRACT = 9.8
         self.STROKE = self.MAX_CONTRACT - self.MIN_CONTRACT
 
         # Excess length of cable between entry point and muscle, in mm
@@ -37,19 +37,19 @@ class kineSolver:
         # print(Lt)
         # Equivalent width of hydraulic muscle in mm
         # self.ACT_WIDTH = 18
-        self.D_s = 12 # Flat section of actutor
-        self.D_t = 30 # Total width of actuator
+        self.D_s = 10 # Flat section of actutor
+        self.D_t = 20 # Total width of actuator
         self.D_c = (self.D_t - self.D_s)/2 # Width of each individual conic end
         # Number of length subdivisions
-        self.NUM_L = 4
+        self.NUM_L = 6
         self.FACT_V = ((self.L_0**2)/self.NUM_L)*(self.D_c/3 + self.D_s/2)
-        # Syringe cross sectional area, diameter = 26.5 mm
+        # Syringe cross sectional area, diameter = 12.5 mm
         self.SYRINGE_RADIUS = 12.5/2
         self.A_SYRINGE = mt.pi*(self.SYRINGE_RADIUS**2) # mm^2
         # Real volume calc: there are numLs beams of length L0/numLs
         # self.FACT_V = ((self.ACT_WIDTH/1000)*(self.L_0/1000)**2)/(2*self.NUM_L)
         self.M3_to_MM3 = 1e9
-        self.VOL_FACTOR = 1 #1.0 #1.15 #1.09 # 0.9024 # 12.6195/15.066 # Ratio of real volume to theoretical volume
+        self.VOL_FACTOR = 0.775 # Maximum value of 0.775 # Ratio of real volume to theoretical volume
         self.CAL_FACTOR = 0.005 # % of max volume still in actuator after calibration
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
@@ -177,6 +177,7 @@ class kineSolver:
         # self.MAX_CABLE_DIST = self.SIDE_LENGTH # mt.sqrt((self.RAD_END*mt.cos(mt.pi/3))**2 + (45 - 3*self.RAD_END*mt.cos(mt.pi/6))**2)
         self.MIN_CABLE = 5 #see Sizing.sldprt
         self.MAX_CABLE_DIST = (self.STROKE*self.MECH_ADV) + self.MIN_CABLE # see Sizing.sldprt
+        # print("Max cable dist ", self.MAX_CABLE_DIST)
         self.RANGE = self.STROKE*self.MECH_ADV #self.MAX_CABLE_DIST - self.MIN_CABLE
         # self.MAX_CABLE_DIST = self.MECH_ADV*(self.L_0/4) + self.MIN_CABLE
 
@@ -184,7 +185,8 @@ class kineSolver:
         #Initialise at centre
         # self.L_c = (self.MAX_CABLE_DIST - self.DIST_TO_CENT)/self.MECH_ADV
         # L_c_centre = 20.19
-        targetCentre = 19.63 # See Sizing.sldprt
+        # targetCentre = 19.63 # See Sizing.sldprt
+        targetCentre = 15.32
         self.L_c = ((self.MAX_CABLE_DIST - targetCentre)/self.MECH_ADV) + self.MIN_CONTRACT #self.STROKE * ((self.RANGE - (L_c_centre - self.MIN_CABLE))/self.RANGE)
         # print("Contraction at centre: ", self.L_c)
         # Store current value of contraction 

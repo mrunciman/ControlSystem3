@@ -215,7 +215,7 @@ class omniStreamer():
         sensY = 2
         sensZ = 1.5
 
-        signX = -1
+        signX = 1
         signY = 1
         signZ = -1
 
