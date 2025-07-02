@@ -46,7 +46,7 @@ class falconStreamer():
             # with subprocess.run(self.fileName, check = True, capture_output = False, stdin=subprocess.DEVNULL,  stderr=subprocess.DEVNULL) as subP:
             #     self.omniServer = subP    
             
-            self.falconServer = subprocess.Popen(self.fileName, stdin=None, stdout=subprocess.DEVNULL)
+            self.falconServer = None # subprocess.Popen(self.fileName, stdin=None, stdout=subprocess.DEVNULL)
 
         #     with subprocess.Popen(self.fileName, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL) as subPopen:
         #         self.omniServer = subPopen
@@ -85,6 +85,9 @@ class falconStreamer():
 # 21
     def getFalconCoords(self, forces = None):
         try:
+            if self.falconServer == None:
+                return 2
+            
             handshake = b'1'
             if forces is not None:
                 forcesStrList = []# [format(x, '.3f') for x in forces]

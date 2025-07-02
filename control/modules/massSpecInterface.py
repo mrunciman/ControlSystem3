@@ -62,7 +62,7 @@ class massSpec:
 
         location = os.path.dirname(__file__)
         # parent = os.path.dirname(location)
-        self.parent = "C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime"
+        self.parent = "/home/lannsair/Documents/DataLogs/DT Prime/"
         self.logTime = time.strftime("%Y-%m-%d %H-%M-%S")
         relative = "logs/pose/pose " + self.logTime + ".csv"
         self.fileName = os.path.join(self.parent, relative)

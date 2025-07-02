@@ -31,7 +31,7 @@ class ardLogger():
         self.numRows = 0
 
 
-        self.parent = "C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime"
+        self.parent = "/home/lannsair/Documents/DataLogs/DT Prime/"
         self.logTime = time.strftime("%Y-%m-%d %H-%M-%S")
         self.relative = "logs/pumps/arduinoLogs " + self.logTime + ".csv"
         self.fileName = os.path.join(self.parent, self.relative) # USE THIS IN REAL TESTS

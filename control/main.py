@@ -18,7 +18,6 @@ from modules import arduinoInterface
 from modules import fibrebotInterface
 from modules import massSpecInterface
 from modules import kinematics
-# from modules import mouseGUI
 from modules import ps4_pyUSB
 from modules import pumpLog
 from modules import positionInput
@@ -1124,7 +1123,7 @@ barAndPadWidth = 100
 padSize = int((barAndPadWidth-barWidth)/2)
 numberBars = 4
 # Other constants
-PRESS_MAX_KPA = 100
+PRESS_MAX_KPA = 500 # TODO CHange back to 100 kPa
 VAC_PRESS = -40
 guiPressFactor = 1 - abs(VAC_PRESS)/(PRESS_MAX_KPA - VAC_PRESS)
 

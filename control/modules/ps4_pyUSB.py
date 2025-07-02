@@ -10,11 +10,12 @@ import numpy as np
 # See https://www.psdevwiki.com/ps4/DS4-USB for details on data indices
 
 # DS4 controller ids (might be different on your side)
-VENDOR_ID = 0x54c
-PRODUCT_ID = 0x9cc #0x5c4 #0x9cc
+VENDOR_ID = 0x54c # = 1356 in decimal
+PRODUCT_ID = 0x9cc #0x5c4 = 1476 in decimal #0x9cc = 2508 in decimal
 
 # Don't forget to change the path to libusb-1.0.dll
-BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+BACKEND = usb.backend.libusb1.get_backend() 
+#"C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 
 # BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\InflatableRobotControl\\ControlSystemThree\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 
@@ -22,6 +23,14 @@ INTERFACE_DS4 = 3 # 0 # HID interface number in cfg list
 SETTING_DS4 = 0
 
 ENDPOINT_DS4_OUT = 0 # Input endpoint
+
+# # Find all devices using the libusb1 backend
+# devices = usb.core.find(find_all=True, backend=usb.backend.libusb1.get_backend())
+
+# # # Process the devices (e.g., print their information)
+# for device in devices:
+# 	print(f"Device: {device.idVendor=}, {device.idProduct=}")
+
 
 
 class ps4USB(threading.Thread):
@@ -33,13 +42,21 @@ class ps4USB(threading.Thread):
 		self._lock = threading.Lock()
 		self.paused = False
 
-		self.dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID, backend=BACKEND)
+		self.dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID)#, backend=BACKEND)
+		#self.dev.set_configuration()
 		# print(self.dev)
 		if self.dev is not None:
 			self.cfg = self.dev.get_active_configuration()
 			# print(self.cfg)
 			self.interface = self.cfg[(INTERFACE_DS4, SETTING_DS4)]
+			# print("Interface  ",  self.interface)
 			self.endpoint = self.interface[ENDPOINT_DS4_OUT]
+			interfaceNo = self.cfg[(INTERFACE_DS4, SETTING_DS4)].bInterfaceNumber
+			if self.dev.is_kernel_driver_active(interfaceNo):
+				try:
+					self.dev.detach_kernel_driver(interfaceNo)
+				except usb.core.USBError as e:
+					print(f"Could not detach kernel driver: {e}")
 			self.controller = self.endpoint.read(0x40)[0] # equals 1 on success
 		else:
 			self.controller = None
@@ -204,7 +221,7 @@ class ps4USB(threading.Thread):
 
 if __name__ == "__main__":
 	ps4 = ps4USB()
-	print(ps4.controller)
+	# print(ps4.controller)
 	if ps4.controller is not None:
 		ps4.start()
 

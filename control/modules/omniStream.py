@@ -47,19 +47,20 @@ class omniStreamer():
             # with subprocess.run(self.fileName, check = True, capture_output = False, stdin=subprocess.DEVNULL,  stderr=subprocess.DEVNULL) as subP:
             #     self.omniServer = subP    
             
-            self.omniServer = subprocess.Popen(self.fileName, stdin=None, stdout=subprocess.DEVNULL)
+            self.omniServer = None#subprocess.Popen(self.fileName, stdin=None, stdout=subprocess.DEVNULL)
 
         #     with subprocess.Popen(self.fileName, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL) as subPopen:
         #         self.omniServer = subPopen
         #         print("Context manager")
 
         try:
-            if not noSubProcess:
-                self.sock.connect(self.server_addr)
-            # self.sock.setblocking(0)
-            self.sock.settimeout(0.01)
-            print("Connected to {:s}".format(repr(self.server_addr)))
-            # print(self.sock)
+            if self.omniServer != None:
+                if not noSubProcess:
+                    self.sock.connect(self.server_addr)
+                # self.sock.setblocking(0)
+                self.sock.settimeout(0.01)
+                print("Connected to {:s}".format(repr(self.server_addr)))
+                # print(self.sock)
             return self.checkConnection()
         except AttributeError as ae:
             # print("Error creating the socket: {}".format(ae))
@@ -86,6 +87,9 @@ class omniStreamer():
 # 21
     def getOmniCoords(self, forces = None):
         try:
+            if self.omniServer == None:
+                return 2
+            
             handshake = b'1'
             if forces is not None:
                 forcesStrList = []# [format(x, '.3f') for x in forces]
@@ -104,6 +108,8 @@ class omniStreamer():
                 forcesString = '[' + forcesStrList[0] + ',' + forcesStrList[1] + ',' + forcesStrList[2] + ']' 
                 handshake = forcesString.encode('utf-8')
                 # print(handshake)
+            
+
             self.sock.send(handshake)
 
             # Incoming data is the transformation matrix of the haptic device end effector plus start and end bytes
@@ -285,7 +291,7 @@ if __name__ == "__main__":
     omni_connected = phntmOmni.connectOmni(0)
     print("Haptic device connected? ", omni_connected)
     count = 0
-    limit = 1000
+    limit = 10
     forces = None #[0, 0, 0]
     mag = 5
 
@@ -311,7 +317,8 @@ if __name__ == "__main__":
         count += 1
         # print(math.sin(count))
     phntmOmni.omniClose()
-    phntmOmni.omniServer.kill()
+    if phntmOmni.omniServer != None:
+        phntmOmni.omniServer.kill()
 
 
 

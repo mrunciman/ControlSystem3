@@ -27,7 +27,7 @@ except:
 class optiTracker:
 
     def __init__(self):
-        self.parent = "C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime"
+        self.parent = "/home/lannsair/Documents/DataLogs/DT Prime/"
         self.logTime = time.strftime("%Y-%m-%d %H-%M-%S")
         relative = "logs/opti/optiTrack " + self.logTime + ".csv"
         self.fileName = os.path.join(self.parent, relative)
