@@ -8,6 +8,7 @@ control/positions/
 .venv-inflate/
 .venv-deploy/
 .lannsair_robot/
+lannsair_robot/
 control/arduino/SyringeControl/.vscode/
 .vscode/
 *.pyc
