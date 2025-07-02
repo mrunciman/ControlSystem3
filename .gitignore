@@ -7,7 +7,7 @@ control/paths/
 control/positions/
 .venv-inflate/
 .venv-deploy/
-.lannsair-robot/
+.lannsair_robot/
 control/arduino/SyringeControl/.vscode/
 .vscode/
 *.pyc
