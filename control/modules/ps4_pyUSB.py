@@ -9,6 +9,7 @@ import numpy as np
 
 # See https://www.psdevwiki.com/ps4/DS4-USB for details on data indices
 
+
 # DS4 controller ids (might be different on your side)
 VENDOR_ID = 0x54c
 PRODUCT_ID = 0x9cc #0x5c4 #0x9cc
@@ -22,6 +23,12 @@ INTERFACE_DS4 = 3 # 0 # HID interface number in cfg list
 SETTING_DS4 = 0
 
 ENDPOINT_DS4_OUT = 0 # Input endpoint
+
+
+# devices = usb.core.find(find_all=True, backend=usb.backend.libusb1.get_backend())
+# for device in devices:
+# 	print(f"Device: {device.idVendor=}, {device.idProduct=}")
+
 
 
 class ps4USB(threading.Thread):
@@ -66,7 +73,7 @@ class ps4USB(threading.Thread):
 		self.TRIGGER_SHIFT = 1
 		self.XY_DEADTHRESH = 0.1
 		self.PRISM_CHANGE = 0.1
-		self.XY_SENSITIVITY = 0.5
+		self.XY_SENSITIVITY = 0.25
 		self.P_SENSITIVITY = 2.5
 
 

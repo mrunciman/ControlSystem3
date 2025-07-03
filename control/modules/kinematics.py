@@ -27,7 +27,7 @@ class kineSolver:
         # self.L_0 = 30
         self.L_0 = 72
         self.MIN_CONTRACT = 0.2
-        self.MAX_CONTRACT = 9.8
+        self.MAX_CONTRACT = 12.5
         self.STROKE = self.MAX_CONTRACT - self.MIN_CONTRACT
 
         # Excess length of cable between entry point and muscle, in mm
@@ -37,8 +37,8 @@ class kineSolver:
         # print(Lt)
         # Equivalent width of hydraulic muscle in mm
         # self.ACT_WIDTH = 18
-        self.D_s = 10 # Flat section of actutor
-        self.D_t = 20 # Total width of actuator
+        self.D_s = 14 # Flat section of actuator
+        self.D_t = 24 # Total width of actuator
         self.D_c = (self.D_t - self.D_s)/2 # Width of each individual conic end
         # Number of length subdivisions
         self.NUM_L = 6
@@ -49,7 +49,7 @@ class kineSolver:
         # Real volume calc: there are numLs beams of length L0/numLs
         # self.FACT_V = ((self.ACT_WIDTH/1000)*(self.L_0/1000)**2)/(2*self.NUM_L)
         self.M3_to_MM3 = 1e9
-        self.VOL_FACTOR = 0.775 # Maximum value of 0.775 # Ratio of real volume to theoretical volume
+        self.VOL_FACTOR = 0.825 # Maximum value of 0.775 # Ratio of real volume to theoretical volume
         self.CAL_FACTOR = 0.005 # % of max volume still in actuator after calibration
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
@@ -145,6 +145,7 @@ class kineSolver:
         self.ATTACH_POINTS = np.transpose(self.ATTACH_POINTS)
 
         self.attach_points_rot = self.ATTACH_POINTS
+        self.attach_points_cont = self.attach_points_rot
         # Z axis out of screen - conssitent with 'master' controller
 
         # Entry point array - global frame defined at bottom lhs corner (from behind instrument)
@@ -197,10 +198,10 @@ class kineSolver:
         # Extension/Retraction Geometry
         ###################################################################
         # Point that the shaft rotates around - COR of universal joint
-        self.CONT_ARC_S = 15 # mm continuum joint arc length
+        self.CONT_ARC_S = 25 # mm continuum joint arc length
         # self.LEVER_BASE_Z = -25.0 # checked with sldasm
         # self.LEVER_BASE_Z = -27.50 # checked with calipers
-        self.LEVER_BASE_Z = -27.50 # checked with calipers
+        self.LEVER_BASE_Z = -17.5 # checked with calipers
         # self.LEVER_POINT = np.array([0.5*self.SIDE_LENGTH,\
         #     0.5*self.SIDE_LENGTH*mt.tan(mt.pi/6),\
         #     self.LEVER_BASE_Z])
@@ -216,13 +217,13 @@ class kineSolver:
         # Normal of end effector / parallel mechanism plane:
         self.N_PLANE = self.N_CROSS/la.norm(self.N_CROSS)
 
-        self.SHAFT_LENGTH_UJ = 45 # mm
+        self.SHAFT_LENGTH_UJ = 25 # mm
         self.SHAFT_LENGTH = self.SHAFT_LENGTH_UJ - self.CONT_ARC_S # mm
 
         # Set limits on shaft extension
         # self.minShaftExt = self.SHAFT_LENGTH + 1
         self.MIN_EXTEND = 0.5 # mm
-        self.MAX_EXTEND = 40 # mm
+        self.MAX_EXTEND = 50 # mm
         # Set limit when curvature of continuum joint is assumed zero
         self.MIN_CONT_RAD = 0.1 # mm
         # Max angle that hydraulic motors can have is:
@@ -260,16 +261,16 @@ class kineSolver:
             # print("around_shaft: ", ang_around_shaft)
             # print("theta_approx: ", theta_approx)
 
-            rotOutOfPlane_yaw = np.array([[mt.cos(ang_around_shaft), -mt.sin(ang_around_shaft), 0],\
-                                            [mt.sin(ang_around_shaft),  mt.cos(ang_around_shaft), 0],\
+            rotOutOfPlane_yaw = np.array([[mt.cos(-ang_around_shaft), -mt.sin(-ang_around_shaft), 0],\
+                                            [mt.sin(-ang_around_shaft),  mt.cos(-ang_around_shaft), 0],\
                                             [0,                         0,                        1]])
             
             rotOutOfPlane_pitch = np.array([[ mt.cos(theta_approx), 0, mt.sin(theta_approx)],\
                                             [ 0, 1, 0],\
                                             [-mt.sin(theta_approx), 0, mt.cos(theta_approx)]])
             
-            rotOutOfPlane_yawRev = np.array([[mt.cos(-ang_around_shaft), -mt.sin(-ang_around_shaft), 0],\
-                                        [mt.sin(-ang_around_shaft),  mt.cos(-ang_around_shaft), 0],\
+            rotOutOfPlane_yawRev = np.array([[mt.cos(ang_around_shaft), -mt.sin(ang_around_shaft), 0],\
+                                        [mt.sin(ang_around_shaft),  mt.cos(ang_around_shaft), 0],\
                                         [0,                         0,                        1]])
             
             attach_points_int0 = np.dot(rotOutOfPlane_yaw, self.ATTACH_POINTS)
@@ -317,6 +318,7 @@ class kineSolver:
             u_Cont = (P_des - self.LEVER_POINT)/baseToPoint
             theta_approx = 0
             ang_around_shaft = 0
+            conty_glob = np.array([0,0,self.CONT_ARC_S]) + self.LEVER_POINT
 
         # print("u_cont: ", u_Cont)
         # How far along u_Cont the POI lies, starting from desired point P_des
@@ -332,11 +334,11 @@ class kineSolver:
         elif (L_Pri > self.MAX_EXTEND):
             L_Pri = self.MAX_EXTEND
 
-        return POI_Cont[0], POI_Cont[1], L_Pri, theta_approx, ang_around_shaft
+        return POI_Cont[0], POI_Cont[1], L_Pri, theta_approx, ang_around_shaft, conty_glob
 
 
 
-    def cableLengths(self, cX, cY, tX, tY):
+    def cableLengths(self, cX, cY, tX, tY, c_conty_glob = None, t_conty_glob = None):
         """
         Function finds cable lengths in mm from entry points to end effector
         given an input point (x, y) in mm.
@@ -346,13 +348,18 @@ class kineSolver:
         e.g. [cableL, cableR, cableT, Jplus] = cableLengths(15, 8.6603)
         """
         # currPos is the current position on plane, targPos is target position
-        currPos = np.array([[cX], [cY], [0]])
-        targPos = np.array([[tX], [tY], [0]])
+        if c_conty_glob is not None:
+            currPos = np.array([[c_conty_glob[0]], [c_conty_glob[1]], [c_conty_glob[2]]])
+            targPos = np.array([[t_conty_glob[0]], [t_conty_glob[1]], [t_conty_glob[2]]])
+        else:
+            currPos = np.array([[cX], [cY], [0]])
+            targPos = np.array([[tX], [tY], [0]])
 
         # Find cable attachment points in global frame
         currPos_GI = np.dot(self.ROT_GLOB_INST, self.attach_points_rot) + currPos
         targPos_GI = np.dot(self.ROT_GLOB_INST, self.attach_points_rot) + targPos
-        # print(currPos_GI)
+        self.attach_points_cont = targPos_GI
+        # print(targPos_GI)
         
         # Result is 3x3 matrix of vectors in global frame pointing from attachment points to
         # entry points, norms of columns are cable lengths
@@ -366,7 +373,7 @@ class kineSolver:
         tLhsCable = la.norm(tL[:,0])
         tRhsCable = la.norm(tL[:,1])
         tTopCable = la.norm(tL[:,2])
-        # print(cL)
+        # print(tLhsCable, tRhsCable, tTopCable)
 
         # Compute the structure matrix A from cable unit vectors and cable attachment points 
         # in global frame, currPos_GI

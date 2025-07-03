@@ -8,6 +8,7 @@ control/positions/
 .venv-inflate/
 .venv-deploy/
 control/arduino/SyringeControl/.vscode/
+control/arduino/SyringeControl/.theia/
 .vscode/
 *.pyc
 *.cpython-38

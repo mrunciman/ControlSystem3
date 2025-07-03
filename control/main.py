@@ -48,7 +48,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     ############################################################
     # Instantiate classes:
     # sideLength = 18.78 # mm, from workspace2 model
-    sideLength = 30 # mm, from workspace2 model
+    sideLength = 35 # mm, from workspace2 model
 
     kineSolve = kinematics.kineSolver(sideLength)
     # mouseTrack = mouseGUI.mouseTracker(sideLength)
@@ -230,11 +230,12 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     cableL, cableR, cableT = kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH
     prismP = 0
     targetP = 0
-    [targetXideal, targetYideal, targetP, inclin, azimuth] = kineSolve.intersect(targetX, targetY, targetZ)
+    [targetXideal, targetYideal, targetP, inclin, azimuth, targ_conty_glob] = kineSolve.intersect(targetX, targetY, targetZ)
     currentX = targetXideal
     currentY = targetYideal
+    curr_conty_glob = targ_conty_glob
     # print(targetXideal, targetYideal, targetP)
-    [targetL, targetR, targetT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
+    [targetL, targetR, targetT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal, curr_conty_glob, targ_conty_glob)
     targetP = 0
     # print(targetL, targetR, targetT)
     repJaco = cJaco
@@ -535,13 +536,16 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     prevyPS4 = yPS4
                     prevzPS4 = zPS4
                     [temp_xPS4, temp_yPS4, temp_zPS4] = ps4.incrementXYZCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], frameRotAngle)
+                    # print(temp_xPS4, temp_yPS4, temp_zPS4)
                     # Prevent motion if going out of reachable workspace:
-                    [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(temp_xPS4, temp_yPS4, temp_zPS4)
-                    [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
+                    [targetXideal, targetYideal, targetOpP, inclin, azimuth, targ_conty_glob] = kineSolve.intersect(temp_xPS4, temp_yPS4, temp_zPS4)
+                    # print(targetXideal, targetYideal, targetOpP)
+                    [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal, curr_conty_glob, targ_conty_glob)
                     if (targetOpL >= kineSolve.MAX_CABLE_DIST - kineSolve.RAD_END) \
                         or (targetOpR >= kineSolve.MAX_CABLE_DIST - kineSolve.RAD_END) \
                         or (targetOpT >= kineSolve.MAX_CABLE_DIST - kineSolve.RAD_END):
                         xPS4, yPS4, zPS4 = prevxPS4, prevyPS4, prevzPS4
+                        # print("Length error")
                     else:
                         xPS4, yPS4, zPS4 = temp_xPS4, temp_yPS4, temp_zPS4
                     # Check limits on prismatic
@@ -577,22 +581,24 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
             # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
             # XYZPathCoords are desired coords in 3D.
-            [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
-            POIcoords = [targetXideal, targetYideal]
+            [targetXideal, targetYideal, targetOpP, inclin, azimuth, targ_conty_glob] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
+            # print(targ_conty_glob)
+            POIcoords = [targ_conty_glob[0], targ_conty_glob[1]]
+            # print(POIcoords)
             # If no controller connected, set POICoords to None to make mouse control possible
             if (omni_connected == False) and (ps4.controller is None):
                 POIcoords = None
-            [targetX_mouse, targetY_mouse, flagStop, insideBounds] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_rot, POIcoords, XYZPathCoords)
+            [targetX_mouse, targetY_mouse, flagStop, insideBounds] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_cont, POIcoords, XYZPathCoords)
 
             # Return target cable lengths at target coords and jacobian at current coords
-            [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
+            [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal, curr_conty_glob, targ_conty_glob)
 
             # Get cable speeds using Jacobian at current point and calculation of input speed
             [lhsV, rhsV, topV, actualX, actualY, perpAngle] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
             fibrebotLink.lineAngle = perpAngle
 
             # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
-            [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
+            [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY, curr_conty_glob, targ_conty_glob)
 
             targetL = scaleTargL
             targetR = scaleTargR 
@@ -710,6 +716,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             # Update current position, cable lengths, and volumes as previous targets
             currentX = actualX
             currentY = actualY
+            curr_conty_glob = targ_conty_glob
             cableL = targetL
             cableR = targetR
             cableT = targetT
@@ -1124,7 +1131,7 @@ barAndPadWidth = 100
 padSize = int((barAndPadWidth-barWidth)/2)
 numberBars = 4
 # Other constants
-PRESS_MAX_KPA = 100
+PRESS_MAX_KPA = 150 # TODO Change back to 100
 VAC_PRESS = -40
 guiPressFactor = 1 - abs(VAC_PRESS)/(PRESS_MAX_KPA - VAC_PRESS)
 
