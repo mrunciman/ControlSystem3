@@ -74,7 +74,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     DEFLATION_MODE = 1
     SET_PRESS_MODE = 3
 
-    HOMING_POSITION = [0, 0, kineSolve.SHAFT_LENGTH_UJ + kineSolve.LEVER_BASE_Z]
+    HOMING_POSITION = [0, -35, 60]
 
     # Other constants
     # PRESS_MAX_KPA = 90
@@ -191,11 +191,11 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     yPath.append(float(row[1]))
                     zPath.append(float(row[2]))
                 xMap, yMap, zMap = xPath[0], yPath[0], zPath[0]
-            xMap, yMap, zMap = HOMING_POSITION[0], HOMING_POSITION[1], kineSolve.SHAFT_LENGTH_UJ + kineSolve.LEVER_BASE_Z
+            xMap, yMap, zMap = HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]
 
     else:
         # if ps4.controller is not None:
-        xMap, yMap, zMap = HOMING_POSITION[0], HOMING_POSITION[1], kineSolve.SHAFT_LENGTH_UJ + kineSolve.LEVER_BASE_Z
+        xMap, yMap, zMap = HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]
 
     # Button setting from controller for grasper control
     controllerButtons = 0
@@ -360,7 +360,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
             count = 0
             countLimit = 50
-            rampTime = 5 # seconds
+            rampTime = 0.1 # seconds
             while (count <= countLimit):
                 regulatorPressure = round(inflationPressure*(count/countLimit))
                 # print(regulatorPressure)
@@ -506,7 +506,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     XYZPathCoords = [xMap, yMap, zMap]
                 else:
                     controllerButtons = 0
-                    XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
+                    XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
                     # print(XYZPathCoords)
                     
             elif useOmni == 2:
@@ -520,7 +520,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     XYZPathCoords = [xMap, yMap, zMap]
                 else:
                     controllerButtons = 0
-                    XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
+                    XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
                     # print(XYZPathCoords)
                     
             else:
@@ -535,7 +535,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     prevxPS4 = xPS4
                     prevyPS4 = yPS4
                     prevzPS4 = zPS4
-                    [temp_xPS4, temp_yPS4, temp_zPS4] = ps4.incrementXYZCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], frameRotAngle)
+                    [temp_xPS4, temp_yPS4, temp_zPS4] = ps4.incrementXYZCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], frameRotAngle, kineSolve.LEVER_POINT)
                     # print(temp_xPS4, temp_yPS4, temp_zPS4)
                     # Prevent motion if going out of reachable workspace:
                     [targetXideal, targetYideal, targetOpP, inclin, azimuth, targ_conty_glob] = kineSolve.intersect(temp_xPS4, temp_yPS4, temp_zPS4)
@@ -558,16 +558,16 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     # if abs(targetYideal) > kineSolve.SIDE_LENGTH/2:
                     #     yPS4 = prevyPS4
                     XYZPathCoords = [xPS4, yPS4, zPS4]
-                    # print(XYZPathCoords)
+                    # print("ps4 XYZ Coords: ", XYZPathCoords)
                 # elif pathCounter >= len(xPath):
                 #     break               
                 else: #Nothing is connected, stay at home position
                     controllerButtons = 0
-                    XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
+                    XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
 
             if classSettings.goToHome:
                 controllerButtons = 0
-                XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
+                XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
 
             if controllerButtons == 1:
                 dictLabel["grasperLabel"].config(text = "Grasper open", fg = "green")
@@ -584,6 +584,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             [targetXideal, targetYideal, targetOpP, inclin, azimuth, targ_conty_glob] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
             # print(targ_conty_glob)
             POIcoords = [targ_conty_glob[0], targ_conty_glob[1]]
+
             # print(POIcoords)
             # If no controller connected, set POICoords to None to make mouse control possible
             if (omni_connected == False) and (ps4.controller is None):

@@ -6,6 +6,7 @@ import usb.backend.libusb1
 import time
 import threading
 import numpy as np
+import math as mt
 
 # See https://www.psdevwiki.com/ps4/DS4-USB for details on data indices
 
@@ -88,21 +89,37 @@ class ps4USB(threading.Thread):
 			if self.stopped():
 				return
 			if self.controller is not None:
-				self.data = self.endpoint.read(0x40)
-				# print(self.data)
+				try:
+					self.data = self.endpoint.read(0x40)
+					# print(self.data)
 
-				self.RstickX = (self.data[3] - 2**7)/2**7
-				self.RstickY = (self.data[4] - 2**7)/2**7
+					self.RstickX = (self.data[3] - 2**7)/2**7
+					self.RstickY = (self.data[4] - 2**7)/2**7
 
-				self.SquButton = self.data[5] & 2**4  !=0
-				self.CroButton = self.data[5] & 2**5  !=0
-				self.CirButton = self.data[5] & 2**6  !=0
-				self.TriButton = self.data[5] & 2**7  !=0
+					self.SquButton = self.data[5] & 2**4  !=0
+					self.CroButton = self.data[5] & 2**5  !=0
+					self.CirButton = self.data[5] & 2**6  !=0
+					self.TriButton = self.data[5] & 2**7  !=0
 
-				self.R1 = self.data[6] & 2**1  != 0
-				self.R2 = self.data[9]/2**8
-				self.getChanges()
-
+					self.R1 = self.data[6] & 2**1  != 0
+					self.R2 = self.data[9]/2**8
+					self.getChanges()
+				except Exception as e:
+					print(f"Error with PS4 controller: {e}")
+					self.controller = None
+			else:
+				# Ps4 controller not connected 
+				# try to reconnect
+				try:
+					self.dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID, backend=BACKEND)
+					if self.dev is not None:
+						self.cfg = self.dev.get_active_configuration()
+						self.interface = self.cfg[(INTERFACE_DS4, SETTING_DS4)]
+						self.endpoint = self.interface[ENDPOINT_DS4_OUT]
+						self.controller = self.endpoint.read(0x40)[0] # equals 1 on success
+				except Exception as e:
+					# print(f"Error with PS4 controller: {e}")
+					self.controller = None
 			# print(self.RstickX , self.RstickY, self.R1, self.R2)
 
 
@@ -133,12 +150,13 @@ class ps4USB(threading.Thread):
 
 
 
-	def incrementXYZCoords(self, cX, cY, cZ, degreesToRotate):
+	def incrementXYZCoords(self, cX, cY, cZ, degreesToRotate, LEVER_POINT = None):
 		#TODO If motion limits reached (esp prismatic) do not change inputs - Don't let Z coord get too low or high 
 		#TODO Encoder check on uSteppers blocking operation? - is sleep causing delay in messages to arduino? Observed pause before usteppers reset 
 		#TODO Load cell calibration
 		#TODO Check calibration routine
 		#TODO New flags for ps4 controller initialisation (try to onnect if haptic not used, or if useOmni but connection failed)
+		# print("Input coords: ", cX, cY, cZ)
 		if self.xChange is None:
 			self.xChange = 0
 
@@ -177,6 +195,83 @@ class ps4USB(threading.Thread):
 			nZ = cZ + self.pChange
 		else:
 			nZ = cZ
+
+		nX = round(nX,2)
+		nY = round(nY,2)
+		nZ = round(nZ,2)
+		return nX, nY, nZ
+	
+
+	
+	def incrementSphereCoords(self, cX, cY, cZ, degreesToRotate, LEVER_POINT = None):
+		#TODO If motion limits reached (esp prismatic) do not change inputs - Don't let Z coord get too low or high 
+		#TODO Encoder check on uSteppers blocking operation? - is sleep causing delay in messages to arduino? Observed pause before usteppers reset 
+		#TODO Load cell calibration
+		#TODO Check calibration routine
+		#TODO New flags for ps4 controller initialisation (try to onnect if haptic not used, or if useOmni but connection failed)
+		if self.xChange is None:
+			self.xChange = 0
+
+		if self.yChange is None:
+			self.yChange = 0
+
+		# Add rotation of coordinates after mapping
+		changeMatrix = np.array([[self.xChange],\
+								 [self.yChange]])
+        
+		if degreesToRotate is not None:
+			radsToRotate = np.radians(degreesToRotate)
+		else:
+			radsToRotate = 0
+
+		changeRotated = np.array([ [np.cos(radsToRotate), -np.sin(radsToRotate)],\
+								   [np.sin(radsToRotate),  np.cos(radsToRotate)]])
+
+		changeRotated = np.dot(changeRotated, changeMatrix)
+
+		changeX = changeRotated[0]
+		changeY = -changeRotated[1]
+
+		# wrt local coordinate frame
+		cRoll = mt.atan2(cZ - LEVER_POINT[2], cY - LEVER_POINT[1]) # Also thought of in 2D as angle from positive y
+		cPitch = mt.atan2(cX - LEVER_POINT[0], cZ - LEVER_POINT[2]) # Also thought of in 2D as angle from positive z
+		cRadius = mt.sqrt((cX - LEVER_POINT[0])**2 + (cY - LEVER_POINT[1])**2 + (cZ - LEVER_POINT[2])**2)
+
+		# # wrt local coordinate frame
+		# cRoll = mt.atan2(cZ - LEVER_POINT[2], cY - LEVER_POINT[1]) # Also thought of in 2D as angle from positive y
+		# cPitch = mt.atan2(cX - LEVER_POINT[0], cZ - LEVER_POINT[2]) # Also thought of in 2D as angle from positive z
+		# cRadius = mt.sqrt((cX - LEVER_POINT[0])**2 + (cY - LEVER_POINT[1])**2 + (cZ - LEVER_POINT[2])**2)
+
+		if self.xChange is not None:
+			# method .item() converts numpy to native python type
+			nPitch = cPitch + changeX.item()/100
+		else:
+			nPitch = cPitch
+
+		if self.yChange is not None:
+			nRoll = cRoll + changeY.item()/100
+		else:
+			nRoll = cRoll
+
+		if self.pChange is not None:
+			nRadius = cRadius + self.pChange
+		else:
+			nRadius = cRadius
+
+		nX = nRadius*mt.sin(theta)*mt.cos(phi)
+		nY = nRadius*mt.sin(theta)*mt.sin(phi)
+		nZ = nRadius*mt.cos(theta)
+
+		
+		nX = nRadius*mt.cos(mt.pi/2 - nPitch)
+		nY = nRadius*mt.cos(nRoll)
+		nZ = nRadius*mt.cos(nPitch)
+
+		print("Change in coords:")
+		print(cX - nX)
+		print(cY - nY)
+		print(cZ - nZ)
+		print()
 
 		nX = round(nX,2)
 		nY = round(nY,2)

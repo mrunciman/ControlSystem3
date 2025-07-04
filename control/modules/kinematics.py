@@ -198,10 +198,10 @@ class kineSolver:
         # Extension/Retraction Geometry
         ###################################################################
         # Point that the shaft rotates around - COR of universal joint
-        self.CONT_ARC_S = 25 # mm continuum joint arc length
+        self.CONT_ARC_S = 10 # mm continuum joint arc length
         # self.LEVER_BASE_Z = -25.0 # checked with sldasm
         # self.LEVER_BASE_Z = -27.50 # checked with calipers
-        self.LEVER_BASE_Z = -17.5 # checked with calipers
+        self.LEVER_BASE_Z = -15 # checked with calipers
         # self.LEVER_POINT = np.array([0.5*self.SIDE_LENGTH,\
         #     0.5*self.SIDE_LENGTH*mt.tan(mt.pi/6),\
         #     self.LEVER_BASE_Z])
@@ -209,21 +209,22 @@ class kineSolver:
         #                              self.SIDE_LENGTH*mt.tan(mt.pi/6),\
         #                              self.LEVER_BASE_Z])
         self.LEVER_POINT = np.array([0,\
-                                     0,\
+                                     self.SIDE_LENGTH*mt.tan(mt.pi/6)-5,\
                                      self.LEVER_BASE_Z])
+        # print(self.LEVER_POINT)
         self.E12 = self.ENTRY_POINTS[:, 1] - self.ENTRY_POINTS[:, 0]
         self.E13 = self.ENTRY_POINTS[:, 2] - self.ENTRY_POINTS[:, 0]
         self.N_CROSS = np.cross(self.E12, self.E13)
         # Normal of end effector / parallel mechanism plane:
         self.N_PLANE = self.N_CROSS/la.norm(self.N_CROSS)
 
-        self.SHAFT_LENGTH_UJ = 25 # mm
-        self.SHAFT_LENGTH = self.SHAFT_LENGTH_UJ - self.CONT_ARC_S # mm
+        self.SHAFT_LENGTH = 26.2 # mm
+        self.SHAFT_LENGTH_UJ = self.SHAFT_LENGTH + self.CONT_ARC_S # mm
 
         # Set limits on shaft extension
         # self.minShaftExt = self.SHAFT_LENGTH + 1
         self.MIN_EXTEND = 0.5 # mm
-        self.MAX_EXTEND = 50 # mm
+        self.MAX_EXTEND = 100 # mm
         # Set limit when curvature of continuum joint is assumed zero
         self.MIN_CONT_RAD = 0.1 # mm
         # Max angle that hydraulic motors can have is:
@@ -308,7 +309,8 @@ class kineSolver:
 
             # Find where line between conty_glob and desired point P_des
             # intersects the entry point trangle:
-            u_Cont = (P_des - conty_glob)/la.norm(P_des - conty_glob); 
+            u_Cont = (P_des - conty_glob)/la.norm(P_des - conty_glob)
+            L_Pri = L_Pri*np.sign(u_Cont[2])
 
         else: # Assume shaft is a UJ connected to lever point base
             baseToPoint = la.norm(P_des - self.LEVER_POINT)
@@ -316,17 +318,19 @@ class kineSolver:
             # Find where line between conty_glob and desired point P_des
             # intersects the entry point trangle:
             u_Cont = (P_des - self.LEVER_POINT)/baseToPoint
+            L_Pri = L_Pri*np.sign(u_Cont[2])
             theta_approx = 0
             ang_around_shaft = 0
             conty_glob = np.array([0,0,self.CONT_ARC_S]) + self.LEVER_POINT
 
         # print("u_cont: ", u_Cont)
         # How far along u_Cont the POI lies, starting from desired point P_des
-        dist_to_POI = np.dot((self.ENTRY_POINTS[:, 0] - P_des), self.N_PLANE)/np.dot(u_Cont, self.N_PLANE)
+        # dist_to_POI = np.dot((self.ENTRY_POINTS[:, 0] - P_des), self.N_PLANE)/np.dot(u_Cont, self.N_PLANE)
+        dist_to_POI = L_Pri
         # print("dist_to_POI: ", dist_to_POI)
-        POI_Cont = P_des + dist_to_POI*u_Cont
+        POI_Cont = P_des - dist_to_POI*u_Cont
 
-        # print("POI and Pri: ", POI_Cont[0], POI_Cont[1], L_Pri)
+        # print("Shaft attachment centre: ", POI_Cont)
 
         # Impose contraction range
         if (L_Pri < self.MIN_EXTEND):
@@ -334,7 +338,7 @@ class kineSolver:
         elif (L_Pri > self.MAX_EXTEND):
             L_Pri = self.MAX_EXTEND
 
-        return POI_Cont[0], POI_Cont[1], L_Pri, theta_approx, ang_around_shaft, conty_glob
+        return POI_Cont[0], POI_Cont[1], L_Pri, theta_approx, ang_around_shaft, POI_Cont
 
 
 
