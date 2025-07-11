@@ -120,6 +120,8 @@ class mouseTracker:
         self.trueMouseEvent = event
         self.xCallback = x
         self.yCallback = y
+        self.xShaftAttach = self.xCallback
+        self.yShaftAttach = self.yCallback
         if (self.mouseEvent == cv2.EVENT_LBUTTONDOWN) or (param is not None):
             self.mouseDown = True
         if self.mouseEvent == cv2.EVENT_LBUTTONUP:
@@ -147,7 +149,10 @@ class mouseTracker:
         # If inside, move end effector and log.
         touching = neighPath.contains_point([self.xCallback, self.yCallback])
         # Check if point is inside triangle workspace
+        # print("callack: ", self.xCallback, self.yCallback)
+        # print(self.xShaftAttach, self.yShaftAttach)
         insideTri = self.path.contains_point([self.xCallback, self.yCallback])
+        # insideTri = self.path.contains_point([self.xShaftAttach, self.yShaftAttach])
         radDiff1 = np.array([[self.vt1[0]], [self.vt1[1]]]) - np.array([[self.xCallback], [self.yCallback]])
         radDiff2 = np.array([[self.vt2[0]], [self.vt2[1]]]) - np.array([[self.xCallback], [self.yCallback]])
         radDiff3 = np.array([[self.vt3[0]], [self.vt3[1]]]) - np.array([[self.xCallback], [self.yCallback]])
@@ -180,7 +185,7 @@ class mouseTracker:
             self.mouseDown = True
             self.touchDown = True
             self.mouseEvent = cv2.EVENT_MOUSEMOVE
-            # insideAll = True
+            insideAll = True
 
         if insideAll == True:
             if self.mouseDown == True:
@@ -251,7 +256,7 @@ class mouseTracker:
 
 
 
-    def iterateTracker(self, listPress, attach_points, POI = None, desiredPoints = None):
+    def iterateTracker(self, listPress, attach_points, POI = None, desiredPoints = None, targ_conty_glob = None):
         # Bind mouseInfo mouse callback function to window
         # cv2.setMouseCallback(self.windowName, self.mouseInfo, POI)
         # If path coordinates not specified, use mouse. Path has priority
@@ -264,7 +269,9 @@ class mouseTracker:
             POI_canvas[1] = POI[1] + mt.tan(mt.pi/6)*self.sideLength/2
 
             self.xCallback = round(POI[0]/self.resolution)
+            self.xShaftAttach = round(targ_conty_glob[0]/self.resolution)
             self.yCallback = self.canvasY - round(POI[1]/self.resolution)
+            self.yShaftAttach = self.canvasY - round(targ_conty_glob[1]/self.resolution)
 
             self.mouseEvent = cv2.EVENT_MOUSEMOVE
             self.drawCables(attach_points, POI_canvas)

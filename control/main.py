@@ -228,21 +228,21 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     # Initialise cable length variables 
     cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
     cableL, cableR, cableT = kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH
-    prismP = 0
+
     targetP = 0
-    [targetXideal, targetYideal, targetP, inclin, azimuth, targ_conty_glob] = kineSolve.intersect(targetX, targetY, targetZ)
+    [targetXideal, targetYideal, targetP, inclin, azimuth, targ_conty_glob, POI_Plane] = kineSolve.intersect(targetX, targetY, targetZ)
     currentX = targetXideal
     currentY = targetYideal
     curr_conty_glob = targ_conty_glob
     # print(targetXideal, targetYideal, targetP)
     [targetL, targetR, targetT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal, curr_conty_glob, targ_conty_glob)
     targetP = 0
-    # print(targetL, targetR, targetT)
+    # print(targetL, targetR, targetT, targetP)
     repJaco = cJaco
     repJpinv = cJpinv
 
     #Cable length to centre of triangle is sideLength/(3**0.5) # tan(30) is 1/sqrt(3)
-    [targetL, targetR, targetT, targetP] = sideLength/(3**0.5), sideLength/(3**0.5), sideLength/(3**0.5), 10  # Cable length to centre of scaffold
+    # [targetL, targetR, targetT, targetP] = sideLength/(3**0.5), sideLength/(3**0.5), sideLength/(3**0.5), 10  # Cable length to centre of scaffold
 
     # Set current volume (ignore tSpeed and step values) 
     [cVolL, tSpeedL, tStepL, LcRealL, angleL] = kineSolve.length2Vol(cableL, targetL)
@@ -535,19 +535,25 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     prevxPS4 = xPS4
                     prevyPS4 = yPS4
                     prevzPS4 = zPS4
-                    [temp_xPS4, temp_yPS4, temp_zPS4] = ps4.incrementXYZCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], frameRotAngle, kineSolve.LEVER_POINT)
+                    [temp_xPS4, temp_yPS4, temp_zPS4] = ps4.incrementSphereCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], frameRotAngle, kineSolve.LEVER_POINT)
                     # print(temp_xPS4, temp_yPS4, temp_zPS4)
                     # Prevent motion if going out of reachable workspace:
-                    [targetXideal, targetYideal, targetOpP, inclin, azimuth, targ_conty_glob] = kineSolve.intersect(temp_xPS4, temp_yPS4, temp_zPS4)
+                    [targetXideal, targetYideal, targetOpP, inclin, azimuth, targ_conty_glob, POI_Plane] = kineSolve.intersect(temp_xPS4, temp_yPS4, temp_zPS4)
                     # print(targetXideal, targetYideal, targetOpP)
                     [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal, curr_conty_glob, targ_conty_glob)
-                    if (targetOpL >= kineSolve.MAX_CABLE_DIST - kineSolve.RAD_END) \
-                        or (targetOpR >= kineSolve.MAX_CABLE_DIST - kineSolve.RAD_END) \
-                        or (targetOpT >= kineSolve.MAX_CABLE_DIST - kineSolve.RAD_END):
+                    if (targetOpL >= kineSolve.MAX_CABLE_DIST) \
+                        or (targetOpR >= kineSolve.MAX_CABLE_DIST) \
+                        or (targetOpT >= kineSolve.MAX_CABLE_DIST):
                         xPS4, yPS4, zPS4 = prevxPS4, prevyPS4, prevzPS4
                         # print("Length error")
+                    elif (kineSolve.MIN_CABLE >= targetOpL) \
+                        or (kineSolve.MIN_CABLE >= targetOpR) \
+                        or (kineSolve.MIN_CABLE >= targetOpT):
+                        xPS4, yPS4, zPS4 = prevxPS4, prevyPS4, prevzPS4
+                        # print("Min length error")
                     else:
                         xPS4, yPS4, zPS4 = temp_xPS4, temp_yPS4, temp_zPS4
+
                     # Check limits on prismatic
                     if (targetOpP >= kineSolve.MAX_EXTEND) and (zPS4 >= prevzPS4):
                         zPS4 = prevzPS4
@@ -581,15 +587,16 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
             # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
             # XYZPathCoords are desired coords in 3D.
-            [targetXideal, targetYideal, targetOpP, inclin, azimuth, targ_conty_glob] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
+            [targetXideal, targetYideal, targetOpP, inclin, azimuth, targ_conty_glob, POI_Plane] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
             # print(targ_conty_glob)
-            POIcoords = [targ_conty_glob[0], targ_conty_glob[1]]
+            POIcoords = [POI_Plane[0], POI_Plane[1]]
+            # POIcoords = [targ_conty_glob[0], targ_conty_glob[1]]
 
             # print(POIcoords)
             # If no controller connected, set POICoords to None to make mouse control possible
             if (omni_connected == False) and (ps4.controller is None):
                 POIcoords = None
-            [targetX_mouse, targetY_mouse, flagStop, insideBounds] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_cont, POIcoords, XYZPathCoords)
+            [targetX_mouse, targetY_mouse, flagStop, insideBounds] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_cont, POIcoords, XYZPathCoords, targ_conty_glob)
 
             # Return target cable lengths at target coords and jacobian at current coords
             [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal, curr_conty_glob, targ_conty_glob)

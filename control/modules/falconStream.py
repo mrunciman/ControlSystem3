@@ -46,7 +46,7 @@ class falconStreamer():
             # with subprocess.run(self.fileName, check = True, capture_output = False, stdin=subprocess.DEVNULL,  stderr=subprocess.DEVNULL) as subP:
             #     self.omniServer = subP    
             
-            self.falconServer = subprocess.Popen(self.fileName, stdin=None, stdout=subprocess.DEVNULL)
+            self.falconServer = None #subprocess.Popen(self.fileName, stdin=None, stdout=subprocess.DEVNULL)
 
         #     with subprocess.Popen(self.fileName, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL) as subPopen:
         #         self.omniServer = subPopen
@@ -57,7 +57,7 @@ class falconStreamer():
                 self.sock.connect(self.server_addr)
             # self.sock.setblocking(0)
             self.sock.settimeout(0.01)
-            print("Connecting to {:s}".format(repr(self.server_addr)))
+            # print("Connecting to {:s}".format(repr(self.server_addr)))
             # print(self.sock)
             return self.checkConnection()
         except AttributeError as ae:
@@ -156,8 +156,8 @@ class falconStreamer():
                 print("Check connection to Falcon controller")
                 return 0
         except socket.error as se:
-            print("Exception on socket: {}".format(se))
-            print("Closing socket")
+            # print("Exception on socket: {}".format(se))
+            # print("Closing socket")
             self.sock.close()
             return 2
 

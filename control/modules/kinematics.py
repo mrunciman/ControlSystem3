@@ -49,7 +49,7 @@ class kineSolver:
         # Real volume calc: there are numLs beams of length L0/numLs
         # self.FACT_V = ((self.ACT_WIDTH/1000)*(self.L_0/1000)**2)/(2*self.NUM_L)
         self.M3_to_MM3 = 1e9
-        self.VOL_FACTOR = 0.825 # Maximum value of 0.775 # Ratio of real volume to theoretical volume
+        self.VOL_FACTOR = 0.85 # Maximum value of 0.775 # Ratio of real volume to theoretical volume
         self.CAL_FACTOR = 0.005 # % of max volume still in actuator after calibration
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
@@ -98,20 +98,20 @@ class kineSolver:
         # Lookup table
         ###################################################################
         # Lookup array of equally spaced theta values in interval 0 to pi/2
-        self.NUM_POINTS = 10000
-        self.THETA_VECT = np.linspace(0, mt.pi/2, self.NUM_POINTS)
-        self.SPACING = (mt.pi/2)/(self.NUM_POINTS-1)
+        # self.NUM_POINTS = 10000
+        # self.THETA_VECT = np.linspace(0, mt.pi/2, self.NUM_POINTS)
+        # self.SPACING = (mt.pi/2)/(self.NUM_POINTS-1)
 
-        # Lookup array of cable contractions/length changes.
-        # Numpy uses unnormalised sinc function so divide by pi. Using sinc
-        # avoids divide by zero errors returned when computing np.sin(x)/x
-        self.CABLE_LOOKUP = self.L_0*(1 - np.sinc(self.THETA_VECT/mt.pi)) # Lc lookup
-        # self.derivL = np.gradient(self.CABLE_LOOKUP, self.SPACING)
+        # # Lookup array of cable contractions/length changes.
+        # # Numpy uses unnormalised sinc function so divide by pi. Using sinc
+        # # avoids divide by zero errors returned when computing np.sin(x)/x
+        # self.CABLE_LOOKUP = self.L_0*(1 - np.sinc(self.THETA_VECT/mt.pi)) # Lc lookup
+        # # self.derivL = np.gradient(self.CABLE_LOOKUP, self.SPACING)
 
-        # Avoid division by zero by prepending volLookup with zero.
-        self.THETA_VECT_NO_ZERO = self.THETA_VECT[1:self.NUM_POINTS]
-        self.VOL_LOOKUP = (self.THETA_VECT_NO_ZERO - np.cos(self.THETA_VECT_NO_ZERO)*np.sin(self.THETA_VECT_NO_ZERO))/(self.THETA_VECT_NO_ZERO**2)
-        self.VOL_LOOKUP = np.insert(self.VOL_LOOKUP, 0, 0, axis=None)
+        # # Avoid division by zero by prepending volLookup with zero.
+        # self.THETA_VECT_NO_ZERO = self.THETA_VECT[1:self.NUM_POINTS]
+        # self.VOL_LOOKUP = (self.THETA_VECT_NO_ZERO - np.cos(self.THETA_VECT_NO_ZERO)*np.sin(self.THETA_VECT_NO_ZERO))/(self.THETA_VECT_NO_ZERO**2)
+        # self.VOL_LOOKUP = np.insert(self.VOL_LOOKUP, 0, 0, axis=None)
         # self.derivV = np.gradient(self.VOL_LOOKUP, self.SPACING)
 
         # From pouch motors:
@@ -176,7 +176,7 @@ class kineSolver:
         self.MECH_ADV = 2 # Mechanical advantage of pulleys
 
         # self.MAX_CABLE_DIST = self.SIDE_LENGTH # mt.sqrt((self.RAD_END*mt.cos(mt.pi/3))**2 + (45 - 3*self.RAD_END*mt.cos(mt.pi/6))**2)
-        self.MIN_CABLE = 5 #see Sizing.sldprt
+        self.MIN_CABLE = 10 #see Sizing.sldprt
         self.MAX_CABLE_DIST = (self.STROKE*self.MECH_ADV) + self.MIN_CABLE # see Sizing.sldprt
         # print("Max cable dist ", self.MAX_CABLE_DIST)
         self.RANGE = self.STROKE*self.MECH_ADV #self.MAX_CABLE_DIST - self.MIN_CABLE
@@ -188,7 +188,7 @@ class kineSolver:
         # L_c_centre = 20.19
         # targetCentre = 19.63 # See Sizing.sldprt
         targetCentre = 15.32
-        self.L_c = ((self.MAX_CABLE_DIST - targetCentre)/self.MECH_ADV) + self.MIN_CONTRACT #self.STROKE * ((self.RANGE - (L_c_centre - self.MIN_CABLE))/self.RANGE)
+        self.L_c = ((self.MAX_CABLE_DIST - self.MAX_CABLE_DIST/2)/self.MECH_ADV) + self.MIN_CONTRACT #self.STROKE * ((self.RANGE - (L_c_centre - self.MIN_CABLE))/self.RANGE)
         # print("Contraction at centre: ", self.L_c)
         # Store current value of contraction 
         self.cL_c = self.L_c
@@ -209,7 +209,7 @@ class kineSolver:
         #                              self.SIDE_LENGTH*mt.tan(mt.pi/6),\
         #                              self.LEVER_BASE_Z])
         self.LEVER_POINT = np.array([0,\
-                                     self.SIDE_LENGTH*mt.tan(mt.pi/6)-5,\
+                                     0,\
                                      self.LEVER_BASE_Z])
         # print(self.LEVER_POINT)
         self.E12 = self.ENTRY_POINTS[:, 1] - self.ENTRY_POINTS[:, 0]
@@ -325,10 +325,13 @@ class kineSolver:
 
         # print("u_cont: ", u_Cont)
         # How far along u_Cont the POI lies, starting from desired point P_des
-        # dist_to_POI = np.dot((self.ENTRY_POINTS[:, 0] - P_des), self.N_PLANE)/np.dot(u_Cont, self.N_PLANE)
+        d = np.dot((self.ENTRY_POINTS[:, 0] - P_des), self.N_PLANE)/np.dot(u_Cont, self.N_PLANE)
         dist_to_POI = L_Pri
         # print("dist_to_POI: ", dist_to_POI)
         POI_Cont = P_des - dist_to_POI*u_Cont
+        POI_Plane = P_des + d*u_Cont
+
+        L_Pri = L_Pri - 50
 
         # print("Shaft attachment centre: ", POI_Cont)
 
@@ -338,7 +341,7 @@ class kineSolver:
         elif (L_Pri > self.MAX_EXTEND):
             L_Pri = self.MAX_EXTEND
 
-        return POI_Cont[0], POI_Cont[1], L_Pri, theta_approx, ang_around_shaft, POI_Cont
+        return POI_Cont[0], POI_Cont[1], L_Pri, theta_approx, ang_around_shaft, POI_Cont, POI_Plane
 
 
 
@@ -420,10 +423,10 @@ class kineSolver:
         self.cL_c = self.L_c
         # Find contraction of actuator, filtering zeros:
         #TODO Fix this for smooth and continuous function
-        if targetCable <= self.MAX_CABLE_DIST:
+        if targetCable <= (self.MAX_CABLE_DIST - self.MIN_CONTRACT):
             if targetCable > self.MIN_CABLE:
                 # self.L_c = self.STROKE * (self.RANGE - (targetCable - self.MIN_CABLE))/self.RANGE
-                self.L_c = ((self.MAX_CABLE_DIST - targetCable)/self.MECH_ADV) + self.MIN_CONTRACT
+                self.L_c = ((self.MAX_CABLE_DIST - targetCable)/self.MECH_ADV)
             else:
                 self.L_c = self.MAX_CONTRACT
         else:

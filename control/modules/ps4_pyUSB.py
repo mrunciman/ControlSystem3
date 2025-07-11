@@ -58,6 +58,10 @@ class ps4USB(threading.Thread):
 		self.yChange = None
 		self.pChange = None
 
+		self.thetaChange = None
+		self.phiChange = None
+		self.radChange = None
+
 		self.ps4Buttons = 0 # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
 
 		self.R1 = False
@@ -72,9 +76,11 @@ class ps4USB(threading.Thread):
 		self.R2_DEADTHRESH = 0.25
 		self.TRIGGER_RANGE = 2
 		self.TRIGGER_SHIFT = 1
-		self.XY_DEADTHRESH = 0.1
+		self.XY_DEADTHRESH = 0.05
 		self.PRISM_CHANGE = 0.1
 		self.XY_SENSITIVITY = 0.25
+		self.PHI_SENSITIVITY = -0.5 #0.0087 approx half a degree
+		self.THETA_SENSITIVITY = 0.35
 		self.P_SENSITIVITY = 2.5
 
 
@@ -95,6 +101,7 @@ class ps4USB(threading.Thread):
 
 					self.RstickX = (self.data[3] - 2**7)/2**7
 					self.RstickY = (self.data[4] - 2**7)/2**7
+					# print("Stick axes: ", self.RstickX,  self.RstickY)
 
 					self.SquButton = self.data[5] & 2**4  !=0
 					self.CroButton = self.data[5] & 2**5  !=0
@@ -127,30 +134,40 @@ class ps4USB(threading.Thread):
 	def getChanges(self):
 	# print("Data getter:", self.RstickH, self.RstickV)
 		if (abs(self.RstickX) > self.XY_DEADTHRESH):
+			self.phiChange = float(self.PHI_SENSITIVITY*self.RstickX)
 			self.xChange = self.XY_SENSITIVITY*self.RstickX
 			# print("RstickH", self.RstickH)
+			# print("Phi Change: ", self.phiChange)
 		else:
-			self.xChange = 0
+			self.xChange = float(0)
+			self.phiChange = float(0)
 
 		if (abs(self.RstickY) > self.XY_DEADTHRESH):
 			self.yChange = self.XY_SENSITIVITY*self.RstickY
+			self.thetaChange = self.THETA_SENSITIVITY*self.RstickY
+			# print("Theta Change: ", self.phiChange)
+
 		else:
-			self.yChange = 0
+			self.yChange = float(0)
+			self.thetaChange = float(0)
 
 		# normR2 = (self.R2 + self.TRIGGER_SHIFT)/self.TRIGGER_RANGE
 		# print("normalised R2: ",normR2, self.R2)
 
 		if (self.R1):
 			self.pChange = -self.P_SENSITIVITY*self.PRISM_CHANGE
+			self.radChange = -self.P_SENSITIVITY*self.PRISM_CHANGE
 		elif (abs(self.R2) > self.R2_DEADTHRESH):
 			self.pChange = self.P_SENSITIVITY*self.PRISM_CHANGE
+			self.radChange = self.P_SENSITIVITY*self.PRISM_CHANGE
 			# print("R2", self.R2)
 		else:
 			self.pChange = 0
+			self.radChange = 0
 
 
 
-	def incrementXYZCoords(self, cX, cY, cZ, degreesToRotate, LEVER_POINT = None):
+	def incrementXYZCoords(self, cX, cY, cZ, degreesToRotate,  LEVER_POINT = None):
 		#TODO If motion limits reached (esp prismatic) do not change inputs - Don't let Z coord get too low or high 
 		#TODO Encoder check on uSteppers blocking operation? - is sleep causing delay in messages to arduino? Observed pause before usteppers reset 
 		#TODO Load cell calibration
@@ -209,15 +226,20 @@ class ps4USB(threading.Thread):
 		#TODO Load cell calibration
 		#TODO Check calibration routine
 		#TODO New flags for ps4 controller initialisation (try to onnect if haptic not used, or if useOmni but connection failed)
-		if self.xChange is None:
-			self.xChange = 0
 
-		if self.yChange is None:
-			self.yChange = 0
+		cAltX = -cX - LEVER_POINT[0]
+		cAltY = cZ - LEVER_POINT[2]
+		cAltZ = cY - LEVER_POINT[1]
+
+		if self.thetaChange is None:
+			self.thetaChange = float(0)
+
+		if self.phiChange is None:
+			self.phiChange = float(0)
 
 		# Add rotation of coordinates after mapping
-		changeMatrix = np.array([[self.xChange],\
-								 [self.yChange]])
+		changeMatrix = np.array([[self.thetaChange],\
+								 [self.phiChange]])
         
 		if degreesToRotate is not None:
 			radsToRotate = np.radians(degreesToRotate)
@@ -229,53 +251,60 @@ class ps4USB(threading.Thread):
 
 		changeRotated = np.dot(changeRotated, changeMatrix)
 
-		changeX = changeRotated[0]
-		changeY = -changeRotated[1]
 
-		# wrt local coordinate frame
-		cRoll = mt.atan2(cZ - LEVER_POINT[2], cY - LEVER_POINT[1]) # Also thought of in 2D as angle from positive y
-		cPitch = mt.atan2(cX - LEVER_POINT[0], cZ - LEVER_POINT[2]) # Also thought of in 2D as angle from positive z
-		cRadius = mt.sqrt((cX - LEVER_POINT[0])**2 + (cY - LEVER_POINT[1])**2 + (cZ - LEVER_POINT[2])**2)
+		# print("X Stick: ", self.RstickX)
+		# print("Y Stick: ", self.RstickY)
+		# print("X Change: ", self.xChange)
+		# print("Y Change: ", self.yChange)
+		# print("Phi Change: ", self.phiChange)
+		# print("Theta Change: ", self.thetaChange)
+		changeTheta = changeRotated[0]
+		changePhi = -changeRotated[1]
+		# print(changeTheta.item())
+		# print(changePhi.item())
 
-		# # wrt local coordinate frame
-		# cRoll = mt.atan2(cZ - LEVER_POINT[2], cY - LEVER_POINT[1]) # Also thought of in 2D as angle from positive y
-		# cPitch = mt.atan2(cX - LEVER_POINT[0], cZ - LEVER_POINT[2]) # Also thought of in 2D as angle from positive z
-		# cRadius = mt.sqrt((cX - LEVER_POINT[0])**2 + (cY - LEVER_POINT[1])**2 + (cZ - LEVER_POINT[2])**2)
+		# Calculate spherical coordinates:
+		cTheta = mt.atan2(mt.sqrt(cAltX**2 + cAltY**2), cAltZ) 
+		cPhi = mt.atan2(cAltY, cAltX) 
+		cRadius = mt.sqrt((cAltX)**2 + (cAltY)**2 + (cAltZ)**2)
 
-		if self.xChange is not None:
+		# Increment the theta, phi and radius as input from controller:
+
+		if self.thetaChange is not None:
 			# method .item() converts numpy to native python type
-			nPitch = cPitch + changeX.item()/100
+			nTheta = cTheta + changeTheta.item()*mt.pi/180
 		else:
-			nPitch = cPitch
+			nTheta = cTheta
 
-		if self.yChange is not None:
-			nRoll = cRoll + changeY.item()/100
+		if self.phiChange is not None:
+			nPhi = cPhi + changePhi.item()*mt.pi/180
 		else:
-			nRoll = cRoll
+			nPhi = cPhi
 
-		if self.pChange is not None:
-			nRadius = cRadius + self.pChange
+		if self.radChange is not None:
+			nRadius = cRadius + self.radChange
 		else:
 			nRadius = cRadius
 
-		nX = nRadius*mt.sin(theta)*mt.cos(phi)
-		nY = nRadius*mt.sin(theta)*mt.sin(phi)
-		nZ = nRadius*mt.cos(theta)
+		# Convert back to shperical coordinates
+		nAltX = nRadius*mt.sin(nTheta)*mt.cos(nPhi)
+		nAltY = nRadius*mt.sin(nTheta)*mt.sin(nPhi)
+		nAltZ = nRadius*mt.cos(nTheta)
 
-		
-		nX = nRadius*mt.cos(mt.pi/2 - nPitch)
-		nY = nRadius*mt.cos(nRoll)
-		nZ = nRadius*mt.cos(nPitch)
+		#Do the inverse
+		nX = -(nAltX + LEVER_POINT[0])
+		nY = nAltZ + LEVER_POINT[1]
+		nZ = nAltY + LEVER_POINT[2]
 
-		print("Change in coords:")
-		print(cX - nX)
-		print(cY - nY)
-		print(cZ - nZ)
-		print()
+		# print("Change in coords:")
+		# print(cX - nX)
+		# print(cY - nY)
+		# print(cZ - nZ)
+		# print()
 
-		nX = round(nX,2)
-		nY = round(nY,2)
-		nZ = round(nZ,2)
+		# nX = round(nX,2)
+		# nY = round(nY,2)
+		# nZ = round(nZ,2)
 		return nX, nY, nZ
 
 

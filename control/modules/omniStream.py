@@ -47,7 +47,7 @@ class omniStreamer():
             # with subprocess.run(self.fileName, check = True, capture_output = False, stdin=subprocess.DEVNULL,  stderr=subprocess.DEVNULL) as subP:
             #     self.omniServer = subP    
             
-            self.omniServer = subprocess.Popen(self.fileName, stdin=None, stdout=subprocess.DEVNULL)
+            self.omniServer = None # subprocess.Popen(self.fileName, stdin=None, stdout=subprocess.DEVNULL)
 
         #     with subprocess.Popen(self.fileName, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL) as subPopen:
         #         self.omniServer = subPopen
