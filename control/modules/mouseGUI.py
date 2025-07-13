@@ -107,6 +107,7 @@ class mouseTracker:
         self.desX = []
         self.desY = []
         self.desZ = []
+        self.resetCoordsFlag = False
 
         self.insideBounds = False
 
@@ -185,9 +186,10 @@ class mouseTracker:
             self.mouseDown = True
             self.touchDown = True
             self.mouseEvent = cv2.EVENT_MOUSEMOVE
-            insideAll = True
+            # insideAll = True
 
         if insideAll == True:
+            self.resetCoordsFlag = False
             if self.mouseDown == True:
                 if self.touchDown == True:
                     # Check if moving
@@ -205,6 +207,7 @@ class mouseTracker:
                         #     [self.xCallback] + [self.yCallback])
         else:
             self.touchDown = False
+            self.resetCoordsFlag = True
 
 
 
@@ -256,7 +259,7 @@ class mouseTracker:
 
 
 
-    def iterateTracker(self, listPress, attach_points, POI = None, desiredPoints = None, targ_conty_glob = None):
+    def iterateTracker(self, listPress, attach_points, POI = None, desiredPoints = None, targ_conty_glob = None, controller = None):
         # Bind mouseInfo mouse callback function to window
         # cv2.setMouseCallback(self.windowName, self.mouseInfo, POI)
         # If path coordinates not specified, use mouse. Path has priority
@@ -345,7 +348,7 @@ class mouseTracker:
         numMillis = numMillis*1000
         self.timeDiff = numMillis - self.prevMillis
         self.prevMillis = numMillis
-        return self.xCoord, self.yCoord, self.stopFlag, self.insideBounds
+        return self.xCoord, self.yCoord, self.stopFlag, self.insideBounds, self.resetCoordsFlag
 
 
 

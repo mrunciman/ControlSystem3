@@ -80,7 +80,7 @@ class ps4USB(threading.Thread):
 		self.PRISM_CHANGE = 0.1
 		self.XY_SENSITIVITY = 0.25
 		self.PHI_SENSITIVITY = -0.5 #0.0087 approx half a degree
-		self.THETA_SENSITIVITY = 0.35
+		self.THETA_SENSITIVITY = 0.5
 		self.P_SENSITIVITY = 2.5
 
 
@@ -281,7 +281,7 @@ class ps4USB(threading.Thread):
 		else:
 			nPhi = cPhi
 
-		if self.radChange is not None:
+		if self.radChange != 0:
 			nRadius = cRadius + self.radChange
 		else:
 			nRadius = cRadius

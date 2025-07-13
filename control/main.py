@@ -65,6 +65,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     medPressT = kinematics.forceDetector()
     medPressP = kinematics.forceDetector()
     mouseTrack = mouseGUI.mouseTracker(sideLength, kineSolve.MIN_CABLE + kineSolve.RAD_END, kineSolve.MAX_CABLE_DIST)
+    resetFlag = 0
 
     SAMP_FREQ = 1/kineSolve.TIMESTEP
     CALIBRATION_MODE = 0
@@ -75,6 +76,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     SET_PRESS_MODE = 3
 
     HOMING_POSITION = [0, -35, 60]
+    HOMING_POLAR = [37.8, 0] # [Incline, roll]
 
     # Other constants
     # PRESS_MAX_KPA = 90
@@ -230,13 +232,15 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     cableL, cableR, cableT = kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH
 
     targetP = 0
-    [targetXideal, targetYideal, targetP, inclin, azimuth, targ_conty_glob, POI_Plane] = kineSolve.intersect(targetX, targetY, targetZ)
+    [targetXideal, targetYideal, targetP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane] = kineSolve.intersect(targetX, targetY, targetZ)
+    kineSolve.initialPrismLength = targetP - 20
     currentX = targetXideal
     currentY = targetYideal
     curr_conty_glob = targ_conty_glob
     # print(targetXideal, targetYideal, targetP)
     [targetL, targetR, targetT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal, curr_conty_glob, targ_conty_glob)
     targetP = 0
+    currentP = targetP
     # print(targetL, targetR, targetT, targetP)
     repJaco = cJaco
     repJpinv = cJpinv
@@ -386,7 +390,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
                 ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
                 # Ensure same number of rows in position log file
-                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
+                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, ang_around_shaft)
 
                 pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
             time.sleep(0.07)
@@ -468,7 +472,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
                     ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
                     # Ensure same number of rows in position log file
-                    posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
+                    posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, ang_around_shaft)
                 print("Calibration done.")
 
         else:
@@ -506,7 +510,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     XYZPathCoords = [xMap, yMap, zMap]
                 else:
                     controllerButtons = 0
-                    XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
+                    # XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
+                    XYZPathCoords[0], XYZPathCoords[1] = HOMING_POSITION[0], HOMING_POSITION[1]
                     # print(XYZPathCoords)
                     
             elif useOmni == 2:
@@ -520,7 +525,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     XYZPathCoords = [xMap, yMap, zMap]
                 else:
                     controllerButtons = 0
-                    XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
+                    # XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
+                    XYZPathCoords[0], XYZPathCoords[1] = HOMING_POSITION[0], HOMING_POSITION[1]
                     # print(XYZPathCoords)
                     
             else:
@@ -538,7 +544,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     [temp_xPS4, temp_yPS4, temp_zPS4] = ps4.incrementSphereCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], frameRotAngle, kineSolve.LEVER_POINT)
                     # print(temp_xPS4, temp_yPS4, temp_zPS4)
                     # Prevent motion if going out of reachable workspace:
-                    [targetXideal, targetYideal, targetOpP, inclin, azimuth, targ_conty_glob, POI_Plane] = kineSolve.intersect(temp_xPS4, temp_yPS4, temp_zPS4)
+                    [targetXideal, targetYideal, targetOpP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane] = kineSolve.intersect(temp_xPS4, temp_yPS4, temp_zPS4)
                     # print(targetXideal, targetYideal, targetOpP)
                     [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal, curr_conty_glob, targ_conty_glob)
                     if (targetOpL >= kineSolve.MAX_CABLE_DIST) \
@@ -551,6 +557,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                         or (kineSolve.MIN_CABLE >= targetOpT):
                         xPS4, yPS4, zPS4 = prevxPS4, prevyPS4, prevzPS4
                         # print("Min length error")
+                    elif resetFlag:
+                        xPS4, yPS4, zPS4 = prevxPS4*0.9, prevyPS4*0.9, zPS4
                     else:
                         xPS4, yPS4, zPS4 = temp_xPS4, temp_yPS4, temp_zPS4
 
@@ -569,11 +577,12 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 #     break               
                 else: #Nothing is connected, stay at home position
                     controllerButtons = 0
-                    XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
+                    XYZPathCoords[0], XYZPathCoords[1] = HOMING_POSITION[0], HOMING_POSITION[1]
 
             if classSettings.goToHome:
                 controllerButtons = 0
-                XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
+                XYZPathCoords[0], XYZPathCoords[1] = HOMING_POSITION[0], HOMING_POSITION[1]
+                # XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
 
             if controllerButtons == 1:
                 dictLabel["grasperLabel"].config(text = "Grasper open", fg = "green")
@@ -587,16 +596,17 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
             # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
             # XYZPathCoords are desired coords in 3D.
-            [targetXideal, targetYideal, targetOpP, inclin, azimuth, targ_conty_glob, POI_Plane] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
+            [targetXideal, targetYideal, targetOpP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
+            print("incline, azimuth: ", inclin, azimuth)
+            [targetXideal0, targetYideal0, targetOpP0, inclin0, ang_around_shaft0, targ_conty_glob0, POI_Plane0] = kineSolve.intersectPolar(inclin, azimuth, ang_around_shaft, targetOpP)
             # print(targ_conty_glob)
-            POIcoords = [POI_Plane[0], POI_Plane[1]]
-            # POIcoords = [targ_conty_glob[0], targ_conty_glob[1]]
+            POI_PlaneCoords = [POI_Plane[0], POI_Plane[1]]
 
-            # print(POIcoords)
-            # If no controller connected, set POICoords to None to make mouse control possible
+            # print(POI_PlaneCoords)
+            # If no controller connected, set POI_PlaneCoords to None to make mouse control possible
             if (omni_connected == False) and (ps4.controller is None):
-                POIcoords = None
-            [targetX_mouse, targetY_mouse, flagStop, insideBounds] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_cont, POIcoords, XYZPathCoords, targ_conty_glob)
+                POI_PlaneCoords = None
+            [targetX_mouse, targetY_mouse, flagStop, insideBounds, resetFlag] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_cont, POI_PlaneCoords, XYZPathCoords, targ_conty_glob, ps4.controller)
 
             # Return target cable lengths at target coords and jacobian at current coords
             [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal, curr_conty_glob, targ_conty_glob)
@@ -634,7 +644,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             [tVolR, vDotR, dDotR, fStepR, tStepR, tSpeedR, LcRealR, angleR] = kineSolve.volRate(cVolR, cableR, targetR)
             [tVolT, vDotT, dDotT, fStepT, tStepT, tSpeedT, LcRealT, angleT] = kineSolve.volRate(cVolT, cableT, targetT)
             # print("\n",tStepL, tStepR, tStepT, "\n")
-            # print("\nL_cs in mm : ", LcRealL, LcRealR, LcRealT, targetP)
+            print("\nL_cs in mm : ", LcRealL, LcRealR, LcRealT, targetP)
             # print("Volumes in ml: ",tVolL/1000, tVolR/1000, tVolT/1000, targetOpP, "\n")
 
             [tVolL_Scaled, tVolR_Scaled, tVolT_Scaled] = kineSolve.volRateScale(tVolL, tVolR, tVolT, cVolL, cVolR, cVolT)
@@ -643,11 +653,11 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             desiredThetaR = kineSolve.volToAngle(tVolR_Scaled)
             desiredThetaT = kineSolve.volToAngle(tVolT_Scaled)
             desiredThetaP = 360.0*targetOpP/kineSolve.LEAD
-            # print(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, "\n")
+            # print("Motor angles: ", desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, "\n")
 
             # Log desired positions
             if pumpDataUpdated:
-                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
+                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, ang_around_shaft)
 
             if pumpsConnected:
                 # if startWithCalibration:
@@ -728,6 +738,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             cableL = targetL
             cableR = targetR
             cableT = targetT
+            currentP = targetP
             cVolL = tVolL
             cVolR = tVolR
             cVolT = tVolT
@@ -783,7 +794,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
                 ardLogging.ardSave()
                 # Ensure same number of rows in position log file
-                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
+                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, ang_around_shaft)
 
                 # if calibrated:
                 controllerButtons = 0
