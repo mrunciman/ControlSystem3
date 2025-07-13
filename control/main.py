@@ -64,7 +64,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     medPressR = kinematics.forceDetector()
     medPressT = kinematics.forceDetector()
     medPressP = kinematics.forceDetector()
-    mouseTrack = mouseGUI.mouseTracker(sideLength, kineSolve.MIN_CABLE + kineSolve.RAD_END, kineSolve.MAX_CABLE_DIST)
+    mouseTrack = mouseGUI.mouseTracker(sideLength, kineSolve.RAD_END, kineSolve.MAX_CABLE_DIST)
     resetFlag = 0
 
     SAMP_FREQ = 1/kineSolve.TIMESTEP
@@ -76,7 +76,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     SET_PRESS_MODE = 3
 
     HOMING_POSITION = [0, -35, 60]
-    HOMING_POLAR = [37.8, 0] # [Incline, roll]
+    HOMING_POLAR = [37.8*np.pi/180, 0,  51.79] # [Incline, azimuth, prism]
 
     # Other constants
     # PRESS_MAX_KPA = 90
@@ -205,7 +205,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     # xPath[0], yPath[0], zPath[0] = 15, 8.66, 20
     # xMap, yMap, zMap = xPath[1155], yPath[1155], zPath[1155]+10
     XYZPathCoords = [xMap, yMap, zMap]
+    thetaDesired, azimuthDesired, prismDesired = HOMING_POLAR[0], HOMING_POLAR[1], HOMING_POLAR[2]
     print("Start point: ", XYZPathCoords)
+    print("Start point polar: ", thetaDesired, azimuthDesired, prismDesired)
 
     # Target must be cast as immutable type (float, in this case) so that 
     # the current position doesn't update at same time as target
@@ -232,8 +234,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     cableL, cableR, cableT = kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH
 
     targetP = 0
-    [targetXideal, targetYideal, targetP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane] = kineSolve.intersect(targetX, targetY, targetZ)
-    kineSolve.initialPrismLength = targetP - 20
+    [targetXideal, targetYideal, targetP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane, XYZPathCoords] = kineSolve.intersectPolar(thetaDesired, azimuthDesired, prismDesired)
+    print("XYZ init from polar: ", XYZPathCoords)
     currentX = targetXideal
     currentY = targetYideal
     curr_conty_glob = targ_conty_glob
@@ -538,50 +540,52 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                         # print(regulatorPressure, reflateFlag)
                     controllerButtons = ps4Buttons
                     frameRotAngle = dictLabel["rotationSlider"].get()
-                    prevxPS4 = xPS4
-                    prevyPS4 = yPS4
-                    prevzPS4 = zPS4
-                    [temp_xPS4, temp_yPS4, temp_zPS4] = ps4.incrementSphereCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], frameRotAngle, kineSolve.LEVER_POINT)
+                    prevThetaPS4 = thetaDesired
+                    prevAziPS4 = azimuthDesired
+                    prevPrismPS4 = prismDesired
+                    [temp_thetaDesired, temp_azimuthDesired, temp_prismDesired] = ps4.incrementSphereCoords(thetaDesired, azimuthDesired, prismDesired, frameRotAngle)
                     # print(temp_xPS4, temp_yPS4, temp_zPS4)
                     # Prevent motion if going out of reachable workspace:
-                    [targetXideal, targetYideal, targetOpP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane] = kineSolve.intersect(temp_xPS4, temp_yPS4, temp_zPS4)
+                    [targetXideal, targetYideal, targetOpP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane, XYZPathCoords] = kineSolve.intersectPolar(temp_thetaDesired, temp_azimuthDesired, temp_prismDesired)
                     # print(targetXideal, targetYideal, targetOpP)
                     [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal, curr_conty_glob, targ_conty_glob)
                     if (targetOpL >= kineSolve.MAX_CABLE_DIST) \
                         or (targetOpR >= kineSolve.MAX_CABLE_DIST) \
                         or (targetOpT >= kineSolve.MAX_CABLE_DIST):
-                        xPS4, yPS4, zPS4 = prevxPS4, prevyPS4, prevzPS4
-                        # print("Length error")
+                        thetaDesired, azimuthDesired = prevThetaPS4, prevAziPS4
+                        print("Length error")
                     elif (kineSolve.MIN_CABLE >= targetOpL) \
                         or (kineSolve.MIN_CABLE >= targetOpR) \
                         or (kineSolve.MIN_CABLE >= targetOpT):
-                        xPS4, yPS4, zPS4 = prevxPS4, prevyPS4, prevzPS4
-                        # print("Min length error")
+                        thetaDesired, azimuthDesired = prevThetaPS4, prevAziPS4
+                        print("Min length error")
                     elif resetFlag:
-                        xPS4, yPS4, zPS4 = prevxPS4*0.9, prevyPS4*0.9, zPS4
+                        thetaDesired, azimuthDesired = prevThetaPS4*0.999, prevAziPS4*0.995
                     else:
-                        xPS4, yPS4, zPS4 = temp_xPS4, temp_yPS4, temp_zPS4
+                        thetaDesired, azimuthDesired, prismDesired = temp_thetaDesired, temp_azimuthDesired, temp_prismDesired
 
                     # Check limits on prismatic
-                    if (targetOpP >= kineSolve.MAX_EXTEND) and (zPS4 >= prevzPS4):
-                        zPS4 = prevzPS4
-                    elif (targetOpP <= kineSolve.MIN_EXTEND) and (zPS4 <= prevzPS4):
-                        zPS4 = prevzPS4
+                    if (targetOpP >= kineSolve.MAX_EXTEND) and (prismDesired >= prevPrismPS4):
+                        prismDesired = prevPrismPS4
+                    elif (targetOpP <= kineSolve.MIN_EXTEND) and (prismDesired <= prevPrismPS4):
+                        prismDesired = prevPrismPS4
                     # if abs(targetXideal) > kineSolve.SIDE_LENGTH/2:
                     #     xPS4 = prevxPS4
                     # if abs(targetYideal) > kineSolve.SIDE_LENGTH/2:
                     #     yPS4 = prevyPS4
-                    XYZPathCoords = [xPS4, yPS4, zPS4]
+                    # XYZPathCoords = [xPS4, yPS4, zPS4]
                     # print("ps4 XYZ Coords: ", XYZPathCoords)
                 # elif pathCounter >= len(xPath):
                 #     break               
                 else: #Nothing is connected, stay at home position
                     controllerButtons = 0
-                    XYZPathCoords[0], XYZPathCoords[1] = HOMING_POSITION[0], HOMING_POSITION[1]
+                    # XYZPathCoords[0], XYZPathCoords[1] = HOMING_POSITION[0], HOMING_POSITION[1]
+                    thetaDesired, azimuthDesired = HOMING_POLAR[0], HOMING_POLAR[1]
 
             if classSettings.goToHome:
                 controllerButtons = 0
-                XYZPathCoords[0], XYZPathCoords[1] = HOMING_POSITION[0], HOMING_POSITION[1]
+                # XYZPathCoords[0], XYZPathCoords[1] = HOMING_POSITION[0], HOMING_POSITION[1]
+                thetaDesired, azimuthDesired = HOMING_POLAR[0], HOMING_POLAR[1]
                 # XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
 
             if controllerButtons == 1:
@@ -596,9 +600,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
             # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
             # XYZPathCoords are desired coords in 3D.
-            [targetXideal, targetYideal, targetOpP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
-            print("incline, azimuth: ", inclin, azimuth)
-            [targetXideal0, targetYideal0, targetOpP0, inclin0, ang_around_shaft0, targ_conty_glob0, POI_Plane0] = kineSolve.intersectPolar(inclin, azimuth, ang_around_shaft, targetOpP)
+            # [targetXideal, targetYideal, targetOpP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
+            print("incline, azimuth, prism: ", inclin, azimuth, targetOpP)
+            [targetXideal, targetYideal, targetOpP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane, XYZPathCoords] = kineSolve.intersectPolar(thetaDesired, azimuthDesired, prismDesired)
             # print(targ_conty_glob)
             POI_PlaneCoords = [POI_Plane[0], POI_Plane[1]]
 
@@ -606,7 +610,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             # If no controller connected, set POI_PlaneCoords to None to make mouse control possible
             if (omni_connected == False) and (ps4.controller is None):
                 POI_PlaneCoords = None
-            [targetX_mouse, targetY_mouse, flagStop, insideBounds, resetFlag] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_cont, POI_PlaneCoords, XYZPathCoords, targ_conty_glob, ps4.controller)
+            [targetX_mouse, targetY_mouse, flagStop, insideBounds, resetFlag] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_rot, POI_PlaneCoords, XYZPathCoords, targ_conty_glob, ps4.controller)
 
             # Return target cable lengths at target coords and jacobian at current coords
             [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal, curr_conty_glob, targ_conty_glob)
@@ -644,7 +648,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             [tVolR, vDotR, dDotR, fStepR, tStepR, tSpeedR, LcRealR, angleR] = kineSolve.volRate(cVolR, cableR, targetR)
             [tVolT, vDotT, dDotT, fStepT, tStepT, tSpeedT, LcRealT, angleT] = kineSolve.volRate(cVolT, cableT, targetT)
             # print("\n",tStepL, tStepR, tStepT, "\n")
-            print("\nL_cs in mm : ", LcRealL, LcRealR, LcRealT, targetP)
+            # print("\nL_cs in mm : ", LcRealL, LcRealR, LcRealT, targetP)
             # print("Volumes in ml: ",tVolL/1000, tVolR/1000, tVolT/1000, targetOpP, "\n")
 
             [tVolL_Scaled, tVolR_Scaled, tVolT_Scaled] = kineSolve.volRateScale(tVolL, tVolR, tVolT, cVolL, cVolR, cVolT)

@@ -162,7 +162,9 @@ class mouseTracker:
         proxVt3 = self.radRestrPixSma < la.norm(radDiff3) < self.radRestrictPix
         insideAll = insideTri*proxVt1*proxVt2*proxVt3
         self.insideBounds = insideAll
-        # print(insideAll)
+        if not proxVt3:
+            print("Touch")
+        # print(proxVt3)
 
         # Check if mouse button was pressed down (event = 1)
             # or if params is not None
@@ -195,7 +197,7 @@ class mouseTracker:
                     # Check if moving
                     if (self.mouseEvent == cv2.EVENT_MOUSEMOVE):
                         # Draw objects:
-                        self.drawLines(self.xCallback, self.yCallback, attach_points)
+                        self.drawLines(self.xCallback, self.yCallback, self.xShaftAttach, self.yShaftAttach, attach_points)
                         # Find values in terms of triangle geometry, not pixels:
                         self.xPix = self.xCallback
                         self.yPix = self.yCallback
@@ -215,7 +217,7 @@ class mouseTracker:
 # Call function to instantiate canvas and set callback function
     def createTracker(self, attach_points):
         # Create a blank image, a window and bind the callback function to window
-        self.drawLines(self.xPix, self.yPix, attach_points)
+        self.drawLines(self.xPix, self.yPix, self.xPix, self.yPix, attach_points)
         # Create a window with a given name
         cv2.namedWindow(self.windowName)
         cv2.moveWindow(self.windowName, 1000, 0)
@@ -224,7 +226,7 @@ class mouseTracker:
 
 
     # Redraws the canvas
-    def drawLines(self, POI_x, POI_y, attach_points):
+    def drawLines(self, POI_x_Plane, POI_y_Plane, POI_x, POI_y, attach_points):
         # Reset background
         self.bkGd[:,:] = (255, 255, 255)
         # Draw circles with radius of min reach
@@ -253,7 +255,7 @@ class mouseTracker:
         cv2.line(self.bkGd, (self.vt2[0], self.vt2[1]), (x_rhs, y_rhs), cableColour, cableThickness)
         cv2.line(self.bkGd, (self.vt3[0], self.vt3[1]), (x_top, y_top), cableColour, cableThickness)
         # Initial position of end effector (25, 14.435)
-        cv2.circle(self.bkGd, (POI_x, POI_y), self.radius, colourPOI, thicknessPOI)
+        cv2.circle(self.bkGd, (POI_x_Plane, POI_y_Plane), self.radius, colourPOI, thicknessPOI)
         # Entry point triangle
         cv2.polylines(self.bkGd, [self.vts], True, structColour, structThickness)
 
@@ -272,9 +274,9 @@ class mouseTracker:
             POI_canvas[1] = POI[1] + mt.tan(mt.pi/6)*self.sideLength/2
 
             self.xCallback = round(POI[0]/self.resolution)
-            self.xShaftAttach = round(targ_conty_glob[0]/self.resolution)
+            self.xShaftAttach = round((targ_conty_glob[0] + self.sideLength/2)/self.resolution)
             self.yCallback = self.canvasY - round(POI[1]/self.resolution)
-            self.yShaftAttach = self.canvasY - round(targ_conty_glob[1]/self.resolution)
+            self.yShaftAttach = self.canvasY - round((targ_conty_glob[1] + mt.tan(mt.pi/6)*self.sideLength/2)/self.resolution)
 
             self.mouseEvent = cv2.EVENT_MOUSEMOVE
             self.drawCables(attach_points, POI_canvas)

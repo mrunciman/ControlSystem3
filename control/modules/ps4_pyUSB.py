@@ -79,8 +79,8 @@ class ps4USB(threading.Thread):
 		self.XY_DEADTHRESH = 0.05
 		self.PRISM_CHANGE = 0.1
 		self.XY_SENSITIVITY = 0.25
-		self.PHI_SENSITIVITY = -0.5 #0.0087 approx half a degree
-		self.THETA_SENSITIVITY = 0.5
+		self.PHI_SENSITIVITY = 0.5 #0.0087 approx half a degree
+		self.THETA_SENSITIVITY = 0.5/2
 		self.P_SENSITIVITY = 2.5
 
 
@@ -220,16 +220,13 @@ class ps4USB(threading.Thread):
 	
 
 	
-	def incrementSphereCoords(self, cX, cY, cZ, degreesToRotate, LEVER_POINT = None):
-		#TODO If motion limits reached (esp prismatic) do not change inputs - Don't let Z coord get too low or high 
-		#TODO Encoder check on uSteppers blocking operation? - is sleep causing delay in messages to arduino? Observed pause before usteppers reset 
-		#TODO Load cell calibration
-		#TODO Check calibration routine
-		#TODO New flags for ps4 controller initialisation (try to onnect if haptic not used, or if useOmni but connection failed)
+	def incrementSphereCoords(self, c_theta, c_azimuth, c_prism, degreesToRotate):
 
-		cAltX = -cX - LEVER_POINT[0]
-		cAltY = cZ - LEVER_POINT[2]
-		cAltZ = cY - LEVER_POINT[1]
+		# cAltX = -cX - LEVER_POINT[0]
+		# cAltY = cZ - LEVER_POINT[2]
+		# cAltZ = cY - LEVER_POINT[1]
+
+		degreesToRotate = 0
 
 		if self.thetaChange is None:
 			self.thetaChange = float(0)
@@ -264,9 +261,9 @@ class ps4USB(threading.Thread):
 		# print(changePhi.item())
 
 		# Calculate spherical coordinates:
-		cTheta = mt.atan2(mt.sqrt(cAltX**2 + cAltY**2), cAltZ) 
-		cPhi = mt.atan2(cAltY, cAltX) 
-		cRadius = mt.sqrt((cAltX)**2 + (cAltY)**2 + (cAltZ)**2)
+		cTheta = c_theta #mt.atan2(mt.sqrt(cAltX**2 + cAltY**2), cAltZ) 
+		cPhi = c_azimuth # mt.atan2(cAltY, cAltX) 
+		cPrism = c_prism #mt.sqrt((cAltX)**2 + (cAltY)**2 + (cAltZ)**2)
 
 		# Increment the theta, phi and radius as input from controller:
 
@@ -282,19 +279,19 @@ class ps4USB(threading.Thread):
 			nPhi = cPhi
 
 		if self.radChange != 0:
-			nRadius = cRadius + self.radChange
+			nPrism = cPrism + self.radChange
 		else:
-			nRadius = cRadius
+			nPrism = cPrism
 
-		# Convert back to shperical coordinates
-		nAltX = nRadius*mt.sin(nTheta)*mt.cos(nPhi)
-		nAltY = nRadius*mt.sin(nTheta)*mt.sin(nPhi)
-		nAltZ = nRadius*mt.cos(nTheta)
+		# # Convert back to shperical coordinates
+		# nAltX = nRadius*mt.sin(nTheta)*mt.cos(nPhi)
+		# nAltY = nRadius*mt.sin(nTheta)*mt.sin(nPhi)
+		# nAltZ = nRadius*mt.cos(nTheta)
 
-		#Do the inverse
-		nX = -(nAltX + LEVER_POINT[0])
-		nY = nAltZ + LEVER_POINT[1]
-		nZ = nAltY + LEVER_POINT[2]
+		# #Do the inverse
+		# nX = -(nAltX + LEVER_POINT[0])
+		# nY = nAltZ + LEVER_POINT[1]
+		# nZ = nAltY + LEVER_POINT[2]
 
 		# print("Change in coords:")
 		# print(cX - nX)
@@ -305,7 +302,7 @@ class ps4USB(threading.Thread):
 		# nX = round(nX,2)
 		# nY = round(nY,2)
 		# nZ = round(nZ,2)
-		return nX, nY, nZ
+		return nTheta, nPhi, nPrism
 
 
 
