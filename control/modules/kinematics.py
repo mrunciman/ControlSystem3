@@ -165,9 +165,9 @@ class kineSolver:
         # This part depends on how we define where the cable is at minimum or maximum stroke. E.g:
         # If the cable is at an opposing corner when the actuator is flat, the maximum distance is the side length of the triangle
         # If the cable is at the same corner when the actuator is at maximum contraction, the max distance is the stoke times the mech. adv.
-        self.MECH_ADV = 2 # Mechanical advantage of pulleys
+        self.MECH_ADV = 3 # Mechanical advantage of pulleys
 
-        self.MIN_CABLE = 8.8 #see Matlab WorkspaceOptimisation_InVivo.m
+        self.MIN_CABLE = 0 #see Matlab WorkspaceOptimisation_InVivo.m
         self.MAX_CABLE_DIST = (self.STROKE*self.MECH_ADV) + self.MIN_CABLE # see Sizing.sldprt
         # print("Max cable dist ", self.MAX_CABLE_DIST)
         self.RANGE = self.STROKE*self.MECH_ADV #self.MAX_CABLE_DIST - self.MIN_CABLE
@@ -187,7 +187,7 @@ class kineSolver:
         self.LEVER_BASE_Z = -10 # checked with calipers
 
         self.LEVER_POINT = np.array([0,\
-                                     self.SIDE_LENGTH*mt.tan(mt.pi/6) - 5,\
+                                     self.SIDE_LENGTH*mt.tan(mt.pi/6) - 10,\
                                      self.LEVER_BASE_Z])
         # print(self.LEVER_POINT)
         self.E12 = self.ENTRY_POINTS[:, 1] - self.ENTRY_POINTS[:, 0]
@@ -196,7 +196,7 @@ class kineSolver:
         # Normal of end effector / parallel mechanism plane:
         self.N_PLANE = self.N_CROSS/la.norm(self.N_CROSS)
 
-        self.SHAFT_LENGTH = 25 # mm
+        self.SHAFT_LENGTH = 21 # mm
         self.SHAFT_LENGTH_UJ = self.SHAFT_LENGTH + self.CONT_ARC_S # mm
 
         # Set limits on shaft extension
@@ -329,71 +329,87 @@ class kineSolver:
         # New z axis coords can make up direction vector u_Cont, which can be projected onto global frame to find angle_round_shaft
         # u_Cont points from continuum tip to P_des, reached by extending by prismIn from continuum tip
 
-        # azimuthIn = -azimuthIn
-        #Azimuth is angle between the z axis and the desired XYZ point, from the leverpoint      
+        theta_approx = thetaIn #float(root_theta[root_theta > 0])
+        # azimuthIn = np.pi/2
 
-        # u_Cont = np.matmul(u_Cont_theta, dirMatrix_azimuth)
-        # u_Cont = u_Cont/la.norm(u_Cont)
-        # print("New u_Cont: ", u_Cont)
-        # print("uTheta matrix: ", u_Cont_theta)
-
-        #thetaIn is angle about x axis
-        #angIn is  angle about z axis
-
-        # CONTINUUM JOINT
-        # Transform coords to reference base of continuum joint, not parallel mech centre
-        # tZShifted = tExt - self.LEVER_BASE_Z # Use vertically shifted value to keep y_bend_plane positive
-        #Desired point P_des
-
-        # print("P_des: ", P_des)
-
-        # Project desired point onto plane coincident with lever base point and 
-        # parallel to entry point plane
-        # proj_lever_base = [u_Cont[0], u_Cont[1], self.LEVER_POINT[2]]
-        # print("New pror_lever_base: ", proj_lever_base)
-        # Distance to centre of projected point
-        # proj_rad = la.norm(proj_lever_base - self.LEVER_POINT)
-
-        # Use continuum joint model if curvature of continuum part significant
-        # Else use universal joint model
-        if (thetaIn > 0.01): 
-            theta_approx = thetaIn #float(root_theta[root_theta > 0])
-            # print("around_shaft: ", ang_around_shaft)
-            # print("theta_approx: ", theta_approx)
-            # Continuum joint radius
-            cont_rad = self.CONT_ARC_S/theta_approx
-
-            # Continuum joint tip in bending plane (2D) frame of reference:
-            shaft_start_xL = float(cont_rad*(1 - mt.cos(theta_approx)))
-            shaft_start_yL = float(cont_rad*(mt.sin(theta_approx)))
-
-        else: # Assume shaft is a UJ connected to lever point base
-            theta_approx = 0
-            ang_around_shaft = 0
-
-            shaft_start_xL = 0
-            shaft_start_yL = self.CONT_ARC_S
-        # print("New continuum tip 2D:", shaft_start_xL, shaft_start_yL)
-
+        #These will be used for rotation respect to global frame
         dirMatrix_roll = np.array([[1, 0, 0],\
                                         [0,  mt.cos(theta_approx), -mt.sin(theta_approx)],\
                                         [0, mt.sin(theta_approx), mt.cos(theta_approx)]])
         
-        # dirMatrix = np.dot(dirMatrix_pitch, dirMatrix_roll)
+        dirMatrix_pitch = np.array([[ mt.cos(azimuthIn), 0, mt.sin(azimuthIn)],\
+                                        [ 0, 1, 0],\
+                                        [-mt.sin(azimuthIn), 0, mt.cos(azimuthIn)]])
+        
+        dirMatrix = np.dot(dirMatrix_roll, dirMatrix_pitch)
+        u_Cont_Combined = dirMatrix[:,2]#dirMatrix_roll[:,2]
+        u_Cont_Combined = u_Cont_Combined/la.norm(u_Cont_Combined)
         u_Cont_theta = dirMatrix_roll[:,2]
         u_Cont_theta = u_Cont_theta/la.norm(u_Cont_theta)
 
-        # Transform from bending plane to 3D workspace
+        # vector = np.array([1, 1, 0])
+        
+        # # Normalize vectors
+        # vector_norm = np.linalg.norm(vector)
+        # if vector_norm == 0:
+        #     raise ValueError("Input vector must not be zero.")
+        
+        # vector_normalized = vector / vector_norm
+        z_axis = np.array([0, 0, 1])
+        # Dot product and angle
+        dot_product = np.dot(u_Cont_Combined, z_axis)
+        # Clamp dot product to valid acos range [-1, 1] to prevent numerical issues
+        dot_product = np.clip(dot_product, -1.0, 1.0)
+        
+        angle_rad = np.arccos(dot_product)
+        angle_deg = np.degrees(angle_rad)
+
+        dirMatrix_roll_2 = np.array([[1, 0, 0],\
+                                [0,  mt.cos(angle_rad), -mt.sin(angle_rad)],\
+                                [0, mt.sin(angle_rad), mt.cos(angle_rad)]])
+        u_Cont_theta_2 = dirMatrix_roll_2[:,2]
+        # print("Angle to Z: ", angle_rad)
+
+
+        # Use continuum joint model if curvature of continuum part significant
+        # Else use universal joint model
+        # print("Theta: ", theta_approx)
+        # print("Azimuth:" , azimuthIn)
+        if (abs(angle_rad) > 0.0001): 
+            # Continuum joint radius
+            cont_rad = self.CONT_ARC_S/angle_rad
+
+            # Continuum joint tip in bending plane (2D) frame of reference:
+            shaft_start_xL = float(cont_rad*(1 - mt.cos(angle_rad)))
+            shaft_start_yL = float(cont_rad*(mt.sin(angle_rad)))
+
+            # Transform from bending plane to 3D workspace
+            # conty = np.array([0, -shaft_start_xL, shaft_start_yL])
+            # print("New conty: ", conty)
+
+        # elif (abs(azimuthIn) > 0.0001): # Assume shaft is a UJ connected to lever point base
+        #     # Continuum joint radius
+        #     cont_rad = self.CONT_ARC_S/azimuthIn
+
+        #     # Continuum joint tip in bending plane (2D) frame of reference:
+        #     shaft_start_xL = float(cont_rad*(1 - mt.cos(azimuthIn)))
+        #     shaft_start_yL = float(cont_rad*(mt.sin(azimuthIn)))
+        #     # Transform from bending plane to 3D workspace
+        #     conty = np.array([0, -shaft_start_xL, shaft_start_yL])
+        #     print("New conty - Azimuth: ", conty)
+
+        else:
+            shaft_start_xL = 0
+            shaft_start_yL = self.CONT_ARC_S
+            # Transform from bending plane to 3D workspace
         conty = np.array([0, -shaft_start_xL, shaft_start_yL])
         # print("New conty: ", conty)
+        # print("New continuum tip 2D:", shaft_start_xL, shaft_start_yL)
 
 
-        # Rotate around z axis:
-        # cont_Rz = rotOutOfPlane_yawRev
-
-        # Now find distance between this point and desired point,
-        # subtract fixed shaft length to find prismatic length.
-        L_Pri = prismIn #la.norm(P_des - conty_glob) - self.SHAFT_LENGTH
+        # Set prismatic joint
+        L_Pri = prismIn
+        # print(L_Pri)
 
         # # Impose contraction range
         if (L_Pri < self.MIN_EXTEND):
@@ -401,31 +417,51 @@ class kineSolver:
         elif (L_Pri > self.MAX_EXTEND):
             L_Pri = self.MAX_EXTEND
 
-        # print(L_Pri)
-        # Find end of shaft assembly
-        POI_Cont_0 = conty + self.SHAFT_LENGTH*u_Cont_theta
-        # print("Intermediate shaft tip: ", POI_Cont_0)
-        P_des_0 = (POI_Cont_0 + L_Pri*u_Cont_theta) + self.LEVER_POINT
-        # print("intermediate P_Des: ", P_des_0)
-        zd = P_des_0[2]
-        # print("Desired z: ", zd)
-        xd = -np.tan(azimuthIn)*(zd - self.LEVER_POINT[2])
-        # print("Desired x: ", xd)
 
-        yd_0 = P_des_0[1] - self.LEVER_POINT[1]
+        # Find end of shaft assembly
+        POI_Cont_0 = conty + self.SHAFT_LENGTH*u_Cont_theta_2
+        # print("Intermediate shaft tip: ", POI_Cont_0)
+        P_des_0 = (POI_Cont_0 + L_Pri*u_Cont_theta_2) 
+        # print("intermediate P_Des: ", P_des_0)
+        #What rotation around shaft gets you the desired azimuth angle?
+        # Desired z coordinate stays the same compared to POI_Cont_0
+        zd = P_des_0[2] + self.LEVER_POINT[2]
+        # print("Desired z: ", zd)
+        # Knowing the azimuth angle we can find the desired x coordinate
+
+        # Then the projected distance yd_0 from the continuum base to the desired yd coord can be found
+        yd_0 = abs(P_des_0[1])
         # print("yd_0: ", yd_0)
         #What rotation around shaft gets you the desired azimuth angle?
-        if abs(xd/abs(yd_0)) <= 1:
-            ang_around_shaft = mt.acos(xd/ abs(yd_0))
-        else:
+        xd = -np.tan(azimuthIn)*(zd - self.LEVER_POINT[2]) + self.LEVER_POINT[0]
+        # print("Desired x: ", xd)
+        if yd_0 < 0.0001:    #((abs(theta_approx) < 0.001) and (abs(azimuthIn) < 0.001)):
             ang_around_shaft = 0
-        ang_around_shaft = ang_around_shaft*-1 if yd_0 < 0 else ang_around_shaft
+            xd = 0
+            # print("Ang forced to zero 2")
+        else:
+            if (abs(xd/yd_0) <= 1):
+                ang_around_shaft = mt.acos(xd/yd_0) # fix this?
+            else:
+                ang_around_shaft = mt.acos(np.clip(xd/yd_0, -1.0, 1.0))
+                # ang_around_shaft = 0
+                # print("Ang forced to zero 1", xd/yd_0)
 
-        yd = xd*np.tan(ang_around_shaft)
-        yd = -yd_0*mt.sin(ang_around_shaft) + self.LEVER_POINT[1]
+        # print("Ang_round 1: ", ang_around_shaft)
+
+
+        # The final coordinate of the desired point is then yd
+        if theta_approx < 0:
+            yd = yd_0*mt.sin(ang_around_shaft) + self.LEVER_POINT[1]
+            # print("Theta negative")
+        else:
+            yd = -yd_0*mt.sin(ang_around_shaft) + self.LEVER_POINT[1]
+            # print("Theta positive")
+        # yd =  yd_0*mt.sin(ang_around_shaft) + self.LEVER_POINT[1]
+        ang_around_shaft = mt.atan2(yd - self.LEVER_POINT[1], xd - self.LEVER_POINT[0]) # recalculate to handle polarity
+        # print("Ang_round 2: ", ang_around_shaft)
         # print("Desired y: ", yd)
 
-        conty_0 = np.array([shaft_start_xL, 0, shaft_start_yL])
 
         rotOutOfPlane_yaw = np.array([[mt.cos(-ang_around_shaft), -mt.sin(-ang_around_shaft), 0],\
                                         [mt.sin(-ang_around_shaft),  mt.cos(-ang_around_shaft), 0],\
@@ -438,47 +474,35 @@ class kineSolver:
         rotOutOfPlane_yawRev = np.array([[mt.cos(ang_around_shaft), -mt.sin(ang_around_shaft), 0],\
                                     [mt.sin(ang_around_shaft),  mt.cos(ang_around_shaft), 0],\
                                     [0,                         0,                        1]])
-        
-        # Rotate around z axis:
-        cont_Rz = rotOutOfPlane_yawRev # np.array([[mt.cos(ang_around_shaft), -mt.sin(ang_around_shaft), 0],\
-                # [mt.sin(ang_around_shaft),  mt.cos(ang_around_shaft), 0],\
-                # [0,                0,               1]])
-        
+            
         attach_points_int0 = np.dot(rotOutOfPlane_yaw, self.ATTACH_POINTS)
         attach_points_int1 = np.dot(rotOutOfPlane_pitch, attach_points_int0)
         self.attach_points_rot = np.dot(rotOutOfPlane_yawRev, attach_points_int1)
 
+        conty_0 = np.array([shaft_start_xL, 0, shaft_start_yL])
+        # Rotate continuum tip back around z axis:
+        cont_Rz = rotOutOfPlane_yawRev 
         # print("Rz: ", cont_Rz)
         # This is tip of continuum joint
         conty_glob_0 = np.matmul(cont_Rz, conty_0)
         # print("Zero ", conty_glob_0)
         # Shift tip coords back in z direction as parallel mech is on z = 0 plane 
         conty_glob = np.transpose(conty_glob_0) + self.LEVER_POINT 
-        # print("New Glob 1: ", conty_glob) # SHOULD BE 3 X 1
+        # print("New Glob: ", conty_glob) # SHOULD BE 3 X 1
 
-        # P_des = np.transpose(np.matmul(dirMatrix_azimuth, P_des_0)) 
-        # P_des[0] = - P_des[0]
         P_des = [xd, yd, zd]
         u_Cont = (P_des - conty_glob)/la.norm(P_des - conty_glob)
         # print("New angRS: ", ang_around_shaft)
-        # print("New P_des: ", P_des)
+        # print("New P_des: ", P_des, '\n')
+        L_Pri = L_Pri*np.sign(u_Cont[2])
         POI_Cont = P_des - L_Pri*u_Cont
         # print("New shaft tip: ", POI_Cont)
-        # u_Cont = (P_des - conty_glob)/la.norm(P_des - conty_glob)
-        # conty_glob = POI_Cont - self.SHAFT_LENGTH*u_Cont
-        # print("New Glob 2: ", conty_glob) # SHOULD BE 3 X 1
 
         # How far along u_Cont the POI lies, starting from desired point P_des
         distToPlane = np.dot((self.ENTRY_POINTS[:, 0] - P_des), self.N_PLANE)/np.dot(u_Cont, self.N_PLANE)
         # Find POI of shaft with parallel plane
         POI_Plane = P_des + distToPlane*u_Cont
         # print("New POI_Plane: ", POI_Plane)
-
-        # print("Rz: ", cont_Rz)
-        # print("Zero ", conty_glob_0)
-        # Shift tip coords back in z direction as parallel mech is on z = 0 plane 
-
-        #Compare theta and azimuth at end
 
         return POI_Cont[0], POI_Cont[1], L_Pri, theta_approx, ang_around_shaft, azimuthIn, POI_Cont, POI_Plane, P_des
 

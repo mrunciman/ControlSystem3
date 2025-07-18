@@ -76,7 +76,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     SET_PRESS_MODE = 3
 
     HOMING_POSITION = [0, -35, 60]
-    HOMING_POLAR = [37.8*np.pi/180, 0,  51.79] # [Incline, azimuth, prism]
+    # HOMING_POLAR = [34.9161*np.pi/180, 0,  0.5] # [Incline, azimuth, prism]
+    HOMING_POLAR = [0, 0,  0.5] # [Incline, azimuth, prism]
 
     # Other constants
     # PRESS_MAX_KPA = 90
@@ -513,7 +514,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 else:
                     controllerButtons = 0
                     # XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
-                    XYZPathCoords[0], XYZPathCoords[1] = HOMING_POSITION[0], HOMING_POSITION[1]
+                    # XYZPathCoords[0], XYZPathCoords[1] = HOMING_POSITION[0], HOMING_POSITION[1]
+                    thetaDesired, azimuthDesired = HOMING_POLAR[0], HOMING_POLAR[1]
                     # print(XYZPathCoords)
                     
             elif useOmni == 2:
@@ -528,7 +530,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 else:
                     controllerButtons = 0
                     # XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
-                    XYZPathCoords[0], XYZPathCoords[1] = HOMING_POSITION[0], HOMING_POSITION[1]
+                    # XYZPathCoords[0], XYZPathCoords[1] = HOMING_POSITION[0], HOMING_POSITION[1]
+                    thetaDesired, azimuthDesired = HOMING_POLAR[0], HOMING_POLAR[1]
                     # print(XYZPathCoords)
                     
             else:
@@ -544,7 +547,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     prevAziPS4 = azimuthDesired
                     prevPrismPS4 = prismDesired
                     [temp_thetaDesired, temp_azimuthDesired, temp_prismDesired] = ps4.incrementSphereCoords(thetaDesired, azimuthDesired, prismDesired, frameRotAngle)
-                    # print(temp_xPS4, temp_yPS4, temp_zPS4)
+                    # print(temp_thetaDesired, temp_azimuthDesired, temp_prismDesired)
                     # Prevent motion if going out of reachable workspace:
                     [targetXideal, targetYideal, targetOpP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane, XYZPathCoords] = kineSolve.intersectPolar(temp_thetaDesired, temp_azimuthDesired, temp_prismDesired)
                     # print(targetXideal, targetYideal, targetOpP)
@@ -552,13 +555,13 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     if (targetOpL >= kineSolve.MAX_CABLE_DIST) \
                         or (targetOpR >= kineSolve.MAX_CABLE_DIST) \
                         or (targetOpT >= kineSolve.MAX_CABLE_DIST):
-                        thetaDesired, azimuthDesired = prevThetaPS4, prevAziPS4
-                        print("Length error")
+                        thetaDesired, azimuthDesired = prevThetaPS4*0.999, prevAziPS4*0.999
+                        # print("Length error")
                     elif (kineSolve.MIN_CABLE >= targetOpL) \
                         or (kineSolve.MIN_CABLE >= targetOpR) \
                         or (kineSolve.MIN_CABLE >= targetOpT):
-                        thetaDesired, azimuthDesired = prevThetaPS4, prevAziPS4
-                        print("Min length error")
+                        thetaDesired, azimuthDesired = prevThetaPS4*0.999, prevAziPS4*0.999
+                        # print("Min length error")
                     elif resetFlag:
                         thetaDesired, azimuthDesired = prevThetaPS4*0.999, prevAziPS4*0.995
                     else:
@@ -601,7 +604,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
             # XYZPathCoords are desired coords in 3D.
             # [targetXideal, targetYideal, targetOpP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
-            print("incline, azimuth, prism: ", inclin, azimuth, targetOpP)
+            # print("incline, azimuth, prism: ", inclin, azimuth, targetOpP)
             [targetXideal, targetYideal, targetOpP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane, XYZPathCoords] = kineSolve.intersectPolar(thetaDesired, azimuthDesired, prismDesired)
             # print(targ_conty_glob)
             POI_PlaneCoords = [POI_Plane[0], POI_Plane[1]]
