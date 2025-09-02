@@ -4,6 +4,9 @@ import csv
 import traceback
 import time
 import numpy as np 
+import math as mt
+from mttkinter import mtTkinter as tk
+# from mttkinter import *
 from tkinter import *
 from tkinter import messagebox
 from tkinter import ttk
@@ -28,19 +31,20 @@ from modules import falconStream
 from modules import clusterData
 from modules import threadArdComms
 from modules import mouseGUI
-from visual_navigation.cam_pose import PoseEstimator
+# from visual_navigation.cam_pose import PoseEstimator
 
 
 
 ######################################################################
-def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
+def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController):
     print("'Move robot' button pressed")
 
     minPress = VAC_PRESS
     deactivateButtons(dictButtons)
     
-    [useVisionFeedback, visionFeedFlag, startWithCalibration, useOmni, socketOmni, useOptitrack, useFibrebot, useMassSpec, usePathFile, goHome, flagStop, socketFalcon]\
+    [useVisionFeedback, visionFeedFlag, startWithCalibration, useOmni, socketOmni, useOptitrack, useFibrebot, moveRobotPressed, usePathFile, goHome, flagStop, socketFalcon, destroyWindow]\
         = list(vars(classSettings).values())
+    classSettings.moveRobotPressed = True
     
     print("Settings: ", vars(classSettings))
 
@@ -59,7 +63,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     falconIn = falconStream.falconStreamer()
     dataClust = clusterData.dataClustering()
     pressDetector = arduinoInterface.ardInterfacer
-    pumpController = threadArdComms.ardThreader()
+    # pumpController = threadArdComms.ardThreader()
     medPressL = kinematics.forceDetector()
     medPressR = kinematics.forceDetector()
     medPressT = kinematics.forceDetector()
@@ -322,7 +326,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     # Create function to find available COM ports, listen to replies, and assign COM ports based on replies
 
     # startThreader opens the serial connection and starts the communication thread
-    pumpController.startThreader()
+    # pumpController.startThreader()
     pumpsConnected = pumpController.connected
     print("Connected to Control Unit? ", pumpsConnected)
     
@@ -341,13 +345,13 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         print("Fibrebot connected? ", fibreConnected)
             # print(fibrebotLink.fibreSerial)
 
-    massSpecLink = massSpecInterface.massSpec()
-    msCOM = 'COMX'
-    msConnected = False
-    if useMassSpec:
-        msConnected = massSpecLink.connect(msCOM)
-        # if msConnected:
-        print("Mass spec serial connected? ", msConnected)
+    # massSpecLink = massSpecInterface.massSpec()
+    # msCOM = 'COMX'
+    # msConnected = False
+    # if moveRobotPressed:
+    #     msConnected = massSpecLink.connect(msCOM)
+    #     # if msConnected:
+    #     print("Mass spec serial connected? ", msConnected)
 
 
     ###############################################################################################
@@ -825,7 +829,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
 
             #Save pose estimation data
-            massSpecLink.savePoseMassSpec()
+            # massSpecLink.savePoseMassSpec()
 
 
             # #Save optitrack data
@@ -879,6 +883,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         
         
         print("Move Robot complete.")
+        classSettings.moveRobotPressed = False
 
 
 
@@ -897,11 +902,12 @@ class controlSettings:
         self.socketOmni = None
         self.useOptitrack = False
         self.useFibrebot = False
-        self.useMassSpec = False
+        self.moveRobotPressed = False
         self.usePathFile = False
         self.goToHome = False
         self.stopFlag = False
         self.socketFalcon = None
+        self.destroyWindow = False
 
 
 
@@ -947,6 +953,7 @@ def resetFunction(classSettings, button, startButton):
 def onClosing(classSettings, dictButtons):
     # Exit control loop properly
     classSettings.stopFlag = True
+    classSettings.destroyWindow = True
     dictButtons['stopButton'].config(bg = 'red')
     dictButtons['moveButton'].config(state = 'disabled')
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
@@ -955,7 +962,8 @@ def onClosing(classSettings, dictButtons):
             #    thread._connection_made.set()
             #    thread.set
                thread.join()
-        rootWindow.destroy()
+        # rootWindow.after(500, rootWindow.destroy)
+        # rootWindow.destroy()
 
 
 def activateButtons(dictButtons, stopFlag):
@@ -1067,7 +1075,7 @@ fibreButton.config(command = partial(toggleButton, settingsClass, attrStr, butto
 buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
 msButton = Button(contentFrame, text = "Use mass spec")
-attrStr = 'useMassSpec'
+attrStr = 'moveRobotPressed'
 buttonObj = msButton
 buttonDict.update({"msButton" : buttonObj})
 msButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
@@ -1211,9 +1219,19 @@ rotationSlider = Scale(contentFrame, from_=180, to=-180, length = barAndPadWidth
 labelDict.update({"rotationSlider" : rotationSlider})
 
 
+pumpController = threadArdComms.ardThreader()
+# startThreader opens the serial connection and starts the communication thread
+pumpController.startThreader()
+pumpsConnected = pumpController.connected
+print("Connected to Control Unit? ", pumpsConnected)
+
+labelDict["pumpLabel"].config(fg = "green") if pumpsConnected else labelDict["pumpLabel"].config(fg = "red")
+
+if pumpsConnected:
+    pumpController.sendStep(0, 0, 0, 0, 0, 1, 0, 0)
 
 # Set command for move Robot button, taking in label dictionary
-moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, pressureDict, settingsClass]).start())
+moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, pressureDict, settingsClass, pumpController]).start())
 
 
 
@@ -1281,7 +1299,19 @@ sv_ttk.set_theme("dark")
 
 #Begin Tk loop
 # rootWindow.attributes('-topmost',True)
-rootWindow.mainloop()
+# rootWindow.mainloop()
+
+while (settingsClass.destroyWindow is False):
+    rootWindow.update_idletasks()
+    rootWindow.update()
+    if pumpsConnected:
+        if (settingsClass.moveRobotPressed == False):
+            [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
+            pressList = [pressL, pressR, pressT, regulatorSensor]
+            # Change pressurebars
+            updatePressures(pressureDict, pressList, VAC_PRESS, PRESS_MAX_KPA)
+
+rootWindow.destroy()
 
 #TODO close threads and disconnect properly if window closed
 # make a dict of buttons, not a list
