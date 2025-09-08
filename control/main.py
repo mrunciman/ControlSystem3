@@ -13,6 +13,10 @@ import threading
 from functools import partial
 import threading
 import sv_ttk
+import subprocess
+import sys
+import multiprocessing
+# multiprocessing.set_start_method("spawn")
 
 np.set_printoptions(suppress=True, precision = 2)
 
@@ -28,11 +32,15 @@ from modules import falconStream
 from modules import clusterData
 from modules import threadArdComms
 from modules import mouseGUI
+from modules import QT_Viewer
 
 
 
 ######################################################################
-def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController):
+def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, visualiserQueue):
+    
+    qtViewerProcess.start()
+    # subprocess.Popen([sys.executable, "control\\modules\\QT_viewer.py"])
     print("'Move robot' button pressed")
 
     minPress = VAC_PRESS
@@ -467,7 +475,12 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController):
         dictPress["pressureR"].config(fg = "white")
         dictPress["pressureT"].config(fg = "white")
         dictPress["pressureStruct"].config(fg = "white")
+        angleTest1, angleTest2 = 0, 0
         while(flagStop == False):
+
+            visualiserQueue.put([angleTest1, initialAngle2])
+            angleTest1 -= 1
+            angleTest2 += 1
 
             useOmni = classSettings.useOmni
             if useOmni == 1:
@@ -878,10 +891,14 @@ def toggleInputButton(classSettings, attrib, button):
         button.config(text = "Falcon", bg = 'blue')
 
 
-def stopFunction(classSettings, stopButton, startButton):
+def stopFunction(classSettings, stopButton, startButton, viewerProcess):
     classSettings.stopFlag = True
     stopButton.config(bg = 'red')
     startButton.config(state = 'disabled')
+
+    if viewerProcess.is_alive():
+        viewerProcess.kill()
+        visualiserQueue.close()
 
 
 def resetFunction(classSettings, button, startButton):
@@ -890,10 +907,9 @@ def resetFunction(classSettings, button, startButton):
     startButton.config(state = 'normal')
 
 
-def onClosing(classSettings, dictButtons):
+def onClosing(classSettings, dictButtons, viewerProcess):
     # Exit control loop properly
     classSettings.stopFlag = True
-    classSettings.destroyWindow = True
     dictButtons['stopButton'].config(bg = 'red')
     dictButtons['moveButton'].config(state = 'disabled')
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
@@ -902,6 +918,10 @@ def onClosing(classSettings, dictButtons):
             #    thread._connection_made.set()
             #    thread.set
                thread.join()
+        if viewerProcess.is_alive():
+            viewerProcess.kill()
+            visualiserQueue.close()
+        classSettings.destroyWindow = True
         # rootWindow.after(500, rootWindow.destroy)
         # rootWindow.destroy()
 
@@ -967,304 +987,312 @@ def updatePressures(dictPress, listPress, minPress, maxPress):
             dictPress[p].config(text = str(listPress[listIndex]))
             listIndex = listIndex + 1
 
-
+def viewer_process(queue):
+    QT_Viewer.run_viewer(queue)
 
 ########################################################################################################
 # GUI
 ########################################################################################################
+if __name__ == '__main__':
+    rootWindow = Tk()
+    rootWindow.title("Soft Robot Control System")
+    rootWindow.geometry("1000x500")
+
+    contentFrame = ttk.Frame(rootWindow)
+    winStyle = ttk.Style()
+    winStyle.theme_use("classic")
+
+    settingsClass = controlSettings()
+
+    visualiserQueue = multiprocessing.Queue()
+    initialAngle1, initialAngle2 = 0, 0
+    visualiserQueue.put([initialAngle1, initialAngle2])
+    qtViewerProcess = multiprocessing.Process(target=viewer_process, args=(visualiserQueue,))
+    qtViewerProcess.daemon = True
+
+
+    # Headings
+    headingSLabel = Label(contentFrame, text = "Settings", font='bold')
+    headingLLabel = Label(contentFrame, text = "Status", font='bold')
+    headingPLabel = Label(contentFrame, text = "Pressures", font='bold')
+
+
+    # Create buttons
+
+    buttonDict = {}
+    calibrateButton = Button(contentFrame, text = "Calibrate robot at start")
+    attrStr = 'startWithCalibration'
+    buttonObj = calibrateButton
+    buttonDict.update({"calibrateButton" : buttonObj})
+    calibrateButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
-rootWindow = Tk()
-rootWindow.title("Soft Robot Control System")
-rootWindow.geometry("1000x500")
+    optiButton = Button(contentFrame, text = "Use OptiTrack")
+    attrStr = 'useOptitrack'
+    buttonObj = optiButton
+    buttonDict.update({"optiButton" : buttonObj})
+    optiButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
-contentFrame = ttk.Frame(rootWindow)
-winStyle = ttk.Style()
-winStyle.theme_use("classic")
+    fibreButton = Button(contentFrame, text = "Use fibrebot")
+    attrStr = 'useFibrebot'
+    buttonObj = fibreButton
+    buttonDict.update({"fibreButton" : buttonObj})
+    fibreButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
-settingsClass = controlSettings()
-
+    msButton = Button(contentFrame, text = "Use mass spec")
+    attrStr = 'moveRobotRunning'
+    buttonObj = msButton
+    buttonDict.update({"msButton" : buttonObj})
+    msButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
-# Headings
-headingSLabel = Label(contentFrame, text = "Settings", font='bold')
-headingLLabel = Label(contentFrame, text = "Status", font='bold')
-headingPLabel = Label(contentFrame, text = "Pressures", font='bold')
+    omniButton = Button(contentFrame, text = "Use haptic device")
+    attrStr = 'useOmni'
+    buttonObj = omniButton
+    buttonDict.update({"omniButton" : buttonObj})
+    omniButton.config(command = partial(toggleInputButton, settingsClass, attrStr, buttonObj))
+    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
-
-# Create buttons
 
-buttonDict = {}
-calibrateButton = Button(contentFrame, text = "Calibrate robot at start")
-attrStr = 'startWithCalibration'
-buttonObj = calibrateButton
-buttonDict.update({"calibrateButton" : buttonObj})
-calibrateButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+    # pathButton = Button(rootWindow, text = "Follow preprogrammed path")
+    # attrStr = 'usePathFile'
+    # buttonObj = optiButton
+    # buttonDict.update({"optiButton" : buttonObj})
+    # pathButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    # buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+
 
-optiButton = Button(contentFrame, text = "Use OptiTrack")
-attrStr = 'useOptitrack'
-buttonObj = optiButton
-buttonDict.update({"optiButton" : buttonObj})
-optiButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+    visButton = Button(contentFrame, text = "Use pose estimator")
+    attrStr = 'useVisionFeedback'
+    buttonObj = visButton
+    buttonDict.update({"visButton" : buttonObj})
+    visButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+    # visButton.config(command = (lambda s, f, b : toggleButton(s, f, b))(settingsClass, attrStr, buttonObj))
+
+    homeButton = Button(contentFrame, text = "Home Position")
+    attrStr = 'goToHome'
+    buttonObj = homeButton
+    buttonDict.update({"homeButton" : buttonObj})
+    homeButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+
+
 
-fibreButton = Button(contentFrame, text = "Use fibrebot")
-attrStr = 'useFibrebot'
-buttonObj = fibreButton
-buttonDict.update({"fibreButton" : buttonObj})
-fibreButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+    #Start and stop buttons
+    moveButton = Button(contentFrame, text = "Start robot")
+    buttonObj = moveButton
+    buttonDict.update({"moveButton" : buttonObj})
 
-msButton = Button(contentFrame, text = "Use mass spec")
-attrStr = 'moveRobotRunning'
-buttonObj = msButton
-buttonDict.update({"msButton" : buttonObj})
-msButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+    stopButton = Button(contentFrame, text = "Stop")
+    buttonObj = stopButton
+    buttonDict.update({"stopButton" : buttonObj})
+    stopButton.config(command = partial(stopFunction, settingsClass, buttonObj, moveButton, qtViewerProcess))
+
+    resetButton = Button(contentFrame, text = "Reset")
+    buttonObj = stopButton
+    resetButton.config(command = partial(resetFunction, settingsClass, buttonObj, moveButton))
+    buttonObj = resetButton
+    buttonDict.update({"resetButton" : buttonObj})
 
-omniButton = Button(contentFrame, text = "Use haptic device")
-attrStr = 'useOmni'
-buttonObj = omniButton
-buttonDict.update({"omniButton" : buttonObj})
-omniButton.config(command = partial(toggleInputButton, settingsClass, attrStr, buttonObj))
-buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
 
-# pathButton = Button(rootWindow, text = "Follow preprogrammed path")
-# attrStr = 'usePathFile'
-# buttonObj = optiButton
-# buttonDict.update({"optiButton" : buttonObj})
-# pathButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-# buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
+    # Status labels
+    labelDict = {}
+    pumpLabel = Label(contentFrame, text = "Pump controller connection")
+    labelObj = pumpLabel
+    labelDict.update({"pumpLabel" : labelObj})
 
-visButton = Button(contentFrame, text = "Use pose estimator")
-attrStr = 'useVisionFeedback'
-buttonObj = visButton
-buttonDict.update({"visButton" : buttonObj})
-visButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
-# visButton.config(command = (lambda s, f, b : toggleButton(s, f, b))(settingsClass, attrStr, buttonObj))
+    omniLabel = Label(contentFrame, text = "Haptic connected")
+    labelObj = omniLabel
+    labelDict.update({"omniLabel" : omniLabel})
 
-homeButton = Button(contentFrame, text = "Home Position")
-attrStr = 'goToHome'
-buttonObj = homeButton
-buttonDict.update({"homeButton" : buttonObj})
-homeButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+    calibrationLabel = Label(contentFrame, text = "Calibration")
+    labelObj = calibrationLabel
+    labelDict.update({"calibrationLabel" : labelObj})
 
+    grasperLabel = Label(contentFrame, text = "Grasper")
+    labelObj = grasperLabel
+    labelDict.update({"grasperLabel" : labelObj})
 
 
-#Start and stop buttons
-moveButton = Button(contentFrame, text = "Start robot")
-buttonObj = moveButton
-buttonDict.update({"moveButton" : buttonObj})
 
-stopButton = Button(contentFrame, text = "Stop")
-buttonObj = stopButton
-buttonDict.update({"stopButton" : buttonObj})
-stopButton.config(command = partial(stopFunction, settingsClass, buttonObj, moveButton))
 
-resetButton = Button(contentFrame, text = "Reset")
-buttonObj = stopButton
-resetButton.config(command = partial(resetFunction, settingsClass, buttonObj, moveButton))
-buttonObj = resetButton
-buttonDict.update({"resetButton" : buttonObj})
-
-
 
 
-# Status labels
-labelDict = {}
-pumpLabel = Label(contentFrame, text = "Pump controller connection")
-labelObj = pumpLabel
-labelDict.update({"pumpLabel" : labelObj})
+    # Progressbars for pressure sensors
+    pressureDict = {}
 
-omniLabel = Label(contentFrame, text = "Haptic connected")
-labelObj = omniLabel
-labelDict.update({"omniLabel" : omniLabel})
+    barLength = 300
+    barWidth = 80
+    barAndPadWidth = 100
+    padSize = int((barAndPadWidth-barWidth)/2)
+    numberBars = 4
+    # Other constants
+    PRESS_MAX_KPA = 150 # TODO Change back to 100
+    VAC_PRESS = -40
+    guiPressFactor = 1 - abs(VAC_PRESS)/(PRESS_MAX_KPA - VAC_PRESS)
 
-calibrationLabel = Label(contentFrame, text = "Calibration")
-labelObj = calibrationLabel
-labelDict.update({"calibrationLabel" : labelObj})
+    pressureDict.update({"lengthBar" : barLength})
 
-grasperLabel = Label(contentFrame, text = "Grasper")
-labelObj = grasperLabel
-labelDict.update({"grasperLabel" : labelObj})
+    canvasHeight = 200
+    pressureDict.update({"canvasHeight" : canvasHeight})
+    pressCanvas = Canvas(contentFrame, width = barAndPadWidth*numberBars, height = canvasHeight, bg='gray')
+    pressureDict.update({"pressCanvas":pressCanvas})
 
+    rectNo = 0
+    pressureBar1 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
+                                                padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
+    pressureDict.update({"pressBar1":pressureBar1})
 
+    rectNo = 1
+    pressureBar2 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
+                                                padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
+    pressureDict.update({"pressBar2":pressureBar2})
 
+    rectNo = 2
+    pressureBar3 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
+                                                padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
+    pressureDict.update({"pressBar3":pressureBar3})
 
+    rectNo = 3
+    pressureBar4 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
+                                                padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
+    pressureDict.update({"pressBarAir4":pressureBar4})
 
+    pressureL = Label(contentFrame, text = "Pressure L")
+    pressureR = Label(contentFrame, text = "Pressure R")
+    pressureT = Label(contentFrame, text = "Pressure T")
+    pressureStruct = Label(contentFrame, text = "Pressure Struct")
+    pressureDict.update({"pressureL":pressureL})
+    pressureDict.update({"pressureR":pressureR})
+    pressureDict.update({"pressureT":pressureT})
+    pressureDict.update({"pressureStruct":pressureStruct})
 
-# Progressbars for pressure sensors
-pressureDict = {}
 
-barLength = 300
-barWidth = 80
-barAndPadWidth = 100
-padSize = int((barAndPadWidth-barWidth)/2)
-numberBars = 4
-# Other constants
-PRESS_MAX_KPA = 150 # TODO Change back to 100
-VAC_PRESS = -40
-guiPressFactor = 1 - abs(VAC_PRESS)/(PRESS_MAX_KPA - VAC_PRESS)
+    press1Label = Label(contentFrame, text = "Pressure L")
+    press2Label = Label(contentFrame, text = "Pressure R")
+    press3Label = Label(contentFrame, text = "Pressure T")
+    pressPLabel = Label(contentFrame, text = "Pressure Struct")
+    pressureLabels = [press1Label, press2Label, press3Label, pressPLabel]
 
-pressureDict.update({"lengthBar" : barLength})
 
-canvasHeight = 200
-pressureDict.update({"canvasHeight" : canvasHeight})
-pressCanvas = Canvas(contentFrame, width = barAndPadWidth*numberBars, height = canvasHeight, bg='gray')
-pressureDict.update({"pressCanvas":pressCanvas})
-
-rectNo = 0
-pressureBar1 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
-                                            padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
-pressureDict.update({"pressBar1":pressureBar1})
+    # Creates slider to rotate input device coordinates.
+    # To be placed below the pressure bars, so it is the same width as the pressure bar canvas
+    rotationSlider = Scale(contentFrame, from_=180, to=-180, length = barAndPadWidth*numberBars, tickinterval=60, orient = HORIZONTAL)
+    labelDict.update({"rotationSlider" : rotationSlider})
 
-rectNo = 1
-pressureBar2 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
-                                            padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
-pressureDict.update({"pressBar2":pressureBar2})
-
-rectNo = 2
-pressureBar3 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
-                                            padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
-pressureDict.update({"pressBar3":pressureBar3})
-
-rectNo = 3
-pressureBar4 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
-                                            padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
-pressureDict.update({"pressBarAir4":pressureBar4})
+    zeroAngle = 0
+    zeroPress = 0
+    buttonValue = 0
+    pumpController = threadArdComms.ardThreader()
+    # startThreader opens the serial connection and starts the communication thread
+    pumpController.startThreader()
+    pumpsConnected = pumpController.connected
+    HOLD_MODE = 1
+    ISOLATE_P_SUPPLY = 0
 
-pressureL = Label(contentFrame, text = "Pressure L")
-pressureR = Label(contentFrame, text = "Pressure R")
-pressureT = Label(contentFrame, text = "Pressure T")
-pressureStruct = Label(contentFrame, text = "Pressure Struct")
-pressureDict.update({"pressureL":pressureL})
-pressureDict.update({"pressureR":pressureR})
-pressureDict.update({"pressureT":pressureT})
-pressureDict.update({"pressureStruct":pressureStruct})
-
-
-press1Label = Label(contentFrame, text = "Pressure L")
-press2Label = Label(contentFrame, text = "Pressure R")
-press3Label = Label(contentFrame, text = "Pressure T")
-pressPLabel = Label(contentFrame, text = "Pressure Struct")
-pressureLabels = [press1Label, press2Label, press3Label, pressPLabel]
-
-
-# Creates slider to rotate input device coordinates.
-# To be placed below the pressure bars, so it is the same width as the pressure bar canvas
-rotationSlider = Scale(contentFrame, from_=180, to=-180, length = barAndPadWidth*numberBars, tickinterval=60, orient = HORIZONTAL)
-labelDict.update({"rotationSlider" : rotationSlider})
-
-zeroAngle = 0
-zeroPress = 0
-buttonValue = 0
-pumpController = threadArdComms.ardThreader()
-# startThreader opens the serial connection and starts the communication thread
-pumpController.startThreader()
-pumpsConnected = pumpController.connected
-HOLD_MODE = 1
-ISOLATE_P_SUPPLY = 0
-
-if pumpsConnected:
-    pumpController.sendStep(zeroAngle, zeroAngle, zeroAngle, zeroAngle, zeroPress, HOLD_MODE, ISOLATE_P_SUPPLY, buttonValue)
-
-print("Connected to Control Unit? ", pumpsConnected)
-labelDict["pumpLabel"].config(fg = "green") if pumpsConnected else labelDict["pumpLabel"].config(fg = "red")
-
-# Set command for move Robot button, taking in label dictionary
-moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, pressureDict, settingsClass, pumpController]).start())
-
-
-
-#################################################################
-# Placement
-
-contentFrame.grid(column=0, row=0)
-yPadding = 10
-xPadding = 10
-
-
-headingSLabel.grid(column = 0, row = 0, pady = yPadding, padx = xPadding)
-headingLLabel.grid(column = 1, row = 0, pady = yPadding, padx = xPadding)
-headingPLabel.grid(column = 4, row = 0, columnspan = 2, pady = yPadding, padx = xPadding)
-pressCanvas.grid(column = 3, row = 2, rowspan = 6, columnspan = 4, pady = yPadding, padx = xPadding)
-
-# Place buttons
-rowZerothColumn = 1
-columnNo = 0
-for b in buttonDict:
-    if b not in ["moveButton", "stopButton", "resetButton"]:
-        buttonDict[b].grid(column = columnNo, row = rowZerothColumn, pady = yPadding, padx = xPadding)
-        rowZerothColumn = rowZerothColumn + 1
-    else:
-        buttonDict[b].grid(column = columnNo, row = rowZerothColumn + 1, pady = yPadding, padx = xPadding)
-        columnNo = columnNo + 1
-# columnNo = 0
-# homeButton.grid(column = columnNo, row = rowZerothColumn + 2, pady = yPadding, padx = xPadding)
-moveButtonRow = rowZerothColumn
-
-columnNo = 3
-rotationSlider.grid(column = columnNo, row = rowZerothColumn + 2, columnspan = 4, pady = yPadding, padx = xPadding)
-
-# Place labels
-rowFirstColumn = 1
-columnNo = 1
-for l in labelDict:
-    if l not in ["rotationSlider"]: # Exclude rotation slider here
-        labelDict[l].grid(column = columnNo, row = rowFirstColumn, pady = yPadding, padx = xPadding)
-        rowFirstColumn = rowFirstColumn + 1
-
-
-# Place pressure displays and labels
-lastRow = max(rowZerothColumn, rowFirstColumn)
-columnNo = 3
-labelIndex = 0
-for pL in pressureLabels:
-    pL.grid(column = columnNo, row = 1, pady = yPadding, padx = xPadding)
-    columnNo = columnNo + 1
-    labelIndex = labelIndex + 1
-
-columnNo = 3
-for p in pressureDict:
-    if "pressure" in p:
-        pressureDict[p].grid(column = columnNo, row = moveButtonRow - 1, pady = yPadding, padx = xPadding)
-        columnNo = columnNo + 1
-
-
-
-# Set what to do when window is closed
-rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass, buttonDict))
-
-# This is where the magic happens
-sv_ttk.set_theme("dark")
-
-#Begin Tk loop
-# rootWindow.attributes('-topmost',True)
-# rootWindow.mainloop()
-
-while (settingsClass.destroyWindow is False):
-    rootWindow.update_idletasks()
-    rootWindow.update()
     if pumpsConnected:
-        if (settingsClass.moveRobotRunning == False):
-            [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
-            pressList = [pressL, pressR, pressT, regulatorSensor]
-            # Change pressurebars
-            updatePressures(pressureDict, pressList, VAC_PRESS, PRESS_MAX_KPA)
+        pumpController.sendStep(zeroAngle, zeroAngle, zeroAngle, zeroAngle, zeroPress, HOLD_MODE, ISOLATE_P_SUPPLY, buttonValue)
 
-pumpController.stopThreader()
-pumpController.t.stop()
-pumpController.closeSerial()
+    print("Connected to Control Unit? ", pumpsConnected)
+    labelDict["pumpLabel"].config(fg = "green") if pumpsConnected else labelDict["pumpLabel"].config(fg = "red")
 
-rootWindow.destroy()
+    # Set command for move Robot button, taking in label dictionary
+    moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, pressureDict, settingsClass, pumpController, visualiserQueue]).start())
 
-#TODO close threads and disconnect properly if window closed
-# make a dict of buttons, not a list
-# add status labels e.g. to show if arduinos connected
-# add bars that change colour/height depending on pressure (normalse to MAX_PRESS)
+
+
+    #################################################################
+    # Placement
+
+    contentFrame.grid(column=0, row=0)
+    yPadding = 10
+    xPadding = 10
+
+
+    headingSLabel.grid(column = 0, row = 0, pady = yPadding, padx = xPadding)
+    headingLLabel.grid(column = 1, row = 0, pady = yPadding, padx = xPadding)
+    headingPLabel.grid(column = 4, row = 0, columnspan = 2, pady = yPadding, padx = xPadding)
+    pressCanvas.grid(column = 3, row = 2, rowspan = 6, columnspan = 4, pady = yPadding, padx = xPadding)
+
+    # Place buttons
+    rowZerothColumn = 1
+    columnNo = 0
+    for b in buttonDict:
+        if b not in ["moveButton", "stopButton", "resetButton"]:
+            buttonDict[b].grid(column = columnNo, row = rowZerothColumn, pady = yPadding, padx = xPadding)
+            rowZerothColumn = rowZerothColumn + 1
+        else:
+            buttonDict[b].grid(column = columnNo, row = rowZerothColumn + 1, pady = yPadding, padx = xPadding)
+            columnNo = columnNo + 1
+    # columnNo = 0
+    # homeButton.grid(column = columnNo, row = rowZerothColumn + 2, pady = yPadding, padx = xPadding)
+    moveButtonRow = rowZerothColumn
+
+    columnNo = 3
+    rotationSlider.grid(column = columnNo, row = rowZerothColumn + 2, columnspan = 4, pady = yPadding, padx = xPadding)
+
+    # Place labels
+    rowFirstColumn = 1
+    columnNo = 1
+    for l in labelDict:
+        if l not in ["rotationSlider"]: # Exclude rotation slider here
+            labelDict[l].grid(column = columnNo, row = rowFirstColumn, pady = yPadding, padx = xPadding)
+            rowFirstColumn = rowFirstColumn + 1
+
+
+    # Place pressure displays and labels
+    lastRow = max(rowZerothColumn, rowFirstColumn)
+    columnNo = 3
+    labelIndex = 0
+    for pL in pressureLabels:
+        pL.grid(column = columnNo, row = 1, pady = yPadding, padx = xPadding)
+        columnNo = columnNo + 1
+        labelIndex = labelIndex + 1
+
+    columnNo = 3
+    for p in pressureDict:
+        if "pressure" in p:
+            pressureDict[p].grid(column = columnNo, row = moveButtonRow - 1, pady = yPadding, padx = xPadding)
+            columnNo = columnNo + 1
+
+
+
+    # Set what to do when window is closed
+    rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass, buttonDict, qtViewerProcess))
+
+    # This is where the magic happens
+    sv_ttk.set_theme("dark")
+
+    #Begin Tk loop
+    # rootWindow.attributes('-topmost',True)
+    # rootWindow.mainloop()
+
+    while (settingsClass.destroyWindow is False):
+        rootWindow.update_idletasks()
+        rootWindow.update()
+        if pumpsConnected:
+            if (settingsClass.moveRobotRunning == False):
+                [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
+                pressList = [pressL, pressR, pressT, regulatorSensor]
+                # Change pressurebars
+                updatePressures(pressureDict, pressList, VAC_PRESS, PRESS_MAX_KPA)
+
+    if pumpsConnected:
+        pumpController.stopThreader()
+        pumpController.t.stop()
+        pumpController.closeSerial()
+
+    rootWindow.destroy()
+
+    #TODO close threads and disconnect properly if window closed
+    # make a dict of buttons, not a list
+    # add status labels e.g. to show if arduinos connected
+    # add bars that change colour/height depending on pressure (normalse to MAX_PRESS)
 
 
 

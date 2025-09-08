@@ -131,7 +131,7 @@ class LinAxis{
     void sendRecvFloat_POWER(dataFloat *outData, dataFloat *inData, char powerStatus);
     void sendRecvFloat(dataFloat *outData, dataFloat *inData);
     float readPressure();
-    float readPressureADC(float v_adc);
+    float convPressureADC(float v_adc);
     float convertFlowRateToAngle(float flow_rate);
     float convertSpeedToAngle(float stage_speed);
     float convertAngleToSpeed(float changeAngle);

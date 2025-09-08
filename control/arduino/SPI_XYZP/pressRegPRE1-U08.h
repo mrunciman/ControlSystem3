@@ -69,6 +69,7 @@ class PressReg{
     // Functions
     void init(int CS_Pin, int P_Pin, int V_Pin, int S_Pin);
     float readStructPressure();
+    float convStructPressADC(float v_adc);
     void writePressureReg();
     void setStructValveState();
     void pressureProfile();

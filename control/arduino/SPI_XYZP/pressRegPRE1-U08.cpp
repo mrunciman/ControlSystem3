@@ -34,6 +34,11 @@ float PressReg::readStructPressure()
   return pressureRead;
 }
 
+float PressReg::convStructPressADC(float v_adc){
+  pressureRead = PSI_TO_KPA*((v_adc - 0.1*V_SUPPLY)*(P_MAX_SENSOR - P_MIN_SENSOR)/(0.8*V_SUPPLY) + P_MIN_SENSOR) - pressureBaseline; // FOR GAGE PRESSURE, PMIN IS ATMOSPHERIC PRESSURE
+  return pressureRead;
+}
+
 
 void PressReg::writePressureReg() 
 {

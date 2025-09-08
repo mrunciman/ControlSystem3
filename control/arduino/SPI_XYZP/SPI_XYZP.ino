@@ -28,6 +28,7 @@ unsigned long LOOP_PERIOD_MICRO = round(1000000/LOOP_FREQ);
 float LOOP_PERIOD = 1/float(LOOP_FREQ);
 
 const int number_pumps = 4;
+const int number_graspers = 1;
 const int number_pressure_regs = 1;
 
 
@@ -47,7 +48,7 @@ int inflationState = ISOLATED;
 int prevInfState = inflationState;
 int inflationCounter = 0;
 int deflationCounter = 0;
-int infStableTime = 3*LOOP_FREQ; // 1 second
+int infStableTime = 3*LOOP_FREQ;
 
 #define STOP_GRASP 0
 #define CLOSE_GRASP 1
@@ -66,11 +67,12 @@ int calibratedBytes = 0;
 int resetPin1 = 8;
 
 // X is Left actuator, Y is Right, Z is Top
-int selectPinX = 10;
-int selectPinY = 11;
-int selectPinZ = 12;
-int selectPinP = 9;
-int selectPinAir = 13;
+int selectPinX = 10;        // CS2
+int selectPinY = 11;        // CS3
+int selectPinZ = 12;        // CS4
+int selectPinP = 9;         // CS1
+int selectPinAir = 13;      // CS_DAC
+int selectPinGrasper = 26;  // CS5
 
 int pressPinX = A4;
 int pressPinY = A3;
@@ -78,17 +80,17 @@ int pressPinZ = A2;
 int pressPinP = A1;
 int pressPinAir = A0;
 
-int limitPinX = 22;
-int limitPinY = 24;
-int limitPinZ = 26;
-int limitPinP = 30;
+int limitPinX = 35;
+int limitPinY = 37;
+int limitPinZ = 25;
+int limitPinP = 23;
 
-int valvePin = 37;
-int valvePinStruct = 41;
+int valvePin = 48;
+int valvePinStruct = 49;
 
 // Pins for grapser open and close functions
-int grasper_RHS_FWD = 31;
-int grasper_RHS_BWD = 33;
+int grasper_RHS_FWD = 22;
+int grasper_RHS_BWD = 24;
 // int grasper_LHS_FWD = 27;
 // int grasper_LHS_BWD = 29;
 
@@ -110,7 +112,7 @@ char posPStr[10];
 char pressXStr[10];
 char pressYStr[10]; 
 char pressZStr[10];
-char pressPStr[10]; 
+char pressPStr[10];
 char pressRegStr[10]; 
 
 float angles[number_pumps];
@@ -118,6 +120,7 @@ float angles[number_pumps];
 
 int pressures[number_pumps + number_pressure_regs];
 float pressuresF[number_pumps + number_pressure_regs];
+float pressuresADC[4];
 float P_ATMOS = 0.0; // kPa gauge
 float P_INFLATED = 100.0; //kPa gauge
 
@@ -131,6 +134,7 @@ unsigned long timeLastExecution;
 // uStepper data structures
 
 LinAxis axisList[4] = {LinAxis(), LinAxis(), LinAxis(), LinAxis()};
+LinAxis grasperMotor;
 
 
 ////////////////////////////////////////////////////////
@@ -181,14 +185,14 @@ char loadYStr[10];
 char loadZStr[10];
 char loadPStr[10]; 
 
-int PORT_NUM_LOAD_CELLS[NUMBER_OF_SENSORS] = {3,0,1,4};
+int MUX_PORTS_LOAD_CELLS[NUMBER_OF_SENSORS] = {3,0,1,4};
 
 
 ////////////////////////////////////////////////////////
 // ADC
 
 Adafruit_ADS1115 ads;  /* Use this for the 16-bit version */
-int PORT_NUMBER_ADS = 5;
+int MUX_PORT_NUMBER_ADS = 5;
 
 ////////////////////////////////////////////////////////
 // Setup
@@ -204,14 +208,20 @@ void setup() {
 
 
   // Initialize all the sensors
+  // Load cells:
   for (byte i = 0; i < NUMBER_OF_SENSORS; i++){
-    enableMuxPort(PORT_NUM_LOAD_CELLS[i]);
+    enableMuxPort(MUX_PORTS_LOAD_CELLS[i]);
     loadCell.begin();
-    disableMuxPort(PORT_NUM_LOAD_CELLS[i]);
+    disableMuxPort(MUX_PORTS_LOAD_CELLS[i]);
   }
-  // enableMuxPort(PORT_NUMBER_ADS);
-  // ads.begin();
-  // disableMuxPort(PORT_NUMBER_ADS);
+
+  // Presure sensors ADC
+  // enableMuxPort(MUX_PORT_NUMBER_ADS);
+  if (!ads.begin()) {
+    Serial.println("Failed to initialize ADS.");
+    // while (1);
+  }
+  // disableMuxPort(MUX_PORT_NUMBER_ADS);
   // if (initSuccess == false)
   // {
   //   Serial.print("Freezing...");
@@ -236,6 +246,10 @@ void setup() {
 
   //Initialise pressure regulator
   pressureRegulator.init(selectPinAir, pressPinAir, valvePin, valvePinStruct);
+
+  //Initialise grasper control motor
+  grasperMotor.init(selectPinP, pressPinP, LOOP_PERIOD, limitPinP);
+  grasperMotor.angleAtZeroVol = 0.0;
 
   // Grasper control from haptic
   pinMode(grasper_RHS_FWD, OUTPUT);
@@ -389,7 +403,7 @@ void setMotorAngleChanges(){
 
     // If any pressure is too high, prevent change of angle of any motor
     if (checkPress == 0){
-      item.compDesiredAngle = item.desiredAngle + item.angleAtZeroVol;  // Actual max angle is angle at max vol plus angletZeroVol
+      item.compDesiredAngle = item.desiredAngle + item.angleAtZeroVol;  // Actual max angle is angle at max vol plus angleAtZeroVol
       // Serial.println(item.compDesiredAngle);
       item.dataOut.fData = item.compDesiredAngle;
     }
@@ -835,43 +849,72 @@ void calibrationProtocol(){
 
 void readLoadCells(){
   for(int i = 0; i < NUMBER_OF_SENSORS; i++){
-    enableMuxPort(PORT_NUM_LOAD_CELLS[i]);
+    enableMuxPort(MUX_PORTS_LOAD_CELLS[i]);
     loadArray[i] = loadCell.getReading();
     convLoads[i] = (loadArray[i] - loadIntercepts[i])/loadGradients[i];
     // Serial.println(i);
-    disableMuxPort(PORT_NUM_LOAD_CELLS[i]);
+    disableMuxPort(MUX_PORTS_LOAD_CELLS[i]);
   }
 }
 
 
 void readADC(){
-  enableMuxPort(PORT_NUMBER_ADS);
-  int16_t adc0, adc1, adc2, adc3;
-  float volts0, volts1, volts2, volts3;
+  // enableMuxPort(MUX_PORT_NUMBER_ADS);
+  int16_t adcValue;
+  float voltValue;
 
-  adc0 = ads.readADC_SingleEnded(0);
-  adc1 = ads.readADC_SingleEnded(1);
-  adc2 = ads.readADC_SingleEnded(2);
-  adc3 = ads.readADC_SingleEnded(3);
-
-  volts0 = ads.computeVolts(adc0);
-  volts1 = ads.computeVolts(adc1);
-  volts2 = ads.computeVolts(adc2);
-  volts3 = ads.computeVolts(adc3);
-
-  // Serial.println("-----------------------------------------------------------");
-  // Serial.print("AIN0: "); Serial.print(adc0); Serial.print("  "); Serial.print(volts0); Serial.println("V");
-  // Serial.print("AIN1: "); Serial.print(adc1); Serial.print("  "); Serial.print(volts1); Serial.println("V");
-  // Serial.print("AIN2: "); Serial.print(adc2); Serial.print("  "); Serial.print(volts2); Serial.println("V");
-  // Serial.print("AIN3: "); Serial.print(adc3); Serial.print("  "); Serial.print(volts3); Serial.println("V");
-
-
-  disableMuxPort(PORT_NUMBER_ADS);
+  // Update pressure data for each input of ADC
+  for(int i = 0; i < 4; i++){ 
+    adcValue = ads.readADC_SingleEnded(i);
+    voltValue = ads.computeVolts(adcValue);
+    
+    if (i < 3){
+      pressuresADC[i] = axisList[i].convPressureADC(voltValue);
+    }
+    else if (i ==3){
+      pressuresADC[i] = pressureRegulator.convStructPressADC(voltValue);
+    }
+  }
+  // disableMuxPort(MUX_PORT_NUMBER_ADS);
 }
 
 
 
+void moveGrasper(){
+  float currentAngle = grasperMotor.compDesiredAngle;
 
+    // Set grasper state based on buttonState
+    switch(buttonState){
+      
+      case STOP_GRASP:
+        // put grasper in disabled power state
+        grasperMotor.sendRecvFloat_POWER(&grasperMotor.dataOut, &grasperMotor.dataIn, POWER_OFF);
+        break;
+
+      case CLOSE_GRASP:
+        // Increment the grasper position
+        grasperMotor.compDesiredAngle = currentAngle + 1.0;
+        // Serial.println(item.compDesiredAngle);
+        grasperMotor.dataOut.fData = grasperMotor.compDesiredAngle;
+        // Send new position to motor        
+        grasperMotor.sendRecvFloat_POWER(&grasperMotor.dataOut, &grasperMotor.dataIn, POWER_ON);
+        break;
+
+      case OPEN_GRASP:
+        // Decrement the grasper position
+        grasperMotor.compDesiredAngle = currentAngle - 1.0;
+        // Serial.println(item.compDesiredAngle);
+        grasperMotor.dataOut.fData = grasperMotor.compDesiredAngle;
+        // Send new position to motor
+        grasperMotor.sendRecvFloat_POWER(&grasperMotor.dataOut, &grasperMotor.dataIn, POWER_ON);
+        break;
+
+      default:
+        // put grasper in disabled power state
+        grasperMotor.sendRecvFloat_POWER(&grasperMotor.dataOut, &grasperMotor.dataIn, POWER_OFF);
+        break;
+    } // Grasper state loop  
+}
 
 
 
@@ -985,36 +1028,11 @@ void loop() {
     }// system state loop
 
 
-
-
-    // Set grasper state based on buttonState
-    switch(buttonState){
-      
-      case STOP_GRASP:
-        digitalWrite(grasper_RHS_FWD, HIGH);
-        digitalWrite(grasper_RHS_BWD, HIGH);
-        break;
-
-      case CLOSE_GRASP:
-        digitalWrite(grasper_RHS_FWD, HIGH);
-        digitalWrite(grasper_RHS_BWD, LOW);
-        break;
-
-      case OPEN_GRASP:
-        digitalWrite(grasper_RHS_FWD, LOW);
-        digitalWrite(grasper_RHS_BWD, HIGH);
-        break;
-
-      default:
-        digitalWrite(grasper_RHS_FWD, HIGH);
-        digitalWrite(grasper_RHS_BWD, HIGH);
-        break;
-    } // Grasper state loop
-
-
+    // Move grasper based on button states
+    moveGrasper();
 
     // Read pressures and put in array to be sent
-    updateAllPressures();
+    // updateAllPressures();
 
     // Put encoder values in array to be sent
     updateEncoderData();
@@ -1023,7 +1041,7 @@ void loop() {
     readLoadCells();
 
     // // Read pressure sensors from 16  bit ADC
-    // readADC();
+    readADC();
 
     // Send out data over serial
     writeData();

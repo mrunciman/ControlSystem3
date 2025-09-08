@@ -95,8 +95,8 @@ void setup(void)
   stepper.setMaxAcceleration(500);   //use an acceleration of 2000 fullsteps/s^2
   stepper.setMaxVelocity(1500);        //Max velocity of 800 fullsteps/s
   
-  stepper.checkOrientation(4.0);      //Check orientation of motor connector with +/- 30 microsteps movement
-  stepper.setControlThreshold(15);    //Adjust the control threshold - here set to 15 microsteps before making corrective action
+  // stepper.checkOrientation(4.0);      //Check orientation of motor connector with +/- 30 microsteps movement
+  // stepper.setControlThreshold(15);    //Adjust the control threshold - here set to 15 microsteps before making corrective action
 
   // After orientation check, turn off motors:
   stepper.setBrakeMode(FREEWHEELBRAKE);
@@ -317,7 +317,7 @@ void loop(void)
 
     // Update actual position, expressed in microsteps
     stepCountDriver = stepper.driver.getPosition();
-    int load = stepper.driver.getStallValue();
+    // int load = stepper.driver.getStallValue();
     // Serial.println(load);
 
     // Calculate difference between desired position and actual position

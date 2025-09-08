@@ -94,7 +94,7 @@ class mouseTracker:
         self.yCallback = self.yPix
         self.mouseDown = False
         self.touchDown = False
-        self.start = time.time()
+        self.startTime = time.time()
         self.timeDiff = 0
         self.prevMillis = 0
         self.stopFlag = False
@@ -109,8 +109,26 @@ class mouseTracker:
         self.desZ = []
         self.resetCoordsFlag = False
 
-        self.insideBounds = False
+        # self.pressureList = [0, 0, 0, 0]
+        # self.rotMatrix = np.array([[mt.cos(0), -mt.sin(0), 0],\
+        #                            [mt.sin(0),  mt.cos(0), 0],\
+        #                            [0,      0,             1]])
 
+        self.insideBounds = False
+        # super(mouseTracker, self).__init__()
+        # self.t = threading.Thread(target = self.iterateTracker, args = (self.pressureList, self.rotMatrix))
+        # self.t.name = "cv2Thread"
+        # self.daemon = True
+        # self.alive = True
+        # # self._lock = threading.Lock()
+        # self._connection_made = threading.Event()
+        # self.protocol = None
+
+    # def startThreader(self):
+
+        #LocalReaderThread is the transport, SerialReaderProtocolLine is the protocol
+        # print(self.t)
+        # self.t.start()
 
 
     # Mouse callback function
@@ -346,7 +364,7 @@ class mouseTracker:
             self.stopFlag = True
         now = time.time()
         # Save time since beginning code in ms
-        numMillis = now - self.start #Still in seconds
+        numMillis = now - self.startTime #Still in seconds
         numMillis = numMillis*1000
         self.timeDiff = numMillis - self.prevMillis
         self.prevMillis = numMillis
@@ -406,19 +424,21 @@ if __name__ == "__main__":
     POICoords = None
 
     flagStop = False
+    resetCoordsFlag = False
     pressL = 0
     pressR = 0
     pressT = 0
-    pressList = [pressL, pressR, pressT]
+    pressRegulator = 0
+    pressList = [pressL, pressR, pressT, pressRegulator]
     count = 0
     insideBounds = False
     while flagStop is False:
-        [targetX, targetY, flagStop, insideBounds] = mouseTrack.iterateTracker(pressList, attach_points_rot, POICoords, XYZPathCoords)
+        [targetX, targetY, flagStop, insideBounds, resetCoordsFlag] = mouseTrack.iterateTracker(pressList, attach_points_rot, POICoords, XYZPathCoords)
         # print(insideBounds)
         pressL = 10 + 10*mt.sin(0.1*count)
         pressR = pressL*mt.cos(0.1*count)
         pressT = pressL*mt.sin(0.1*count)
-        pressList = [pressL, pressR, pressT]
+        pressList = [pressL, pressR, pressT, pressRegulator]
 
         XYZPathCoords = [XYZPathCoords[0] + 10*mt.sin(0.01*count), XYZPathCoords[1] + mt.cos(0.01*count), XYZPathCoords[2] + 10*mt.sin(0.01*count)]
         count = count + 1
