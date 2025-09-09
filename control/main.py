@@ -11,12 +11,10 @@ from tkinter import messagebox
 from tkinter import ttk
 import threading
 from functools import partial
-import threading
 import sv_ttk
 import subprocess
 import sys
 import multiprocessing
-# multiprocessing.set_start_method("spawn")
 
 np.set_printoptions(suppress=True, precision = 2)
 
@@ -37,10 +35,9 @@ from modules import QT_Viewer
 
 
 ######################################################################
-def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, visualiserQueue):
+def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, viewerProcess, anglesForViewer):
     
-    qtViewerProcess.start()
-    # subprocess.Popen([sys.executable, "control\\modules\\QT_viewer.py"])
+    viewerProcess.start()
     print("'Move robot' button pressed")
 
     minPress = VAC_PRESS
@@ -478,9 +475,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
         angleTest1, angleTest2 = 0, 0
         while(flagStop == False):
 
-            visualiserQueue.put([angleTest1, initialAngle2])
+            anglesForViewer[0] = angleTest1
+            anglesForViewer[1] = angleTest2
             angleTest1 -= 1
-            angleTest2 += 1
+            angleTest2 += 2
 
             useOmni = classSettings.useOmni
             if useOmni == 1:
@@ -674,8 +672,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
                 pressP = regulatorSensor
                 pressPMed = medPressP.newPressMed(regulatorSensor)
 
-                # pressList = [pressL, pressR, pressT, regulatorSensor]
-                pressList = [pressLMed, pressRMed, pressTMed, pressPMed]
+                pressList = [pressL, pressR, pressT, regulatorSensor]
+                # pressList = [pressLMed, pressRMed, pressTMed, pressPMed]
                 loadList = [loadL, loadR, loadT, loadP]
  
                 # Change pressurebars
@@ -898,7 +896,6 @@ def stopFunction(classSettings, stopButton, startButton, viewerProcess):
 
     if viewerProcess.is_alive():
         viewerProcess.kill()
-        visualiserQueue.close()
 
 
 def resetFunction(classSettings, button, startButton):
@@ -913,17 +910,19 @@ def onClosing(classSettings, dictButtons, viewerProcess):
     dictButtons['stopButton'].config(bg = 'red')
     dictButtons['moveButton'].config(state = 'disabled')
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
-        for thread in threading.enumerate(): 
+        for thread in threading.enumerate():
             if thread.name != "MainThread":
-            #    thread._connection_made.set()
-            #    thread.set
-               thread.join()
+                if thread.name == "ardThread":
+                   pumpController.stopThreader()
+                   pumpController.t.stop()
+                   pumpController.closeSerial()
+                else:
+                    exitCode = thread.join()
+                    print(exitCode, thread.is_alive())
+
+        classSettings.destroyWindow = True
         if viewerProcess.is_alive():
             viewerProcess.kill()
-            visualiserQueue.close()
-        classSettings.destroyWindow = True
-        # rootWindow.after(500, rootWindow.destroy)
-        # rootWindow.destroy()
 
 
 def activateButtons(dictButtons, stopFlag):
@@ -987,8 +986,8 @@ def updatePressures(dictPress, listPress, minPress, maxPress):
             dictPress[p].config(text = str(listPress[listIndex]))
             listIndex = listIndex + 1
 
-def viewer_process(queue):
-    QT_Viewer.run_viewer(queue)
+def viewer_process(angleList):
+    QT_Viewer.run_viewer(angleList)
 
 ########################################################################################################
 # GUI
@@ -1004,10 +1003,11 @@ if __name__ == '__main__':
 
     settingsClass = controlSettings()
 
-    visualiserQueue = multiprocessing.Queue()
+    manager = multiprocessing.Manager()
+
     initialAngle1, initialAngle2 = 0, 0
-    visualiserQueue.put([initialAngle1, initialAngle2])
-    qtViewerProcess = multiprocessing.Process(target=viewer_process, args=(visualiserQueue,))
+    shared_angles = manager.list([initialAngle1, initialAngle2])
+    qtViewerProcess = multiprocessing.Process(target=viewer_process, args=(shared_angles,))
     qtViewerProcess.daemon = True
 
 
@@ -1202,7 +1202,7 @@ if __name__ == '__main__':
     labelDict["pumpLabel"].config(fg = "green") if pumpsConnected else labelDict["pumpLabel"].config(fg = "red")
 
     # Set command for move Robot button, taking in label dictionary
-    moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, pressureDict, settingsClass, pumpController, visualiserQueue]).start())
+    moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, pressureDict, settingsClass, pumpController, qtViewerProcess, shared_angles]).start())
 
 
 
@@ -1281,11 +1281,6 @@ if __name__ == '__main__':
                 pressList = [pressL, pressR, pressT, regulatorSensor]
                 # Change pressurebars
                 updatePressures(pressureDict, pressList, VAC_PRESS, PRESS_MAX_KPA)
-
-    if pumpsConnected:
-        pumpController.stopThreader()
-        pumpController.t.stop()
-        pumpController.closeSerial()
 
     rootWindow.destroy()
 
