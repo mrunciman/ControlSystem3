@@ -475,11 +475,6 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
         angleTest1, angleTest2 = 0, 0
         while(flagStop == False):
 
-            anglesForViewer[0] = angleTest1
-            anglesForViewer[1] = angleTest2
-            angleTest1 -= 1
-            angleTest2 += 2
-
             useOmni = classSettings.useOmni
             if useOmni == 1:
                 if omni_connected:
@@ -572,6 +567,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
             else:
                 dictLabel["grasperLabel"].config(text = "Grasper", fg = "white")
 
+            anglesForViewer[0] = thetaDesired
+            anglesForViewer[1] = azimuthDesired
 
             # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
             # XYZPathCoords are desired coords in 3D.

@@ -2,6 +2,7 @@ import sys
 import vtk
 from PyQt5 import QtWidgets, QtCore
 from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
+import math as mt
 
 class RobotViewer(QtWidgets.QMainWindow):
     def __init__(self, angleInput, parent=None):
@@ -24,14 +25,29 @@ class RobotViewer(QtWidgets.QMainWindow):
 
         # Build a simple 2-joint robot arm
         self.angleList = angleInput
-        self.joint1 = self.make_link([30, 3])  # base link
-        self.joint2 = self.make_link([50, 3])  # second link
+        self.robotShaft = self.make_link([30, 1.5])  # base link
+        self.robotShaft.SetOrientation(-90, 0, 0)
         self.lastAngles = [0, 0]
 
-        self.ren.AddActor(self.joint1)
-        self.ren.AddActor(self.joint2)
+        self.ren.AddActor(self.robotShaft)
 
         self.ren.ResetCamera()
+
+        self.axes = vtk.vtkAxesActor()
+
+        colors = vtk.vtkNamedColors()
+        self.ren.SetBackground(colors.GetColor3d('SlateGray'))
+        rgba = [0] * 4
+        colors.GetColor('Carrot', rgba)
+        self.widget = vtk.vtkOrientationMarkerWidget()
+        self.widget.SetOutlineColor(rgba[0], rgba[1], rgba[2])
+        self.widget.SetOrientationMarker(self.axes)
+        self.widget.SetInteractor(self.vtkWidget)
+        self.widget.SetViewport(0.0, 0.0, 0.4, 0.4)
+        self.widget.SetEnabled(1)
+        self.widget.InteractiveOn()
+
+
 
         # Poll queue for joint updates
         self.timer = QtCore.QTimer()
@@ -55,16 +71,12 @@ class RobotViewer(QtWidgets.QMainWindow):
 
     def update_robot(self, angles):
         """Update robot joint positions based on angles (degrees)."""
-        theta1 = angles[0]
-        theta2 = angles[1]
+        theta1 = angles[0]*180/mt.pi - 90
+        theta2 = angles[1]*180/mt.pi
 
         # Joint 1 rotation around Z
-        self.joint1.SetOrientation(0, 0, theta1)
-        self.joint1.SetPosition(0, 0, 0)
-
-        # Joint 2 attached at end of joint1
-        self.joint2.SetOrientation(0, 0, theta1 + theta2)
-        self.joint2.SetPosition(0, 0, 0)
+        self.robotShaft.SetOrientation(theta1, 0, theta2)
+        self.robotShaft.SetPosition(0, 0, 0)
 
         self.vtkWidget.GetRenderWindow().Render()
 
