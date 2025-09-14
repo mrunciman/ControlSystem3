@@ -35,7 +35,7 @@ from modules import QT_Viewer
 
 
 ######################################################################
-def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, viewerProcess, anglesForViewer):
+def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, viewerProcess, viewerInputList):
     
     viewerProcess.start()
     print("'Move robot' button pressed")
@@ -567,8 +567,6 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
             else:
                 dictLabel["grasperLabel"].config(text = "Grasper", fg = "white")
 
-            anglesForViewer[0] = thetaDesired
-            anglesForViewer[1] = azimuthDesired
 
             # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
             # XYZPathCoords are desired coords in 3D.
@@ -583,6 +581,13 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
             if (omni_connected == False) and (ps4.controller is None):
                 POI_PlaneCoords = None
             [targetX_mouse, targetY_mouse, flagStop, insideBounds, resetFlag] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_rot, POI_PlaneCoords, XYZPathCoords, targ_conty_glob, ps4.controller)
+            viewerInputList[0] = thetaDesired
+            viewerInputList[1] = azimuthDesired
+            viewerInputList[2] = targetOpP
+            viewerInputList[3] = float(targ_conty_glob[0])
+            viewerInputList[4] = float(targ_conty_glob[1])
+            viewerInputList[5] = float(targ_conty_glob[2])
+            # print("From tkinter ", viewerInputList)
 
             # Return target cable lengths at target coords and jacobian at current coords
             [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal, curr_conty_glob, targ_conty_glob)
@@ -1002,9 +1007,10 @@ if __name__ == '__main__':
 
     manager = multiprocessing.Manager()
 
-    initialAngle1, initialAngle2 = 0, 0
-    shared_angles = manager.list([initialAngle1, initialAngle2])
-    qtViewerProcess = multiprocessing.Process(target=viewer_process, args=(shared_angles,))
+    initialAngle1, initialAngle2, prismShaft = 0, 0, 0
+    shaftStartX, shaftStartY, shaftStartZ = 0, 0, 0,
+    viewerInput = manager.list([initialAngle1, initialAngle2, prismShaft, shaftStartX, shaftStartY, shaftStartZ])
+    qtViewerProcess = multiprocessing.Process(target=viewer_process, args=(viewerInput,))
     qtViewerProcess.daemon = True
 
 
@@ -1199,7 +1205,7 @@ if __name__ == '__main__':
     labelDict["pumpLabel"].config(fg = "green") if pumpsConnected else labelDict["pumpLabel"].config(fg = "red")
 
     # Set command for move Robot button, taking in label dictionary
-    moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, pressureDict, settingsClass, pumpController, qtViewerProcess, shared_angles]).start())
+    moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, pressureDict, settingsClass, pumpController, qtViewerProcess, viewerInput]).start())
 
 
 
