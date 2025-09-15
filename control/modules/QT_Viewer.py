@@ -111,16 +111,15 @@ class RobotViewer(QtWidgets.QMainWindow):
         """Update robot joint positions based on angles (degrees)."""
         inclination = angles[0]*180/mt.pi - mt.pi/2
         azimuth = -angles[1]*180/mt.pi
-        self.shaftCyl.SetHeight(self.shaftLength + prismLen)
-        self.robotShaft.SetPosition(0, 0, (self.shaftLength + prismLen)/2)
+        self.shaftCyl.SetHeight(self.shaftLength + prismLen) # Account for prismatic extension
+        self.robotShaft.SetPosition(0, 0, (self.shaftLength + prismLen)/2) # Maintain local axes at shaft base
 
-        # Shaft rotations 
+        # Shaft rotations and positionng of base at end of continuum joint
         transform = vtk.vtkTransform()
         transform.Translate(shaftPosit)
         transform.RotateX(inclination)
         transform.RotateY(azimuth)
-        transform.Translate([0, 0, self.shaftLength+prismLen])
-        self.RobotAssembly.SetUserTransform(transform)
+        self.RobotAssembly.SetUserTransform(transform) # Assembly is local axes and shaft together
 
         self.vtkWidget.GetRenderWindow().Render()
 
