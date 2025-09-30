@@ -31,6 +31,7 @@ from modules import clusterData
 from modules import threadArdComms
 from modules import mouseGUI
 from modules import QT_Viewer
+from modules import pandaViewer
 
 
 
@@ -989,7 +990,7 @@ def updatePressures(dictPress, listPress, minPress, maxPress):
             listIndex = listIndex + 1
 
 def viewer_process(angleList):
-    QT_Viewer.run_viewer(angleList)
+    pandaViewer.run_viewer(angleList)
 
 ########################################################################################################
 # GUI
