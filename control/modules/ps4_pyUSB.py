@@ -6,6 +6,7 @@ import usb.backend.libusb1
 import time
 import threading
 import numpy as np
+import math as mt
 
 # See https://www.psdevwiki.com/ps4/DS4-USB for details on data indices
 
@@ -24,10 +25,8 @@ SETTING_DS4 = 0
 
 ENDPOINT_DS4_OUT = 0 # Input endpoint
 
-# # Find all devices using the libusb1 backend
-# devices = usb.core.find(find_all=True, backend=usb.backend.libusb1.get_backend())
 
-# # # Process the devices (e.g., print their information)
+# devices = usb.core.find(find_all=True, backend=usb.backend.libusb1.get_backend())
 # for device in devices:
 # 	print(f"Device: {device.idVendor=}, {device.idProduct=}")
 
@@ -67,6 +66,10 @@ class ps4USB(threading.Thread):
 		self.yChange = None
 		self.pChange = None
 
+		self.thetaChange = None
+		self.phiChange = None
+		self.radChange = None
+
 		self.ps4Buttons = 0 # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
 
 		self.R1 = False
@@ -81,9 +84,11 @@ class ps4USB(threading.Thread):
 		self.R2_DEADTHRESH = 0.25
 		self.TRIGGER_RANGE = 2
 		self.TRIGGER_SHIFT = 1
-		self.XY_DEADTHRESH = 0.1
+		self.XY_DEADTHRESH = 0.05
 		self.PRISM_CHANGE = 0.1
-		self.XY_SENSITIVITY = 0.5
+		self.XY_SENSITIVITY = 0.25
+		self.PHI_SENSITIVITY = 0.5 #0.0087 approx half a degree
+		self.THETA_SENSITIVITY = 0.5/2
 		self.P_SENSITIVITY = 2.5
 
 
@@ -98,21 +103,38 @@ class ps4USB(threading.Thread):
 			if self.stopped():
 				return
 			if self.controller is not None:
-				self.data = self.endpoint.read(0x40)
-				# print(self.data)
+				try:
+					self.data = self.endpoint.read(0x40)
+					# print(self.data)
 
-				self.RstickX = (self.data[3] - 2**7)/2**7
-				self.RstickY = (self.data[4] - 2**7)/2**7
+					self.RstickX = (self.data[3] - 2**7)/2**7
+					self.RstickY = (self.data[4] - 2**7)/2**7
+					# print("Stick axes: ", self.RstickX,  self.RstickY)
 
-				self.SquButton = self.data[5] & 2**4  !=0
-				self.CroButton = self.data[5] & 2**5  !=0
-				self.CirButton = self.data[5] & 2**6  !=0
-				self.TriButton = self.data[5] & 2**7  !=0
+					self.SquButton = self.data[5] & 2**4  !=0
+					self.CroButton = self.data[5] & 2**5  !=0
+					self.CirButton = self.data[5] & 2**6  !=0
+					self.TriButton = self.data[5] & 2**7  !=0
 
-				self.R1 = self.data[6] & 2**1  != 0
-				self.R2 = self.data[9]/2**8
-				self.getChanges()
-
+					self.R1 = self.data[6] & 2**1  != 0
+					self.R2 = self.data[9]/2**8
+					self.getChanges()
+				except Exception as e:
+					print(f"Error with PS4 controller: {e}")
+					self.controller = None
+			else:
+				# Ps4 controller not connected 
+				# try to reconnect
+				try:
+					self.dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID, backend=BACKEND)
+					if self.dev is not None:
+						self.cfg = self.dev.get_active_configuration()
+						self.interface = self.cfg[(INTERFACE_DS4, SETTING_DS4)]
+						self.endpoint = self.interface[ENDPOINT_DS4_OUT]
+						self.controller = self.endpoint.read(0x40)[0] # equals 1 on success
+				except Exception as e:
+					# print(f"Error with PS4 controller: {e}")
+					self.controller = None
 			# print(self.RstickX , self.RstickY, self.R1, self.R2)
 
 
@@ -120,35 +142,46 @@ class ps4USB(threading.Thread):
 	def getChanges(self):
 	# print("Data getter:", self.RstickH, self.RstickV)
 		if (abs(self.RstickX) > self.XY_DEADTHRESH):
+			self.phiChange = float(self.PHI_SENSITIVITY*self.RstickX)
 			self.xChange = self.XY_SENSITIVITY*self.RstickX
 			# print("RstickH", self.RstickH)
+			# print("Phi Change: ", self.phiChange)
 		else:
-			self.xChange = 0
+			self.xChange = float(0)
+			self.phiChange = float(0)
 
 		if (abs(self.RstickY) > self.XY_DEADTHRESH):
 			self.yChange = self.XY_SENSITIVITY*self.RstickY
+			self.thetaChange = self.THETA_SENSITIVITY*self.RstickY
+			# print("Theta Change: ", self.phiChange)
+
 		else:
-			self.yChange = 0
+			self.yChange = float(0)
+			self.thetaChange = float(0)
 
 		# normR2 = (self.R2 + self.TRIGGER_SHIFT)/self.TRIGGER_RANGE
 		# print("normalised R2: ",normR2, self.R2)
 
 		if (self.R1):
 			self.pChange = -self.P_SENSITIVITY*self.PRISM_CHANGE
+			self.radChange = -self.P_SENSITIVITY*self.PRISM_CHANGE
 		elif (abs(self.R2) > self.R2_DEADTHRESH):
 			self.pChange = self.P_SENSITIVITY*self.PRISM_CHANGE
+			self.radChange = self.P_SENSITIVITY*self.PRISM_CHANGE
 			# print("R2", self.R2)
 		else:
 			self.pChange = 0
+			self.radChange = 0
 
 
 
-	def incrementXYZCoords(self, cX, cY, cZ, degreesToRotate):
+	def incrementXYZCoords(self, cX, cY, cZ, degreesToRotate,  LEVER_POINT = None):
 		#TODO If motion limits reached (esp prismatic) do not change inputs - Don't let Z coord get too low or high 
 		#TODO Encoder check on uSteppers blocking operation? - is sleep causing delay in messages to arduino? Observed pause before usteppers reset 
 		#TODO Load cell calibration
 		#TODO Check calibration routine
 		#TODO New flags for ps4 controller initialisation (try to onnect if haptic not used, or if useOmni but connection failed)
+		# print("Input coords: ", cX, cY, cZ)
 		if self.xChange is None:
 			self.xChange = 0
 
@@ -192,6 +225,92 @@ class ps4USB(threading.Thread):
 		nY = round(nY,2)
 		nZ = round(nZ,2)
 		return nX, nY, nZ
+	
+
+	
+	def incrementSphereCoords(self, c_theta, c_azimuth, c_prism, degreesToRotate):
+
+		# cAltX = -cX - LEVER_POINT[0]
+		# cAltY = cZ - LEVER_POINT[2]
+		# cAltZ = cY - LEVER_POINT[1]
+
+		degreesToRotate = 0
+
+		if self.thetaChange is None:
+			self.thetaChange = float(0)
+
+		if self.phiChange is None:
+			self.phiChange = float(0)
+
+		# Add rotation of coordinates after mapping
+		changeMatrix = np.array([[self.thetaChange],\
+								 [self.phiChange]])
+        
+		if degreesToRotate is not None:
+			radsToRotate = np.radians(degreesToRotate)
+		else:
+			radsToRotate = 0
+
+		changeRotated = np.array([ [np.cos(radsToRotate), -np.sin(radsToRotate)],\
+								   [np.sin(radsToRotate),  np.cos(radsToRotate)]])
+
+		changeRotated = np.dot(changeRotated, changeMatrix)
+
+
+		# print("X Stick: ", self.RstickX)
+		# print("Y Stick: ", self.RstickY)
+		# print("X Change: ", self.xChange)
+		# print("Y Change: ", self.yChange)
+		# print("Phi Change: ", self.phiChange)
+		# print("Theta Change: ", self.thetaChange)
+		changeTheta = changeRotated[0]
+		changePhi = -changeRotated[1]
+		# print(changeTheta.item())
+		# print(changePhi.item())
+
+		# Calculate spherical coordinates:
+		cTheta = c_theta #mt.atan2(mt.sqrt(cAltX**2 + cAltY**2), cAltZ) 
+		cPhi = c_azimuth # mt.atan2(cAltY, cAltX) 
+		cPrism = c_prism #mt.sqrt((cAltX)**2 + (cAltY)**2 + (cAltZ)**2)
+
+		# Increment the theta, phi and radius as input from controller:
+
+		if self.thetaChange is not None:
+			# method .item() converts numpy to native python type
+			nTheta = cTheta + changeTheta.item()*mt.pi/180
+		else:
+			nTheta = cTheta
+
+		if self.phiChange is not None:
+			nPhi = cPhi + changePhi.item()*mt.pi/180
+		else:
+			nPhi = cPhi
+
+		if self.radChange != 0:
+			nPrism = cPrism + self.radChange
+		else:
+			nPrism = cPrism
+
+		# # Convert back to shperical coordinates
+		# nAltX = nRadius*mt.sin(nTheta)*mt.cos(nPhi)
+		# nAltY = nRadius*mt.sin(nTheta)*mt.sin(nPhi)
+		# nAltZ = nRadius*mt.cos(nTheta)
+
+		# #Do the inverse
+		# nX = -(nAltX + LEVER_POINT[0])
+		# nY = nAltZ + LEVER_POINT[1]
+		# nZ = nAltY + LEVER_POINT[2]
+
+		# print("Change in coords:")
+		# print(cX - nX)
+		# print(cY - nY)
+		# print(cZ - nZ)
+		# print()
+
+		# nX = round(nX,2)
+		# nY = round(nY,2)
+		# nZ = round(nZ,2)
+		return nTheta, nPhi, nPrism
 
 
 
@@ -221,7 +340,7 @@ class ps4USB(threading.Thread):
 
 if __name__ == "__main__":
 	ps4 = ps4USB()
-	# print(ps4.controller)
+	print(ps4.controller)
 	if ps4.controller is not None:
 		ps4.start()
 

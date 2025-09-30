@@ -53,14 +53,14 @@ class ardThreader:
 
  
     # The pump controller takes the desired angles (from zero volume)
-    def sendStep(self, stepNumber1, stepNumber2, stepNumber3, stepNumber4, desiredPressure, controlState = None, inflationState = None, buttonsValue = None):
+    def sendStep(self, desiredAngle1, desiredAngle2, desiredAngle3, desiredAngle4, desiredPressure, controlState = None, inflationState = None, buttonsValue = None):
         """
         This function sends ideal position (stepNumber) then receives
         the real step count (stepCount) from arduino.
         steps = sendStep(serialConnection, stepNumber)
         """
         # self.ser.reset_output_buffer()
-        inputList = [stepNumber1, stepNumber2, stepNumber3, stepNumber4, desiredPressure]
+        inputList = [desiredAngle1, desiredAngle2, desiredAngle3, desiredAngle4, desiredPressure]
         stringList = ['', '', '', '', '']
 
         for i in range(len(inputList)):

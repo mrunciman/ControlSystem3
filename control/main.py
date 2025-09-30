@@ -4,19 +4,22 @@ import csv
 import traceback
 import time
 import numpy as np 
+import math as mt
+from mttkinter import mtTkinter as tk
 from tkinter import *
 from tkinter import messagebox
 from tkinter import ttk
 import threading
 from functools import partial
-import threading
 import sv_ttk
+import subprocess
+import sys
+import multiprocessing
 
 np.set_printoptions(suppress=True, precision = 2)
 
-from modules import arduinoInterface
+
 from modules import fibrebotInterface
-from modules import massSpecInterface
 from modules import kinematics
 from modules import ps4_pyUSB
 from modules import pumpLog
@@ -27,19 +30,23 @@ from modules import falconStream
 from modules import clusterData
 from modules import threadArdComms
 from modules import mouseGUI
-from visual_navigation.cam_pose import PoseEstimator
+from modules import pandaViewer
+# from modules import QT_Viewer
 
 
 
 ######################################################################
-def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
+def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, viewerProcess, viewerInputList):
+    
+    viewerProcess.start()
     print("'Move robot' button pressed")
 
     minPress = VAC_PRESS
     deactivateButtons(dictButtons)
     
-    [useVisionFeedback, visionFeedFlag, startWithCalibration, useOmni, socketOmni, useOptitrack, useFibrebot, useMassSpec, usePathFile, goHome, flagStop, socketFalcon]\
+    [useVisionFeedback, visionFeedFlag, startWithCalibration, useOmni, socketOmni, useOptitrack, useFibrebot, moveRobotRunning, usePathFile, goHome, flagStop, socketFalcon, destroyWindow]\
         = list(vars(classSettings).values())
+    classSettings.moveRobotRunning = True
     
     print("Settings: ", vars(classSettings))
 
@@ -47,23 +54,20 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     ############################################################
     # Instantiate classes:
     # sideLength = 18.78 # mm, from workspace2 model
-    sideLength = 30 # mm, from workspace2 model
+    sideLength = 35 # mm, from workspace2 model
 
     kineSolve = kinematics.kineSolver(sideLength)
-    # mouseTrack = mouseGUI.mouseTracker(sideLength)
     ardLogging = pumpLog.ardLogger()
     posLogging = positionInput.posLogger()
     opTrack = optiStream.optiTracker()
     phntmOmni = omniStream.omniStreamer()
     falconIn = falconStream.falconStreamer()
-    dataClust = clusterData.dataClustering()
-    pressDetector = arduinoInterface.ardInterfacer
-    pumpController = threadArdComms.ardThreader()
     medPressL = kinematics.forceDetector()
     medPressR = kinematics.forceDetector()
     medPressT = kinematics.forceDetector()
     medPressP = kinematics.forceDetector()
-    mouseTrack = mouseGUI.mouseTracker(sideLength, kineSolve.MIN_CABLE + kineSolve.RAD_END, kineSolve.MAX_CABLE_DIST)
+    mouseTrack = mouseGUI.mouseTracker(sideLength, kineSolve.RAD_END, kineSolve.MAX_CABLE_DIST)
+    resetFlag = 0
 
     SAMP_FREQ = 1/kineSolve.TIMESTEP
     CALIBRATION_MODE = 0
@@ -73,13 +77,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     DEFLATION_MODE = 1
     SET_PRESS_MODE = 3
 
-    HOMING_POSITION = [0, 0, kineSolve.SHAFT_LENGTH_UJ + kineSolve.LEVER_BASE_Z]
-
-    # Other constants
-    # PRESS_MAX_KPA = 90
-    # VAC_PRESS = -15
-
-    CLOSEMESSAGE = "Closed"
+    HOMING_POSITION = [0, -35, 60]
+    # HOMING_POLAR = [34.9161*np.pi/180, 0,  0.5] # [Incline, azimuth, prism]
+    HOMING_POLAR = [0, 0,  0.5] # [Incline, azimuth, prism]
 
 
     calibrated = not startWithCalibration
@@ -169,32 +169,34 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     omniButtons = 0 #phntmOmni.omniButton # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
 
     # Try to connect to phantom omni. If not connected, use pre-determined coords.
-    # if usePathFile:
     if useOmni == 1:
         if omni_connected:
             # omniX, omniY, omniZ = 0.0, 0.0, 0.0
             omniDataReceived = phntmOmni.getOmniCoords()
             # print("Omni Data Reeceived", omniDataReceived == True)
             [xMap, yMap, zMap] = phntmOmni.omniMap()
+        else:
+            xMap, yMap, zMap = HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]
 
     elif useOmni == 2:
         if falcon_connected:
             falconDataReceived = falconIn.getFalconCoords()
             [xMap, yMap, zMap] = falconIn.falconMap()
-            
         else:
-            with open('C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime/paths/gridPath 2023-03-03 16-29-08 centre 15-8.66025 30x15.0grid 0.048x1.5spacing.csv', newline = '') as csvPath:
-                coordReader = csv.reader(csvPath)
-                for row in coordReader:
-                    xPath.append(float(row[0]))
-                    yPath.append(float(row[1]))
-                    zPath.append(float(row[2]))
-                xMap, yMap, zMap = xPath[0], yPath[0], zPath[0]
-            xMap, yMap, zMap = HOMING_POSITION[0], HOMING_POSITION[1], kineSolve.SHAFT_LENGTH_UJ + kineSolve.LEVER_BASE_Z
+            xMap, yMap, zMap = HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]
 
     else:
         # if ps4.controller is not None:
-        xMap, yMap, zMap = HOMING_POSITION[0], HOMING_POSITION[1], kineSolve.SHAFT_LENGTH_UJ + kineSolve.LEVER_BASE_Z
+        xMap, yMap, zMap = HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]
+
+    if usePathFile:
+        with open('C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime/paths/gridPath 2023-03-03 16-29-08 centre 15-8.66025 30x15.0grid 0.048x1.5spacing.csv', newline = '') as csvPath:
+            coordReader = csv.reader(csvPath)
+            for row in coordReader:
+                xPath.append(float(row[0]))
+                yPath.append(float(row[1]))
+                zPath.append(float(row[2]))
+            xMap, yMap, zMap = xPath[0], yPath[0], zPath[0]
 
     # Button setting from controller for grasper control
     controllerButtons = 0
@@ -202,7 +204,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     # xPath[0], yPath[0], zPath[0] = 15, 8.66, 20
     # xMap, yMap, zMap = xPath[1155], yPath[1155], zPath[1155]+10
     XYZPathCoords = [xMap, yMap, zMap]
+    thetaDesired, azimuthDesired, prismDesired = HOMING_POLAR[0], HOMING_POLAR[1], HOMING_POLAR[2]
     print("Start point: ", XYZPathCoords)
+    print("Start point polar: ", thetaDesired, azimuthDesired, prismDesired)
 
     # Target must be cast as immutable type (float, in this case) so that 
     # the current position doesn't update at same time as target
@@ -214,33 +218,24 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     targetZ = XYZPathCoords[2]
 
 
-    # Fibre related variables
-    fibreDone = False
-    pauseVisFeedback = False
-
-    behaviourState = 1
-
-    MSCounter = 0
-    miniPathCounter = 0
-    numClusters = 0
-
     # Initialise cable length variables 
     cVolL, cVolR, cVolT, cVolP = 0, 0, 0, 0
     cableL, cableR, cableT = kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH, kineSolve.SIDE_LENGTH
-    prismP = 0
+
     targetP = 0
-    [targetXideal, targetYideal, targetP, inclin, azimuth] = kineSolve.intersect(targetX, targetY, targetZ)
+    [targetXideal, targetYideal, targetP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane, XYZPathCoords] = kineSolve.intersectPolar(thetaDesired, azimuthDesired, prismDesired)
+    print("XYZ init from polar: ", XYZPathCoords)
     currentX = targetXideal
     currentY = targetYideal
+    curr_conty_glob = targ_conty_glob
     # print(targetXideal, targetYideal, targetP)
-    [targetL, targetR, targetT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
+    [targetL, targetR, targetT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal, curr_conty_glob, targ_conty_glob)
     targetP = 0
-    # print(targetL, targetR, targetT)
+    currentP = targetP
+    # print(targetL, targetR, targetT, targetP)
     repJaco = cJaco
     repJpinv = cJpinv
 
-    #Cable length to centre of triangle is sideLength/(3**0.5) # tan(30) is 1/sqrt(3)
-    [targetL, targetR, targetT, targetP] = sideLength/(3**0.5), sideLength/(3**0.5), sideLength/(3**0.5), 10  # Cable length to centre of scaffold
 
     # Set current volume (ignore tSpeed and step values) 
     [cVolL, tSpeedL, tStepL, LcRealL, angleL] = kineSolve.length2Vol(cableL, targetL)
@@ -305,7 +300,6 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     optiTrackConnected = False
     if useOptitrack:
         optiTrackConnected = opTrack.optiConnect()
-    # optiTrackConnected = True
 
     ###############################################################
     # Connect to Peripherals
@@ -313,7 +307,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
     # Create function to find available COM ports, listen to replies, and assign COM ports based on replies
 
     # startThreader opens the serial connection and starts the communication thread
-    pumpController.startThreader()
+    # pumpController.startThreader()
     pumpsConnected = pumpController.connected
     print("Connected to Control Unit? ", pumpsConnected)
     
@@ -321,8 +315,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
     if pumpsConnected:
         pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, ISOLATE_P_SUPPLY, controllerButtons)
-    # [pumpCOMS, pumpSer, pumpNames, COMlist] = arduinoInterface.ardConnect()
-    # print(pumpCOMS)
+
 
     fibrebotLink = fibrebotInterface.fibreBot()
     fibreConnected = False
@@ -330,15 +323,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         fibreConnected = fibrebotLink.connect()
         # if fibreConnected:
         print("Fibrebot connected? ", fibreConnected)
-            # print(fibrebotLink.fibreSerial)
 
-    massSpecLink = massSpecInterface.massSpec()
-    msCOM = 'COMX'
-    msConnected = False
-    if useMassSpec:
-        msConnected = massSpecLink.connect(msCOM)
-        # if msConnected:
-        print("Mass spec serial connected? ", msConnected)
 
 
     ###############################################################################################
@@ -358,7 +343,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
             count = 0
             countLimit = 50
-            rampTime = 5 # seconds
+            rampTime = 0.1 # seconds
             while (count <= countLimit):
                 regulatorPressure = round(inflationPressure*(count/countLimit))
                 # print(regulatorPressure)
@@ -381,10 +366,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, loadR, timeR)
                 ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, loadT, timeT)
                 ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, loadP, timeP)
-                # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
                 ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
                 # Ensure same number of rows in position log file
-                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
+                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, ang_around_shaft)
 
                 pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
             time.sleep(0.07)
@@ -434,7 +418,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     [timeL, timeR, timeT, timeP] = [timeL]*4
                     if prevCaliState != pumpController.calibrationByte:
                         prevCaliState = pumpController.calibrationByte
-                    # print(int.from_bytes(pumpController.calibrationByte,'little'), pumpController.calibrationFlag)
+
                     if (int.from_bytes(pumpController.calibrationByte,'little') & 1 != 0):
                         dictPress["pressureL"].config(fg = "green")
                     if (int.from_bytes(pumpController.calibrationByte,'little') & 2 != 0):
@@ -463,10 +447,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, loadR, timeR)
                     ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, loadT, timeT)
                     ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, loadP, timeP)
-                    # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
                     ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
                     # Ensure same number of rows in position log file
-                    posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
+                    posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, ang_around_shaft)
                 print("Calibration done.")
 
         else:
@@ -504,7 +487,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     XYZPathCoords = [xMap, yMap, zMap]
                 else:
                     controllerButtons = 0
-                    XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
+                    # XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
+                    # XYZPathCoords[0], XYZPathCoords[1] = HOMING_POSITION[0], HOMING_POSITION[1]
+                    thetaDesired, azimuthDesired = HOMING_POLAR[0], HOMING_POLAR[1]
                     # print(XYZPathCoords)
                     
             elif useOmni == 2:
@@ -518,7 +503,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                     XYZPathCoords = [xMap, yMap, zMap]
                 else:
                     controllerButtons = 0
-                    XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
+                    # XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
+                    # XYZPathCoords[0], XYZPathCoords[1] = HOMING_POSITION[0], HOMING_POSITION[1]
+                    thetaDesired, azimuthDesired = HOMING_POLAR[0], HOMING_POLAR[1]
                     # print(XYZPathCoords)
                     
             else:
@@ -530,39 +517,46 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                         # print(regulatorPressure, reflateFlag)
                     controllerButtons = ps4Buttons
                     frameRotAngle = dictLabel["rotationSlider"].get()
-                    prevxPS4 = xPS4
-                    prevyPS4 = yPS4
-                    prevzPS4 = zPS4
-                    [temp_xPS4, temp_yPS4, temp_zPS4] = ps4.incrementXYZCoords(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], frameRotAngle)
+                    prevThetaPS4 = thetaDesired
+                    prevAziPS4 = azimuthDesired
+                    prevPrismPS4 = prismDesired
+                    [temp_thetaDesired, temp_azimuthDesired, temp_prismDesired] = ps4.incrementSphereCoords(thetaDesired, azimuthDesired, prismDesired, frameRotAngle)
+                    # print(temp_thetaDesired, temp_azimuthDesired, temp_prismDesired)
                     # Prevent motion if going out of reachable workspace:
-                    [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(temp_xPS4, temp_yPS4, temp_zPS4)
-                    [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
-                    if (targetOpL >= kineSolve.MAX_CABLE_DIST - kineSolve.RAD_END) \
-                        or (targetOpR >= kineSolve.MAX_CABLE_DIST - kineSolve.RAD_END) \
-                        or (targetOpT >= kineSolve.MAX_CABLE_DIST - kineSolve.RAD_END):
-                        xPS4, yPS4, zPS4 = prevxPS4, prevyPS4, prevzPS4
+                    [targetXideal, targetYideal, targetOpP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane, XYZPathCoords] = kineSolve.intersectPolar(temp_thetaDesired, temp_azimuthDesired, temp_prismDesired)
+                    # print(targetXideal, targetYideal, targetOpP)
+                    [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal, curr_conty_glob, targ_conty_glob)
+                    if (targetOpL >= kineSolve.MAX_CABLE_DIST) \
+                        or (targetOpR >= kineSolve.MAX_CABLE_DIST) \
+                        or (targetOpT >= kineSolve.MAX_CABLE_DIST):
+                        thetaDesired, azimuthDesired = prevThetaPS4*0.999, prevAziPS4*0.999
+                        # print("Length error")
+                    elif (kineSolve.MIN_CABLE >= targetOpL) \
+                        or (kineSolve.MIN_CABLE >= targetOpR) \
+                        or (kineSolve.MIN_CABLE >= targetOpT):
+                        thetaDesired, azimuthDesired = prevThetaPS4*0.999, prevAziPS4*0.999
+                        # print("Min length error")
+                    elif resetFlag:
+                        thetaDesired, azimuthDesired = prevThetaPS4*0.999, prevAziPS4*0.995
                     else:
-                        xPS4, yPS4, zPS4 = temp_xPS4, temp_yPS4, temp_zPS4
+                        thetaDesired, azimuthDesired, prismDesired = temp_thetaDesired, temp_azimuthDesired, temp_prismDesired
+
                     # Check limits on prismatic
-                    if (targetOpP >= kineSolve.MAX_EXTEND) and (zPS4 >= prevzPS4):
-                        zPS4 = prevzPS4
-                    elif (targetOpP <= kineSolve.MIN_EXTEND) and (zPS4 <= prevzPS4):
-                        zPS4 = prevzPS4
-                    # if abs(targetXideal) > kineSolve.SIDE_LENGTH/2:
-                    #     xPS4 = prevxPS4
-                    # if abs(targetYideal) > kineSolve.SIDE_LENGTH/2:
-                    #     yPS4 = prevyPS4
-                    XYZPathCoords = [xPS4, yPS4, zPS4]
-                    # print(XYZPathCoords)
-                # elif pathCounter >= len(xPath):
-                #     break               
+                    if (targetOpP >= kineSolve.MAX_EXTEND) and (prismDesired >= prevPrismPS4):
+                        prismDesired = prevPrismPS4
+                    elif (targetOpP <= kineSolve.MIN_EXTEND) and (prismDesired <= prevPrismPS4):
+                        prismDesired = prevPrismPS4
+                    
                 else: #Nothing is connected, stay at home position
                     controllerButtons = 0
-                    XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
+                    # XYZPathCoords[0], XYZPathCoords[1] = HOMING_POSITION[0], HOMING_POSITION[1]
+                    thetaDesired, azimuthDesired = HOMING_POLAR[0], HOMING_POLAR[1]
 
             if classSettings.goToHome:
                 controllerButtons = 0
-                XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], XYZPathCoords[2]]
+                # XYZPathCoords[0], XYZPathCoords[1] = HOMING_POSITION[0], HOMING_POSITION[1]
+                thetaDesired, azimuthDesired = HOMING_POLAR[0], HOMING_POLAR[1]
+                # XYZPathCoords = [HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]]
 
             if controllerButtons == 1:
                 dictLabel["grasperLabel"].config(text = "Grasper open", fg = "green")
@@ -576,22 +570,34 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
             # Ideal target points refer to non-discretised coords on parallel mechanism plane, otherwise, they are discretised.
             # XYZPathCoords are desired coords in 3D.
-            [targetXideal, targetYideal, targetOpP, inclin, azimuth] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
-            POIcoords = [targetXideal, targetYideal]
-            # If no controller connected, set POICoords to None to make mouse control possible
+            # [targetXideal, targetYideal, targetOpP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane] = kineSolve.intersect(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2])
+            # print("incline, azimuth, prism: ", inclin, azimuth, targetOpP)
+            [targetXideal, targetYideal, targetOpP, inclin, ang_around_shaft, azimuth, targ_conty_glob, POI_Plane, XYZPathCoords] = kineSolve.intersectPolar(thetaDesired, azimuthDesired, prismDesired)
+            # print(targ_conty_glob)
+            POI_PlaneCoords = [POI_Plane[0], POI_Plane[1]]
+
+            # print(POI_PlaneCoords)
+            # If no controller connected, set POI_PlaneCoords to None to make mouse control possible
             if (omni_connected == False) and (ps4.controller is None):
-                POIcoords = None
-            [targetX_mouse, targetY_mouse, flagStop, insideBounds] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_rot, POIcoords, XYZPathCoords)
+                POI_PlaneCoords = None
+            [targetX_mouse, targetY_mouse, flagStop, insideBounds, resetFlag] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_rot, POI_PlaneCoords, XYZPathCoords, targ_conty_glob, ps4.controller)
+            viewerInputList[0] = thetaDesired
+            viewerInputList[1] = azimuthDesired
+            viewerInputList[2] = targetOpP
+            viewerInputList[3] = float(targ_conty_glob[0])
+            viewerInputList[4] = float(targ_conty_glob[1])
+            viewerInputList[5] = float(targ_conty_glob[2])
+            # print("From tkinter ", viewerInputList)
 
             # Return target cable lengths at target coords and jacobian at current coords
-            [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal)
+            [targetOpL, targetOpR, targetOpT, cJaco, cJpinv] = kineSolve.cableLengths(currentX, currentY, targetXideal, targetYideal, curr_conty_glob, targ_conty_glob)
 
             # Get cable speeds using Jacobian at current point and calculation of input speed
             [lhsV, rhsV, topV, actualX, actualY, perpAngle] = kineSolve.cableSpeeds(currentX, currentY, targetXideal, targetYideal, cJaco, cJpinv)
             fibrebotLink.lineAngle = perpAngle
 
             # Find actual target cable lengths based on scaled cable speeds that result in 'actual' coords
-            [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY)
+            [scaleTargL, scaleTargR, scaleTargT, repJaco, repJpinv] = kineSolve.cableLengths(currentX, currentY, actualX, actualY, curr_conty_glob, targ_conty_glob)
 
             targetL = scaleTargL
             targetR = scaleTargR 
@@ -628,28 +634,13 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             desiredThetaR = kineSolve.volToAngle(tVolR_Scaled)
             desiredThetaT = kineSolve.volToAngle(tVolT_Scaled)
             desiredThetaP = 360.0*targetOpP/kineSolve.LEAD
-            # print(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, "\n")
+            # print("Motor angles: ", desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, "\n")
 
             # Log desired positions
             if pumpDataUpdated:
-                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
+                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, ang_around_shaft)
 
             if pumpsConnected:
-                # if startWithCalibration:
-                #     # Reduce speed when making first move after calibration.
-                # if useOmni:
-                #     if omni_connected:
-                #         controllerButtons = omniButtons
-                #     else:
-                #         controllerButtons = 0
-                # else:
-                #     if ps4.controller is not None:
-                #         controllerButtons = ps4Buttons
-                #     else:
-                #         controllerButtons = 0
-                # print(controllerButtons)    
-                
-                # regulatorPressure = inflationPressure
 
                 if firstMoveDelay < firstMoveDivider:
                     firstMoveDelay += 1
@@ -683,8 +674,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 pressP = regulatorSensor
                 pressPMed = medPressP.newPressMed(regulatorSensor)
 
-                # pressList = [pressL, pressR, pressT, regulatorSensor]
-                pressList = [pressLMed, pressRMed, pressTMed, pressPMed]
+                pressList = [pressL, pressR, pressT, regulatorSensor]
+                # pressList = [pressLMed, pressRMed, pressTMed, pressPMed]
                 loadList = [loadL, loadR, loadT, loadP]
  
                 # Change pressurebars
@@ -709,9 +700,11 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
             # Update current position, cable lengths, and volumes as previous targets
             currentX = actualX
             currentY = actualY
+            curr_conty_glob = targ_conty_glob
             cableL = targetL
             cableR = targetR
             cableT = targetT
+            currentP = targetP
             cVolL = tVolL
             cVolR = tVolR
             cVolT = tVolT
@@ -763,26 +756,24 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
                 ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, loadR, timeR)
                 ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, loadT, timeT)
                 ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, loadP, timeP)
-                # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
                 ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
                 ardLogging.ardSave()
                 # Ensure same number of rows in position log file
-                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, azimuth)
+                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, ang_around_shaft)
 
                 # if calibrated:
                 controllerButtons = 0
                 pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, HOLD_MODE, DEFLATION_MODE, controllerButtons)
-                pumpController.stopThreader()
+
                 time.sleep(0.2)
                 [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
                 [timeL, timeR, timeT, timeP] = [timeL]*4
-                print("Connection to pump controller closed.")
+                # print("Connection to pump controller closed.")
                 print(realStepL, pressL, timeL)
                 print(realStepR, pressR, timeR)
                 print(realStepT, pressT, timeT)
                 print(realStepP, pressP, timeP)
-                pumpController.t.stop()
-                pumpController.closeSerial()
+
 
 
 
@@ -791,7 +782,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
 
 
             #Save pose estimation data
-            massSpecLink.savePoseMassSpec()
+            # massSpecLink.savePoseMassSpec()
 
 
             # #Save optitrack data
@@ -845,6 +836,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings):
         
         
         print("Move Robot complete.")
+        classSettings.moveRobotRunning = False
 
 
 
@@ -863,11 +855,12 @@ class controlSettings:
         self.socketOmni = None
         self.useOptitrack = False
         self.useFibrebot = False
-        self.useMassSpec = False
+        self.moveRobotRunning = False
         self.usePathFile = False
         self.goToHome = False
         self.stopFlag = False
         self.socketFalcon = None
+        self.destroyWindow = False
 
 
 
@@ -898,10 +891,13 @@ def toggleInputButton(classSettings, attrib, button):
         button.config(text = "Falcon", bg = 'blue')
 
 
-def stopFunction(classSettings, stopButton, startButton):
+def stopFunction(classSettings, stopButton, startButton, viewerProcess):
     classSettings.stopFlag = True
     stopButton.config(bg = 'red')
     startButton.config(state = 'disabled')
+
+    if viewerProcess.is_alive():
+        viewerProcess.kill()
 
 
 def resetFunction(classSettings, button, startButton):
@@ -910,18 +906,25 @@ def resetFunction(classSettings, button, startButton):
     startButton.config(state = 'normal')
 
 
-def onClosing(classSettings, dictButtons):
+def onClosing(classSettings, dictButtons, viewerProcess):
     # Exit control loop properly
     classSettings.stopFlag = True
     dictButtons['stopButton'].config(bg = 'red')
     dictButtons['moveButton'].config(state = 'disabled')
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
-        for thread in threading.enumerate(): 
+        for thread in threading.enumerate():
             if thread.name != "MainThread":
-            #    thread._connection_made.set()
-            #    thread.set
-               thread.join()
-        rootWindow.destroy()
+                if thread.name == "ardThread":
+                   pumpController.stopThreader()
+                   pumpController.t.stop()
+                   pumpController.closeSerial()
+                else:
+                    exitCode = thread.join()
+                    print(exitCode, thread.is_alive())
+
+        classSettings.destroyWindow = True
+        if viewerProcess.is_alive():
+            viewerProcess.kill()
 
 
 def activateButtons(dictButtons, stopFlag):
@@ -985,274 +988,310 @@ def updatePressures(dictPress, listPress, minPress, maxPress):
             dictPress[p].config(text = str(listPress[listIndex]))
             listIndex = listIndex + 1
 
-
+def viewer_process(angleList):
+    pandaViewer.run_viewer(angleList)
+    print("Visualiser process")
 
 ########################################################################################################
 # GUI
 ########################################################################################################
+if __name__ == '__main__':
+    rootWindow = Tk()
+    rootWindow.title("Soft Robot Control System")
+    rootWindow.geometry("1000x500")
 
-rootWindow = Tk()
-rootWindow.title("Soft Robot Control System")
-rootWindow.geometry("1000x500")
+    contentFrame = ttk.Frame(rootWindow)
+    winStyle = ttk.Style()
+    winStyle.theme_use("classic")
 
-contentFrame = ttk.Frame(rootWindow)
-winStyle = ttk.Style()
-winStyle.theme_use("classic")
+    settingsClass = controlSettings()
 
-settingsClass = controlSettings()
+    manager = multiprocessing.Manager()
 
-
-# Headings
-headingSLabel = Label(contentFrame, text = "Settings", font='bold')
-headingLLabel = Label(contentFrame, text = "Status", font='bold')
-headingPLabel = Label(contentFrame, text = "Pressures", font='bold')
-
-
-# Create buttons
-
-buttonDict = {}
-calibrateButton = Button(contentFrame, text = "Calibrate robot at start")
-attrStr = 'startWithCalibration'
-buttonObj = calibrateButton
-buttonDict.update({"calibrateButton" : buttonObj})
-calibrateButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
-
-optiButton = Button(contentFrame, text = "Use OptiTrack")
-attrStr = 'useOptitrack'
-buttonObj = optiButton
-buttonDict.update({"optiButton" : buttonObj})
-optiButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
-
-fibreButton = Button(contentFrame, text = "Use fibrebot")
-attrStr = 'useFibrebot'
-buttonObj = fibreButton
-buttonDict.update({"fibreButton" : buttonObj})
-fibreButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
-
-msButton = Button(contentFrame, text = "Use mass spec")
-attrStr = 'useMassSpec'
-buttonObj = msButton
-buttonDict.update({"msButton" : buttonObj})
-msButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
-
-omniButton = Button(contentFrame, text = "Use haptic device")
-attrStr = 'useOmni'
-buttonObj = omniButton
-buttonDict.update({"omniButton" : buttonObj})
-omniButton.config(command = partial(toggleInputButton, settingsClass, attrStr, buttonObj))
-buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+    initialAngle1, initialAngle2, prismShaft = 0, 0, 0
+    shaftStartX, shaftStartY, shaftStartZ = 0, 0, 0,
+    viewerInput = manager.list([initialAngle1, initialAngle2, prismShaft, shaftStartX, shaftStartY, shaftStartZ])
+    qtViewerProcess = multiprocessing.Process(target=viewer_process, args=(viewerInput,))
+    qtViewerProcess.daemon = True
 
 
-# pathButton = Button(rootWindow, text = "Follow preprogrammed path")
-# attrStr = 'usePathFile'
-# buttonObj = optiButton
-# buttonDict.update({"optiButton" : buttonObj})
-# pathButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-# buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+    # Headings
+    headingSLabel = Label(contentFrame, text = "Settings", font='bold')
+    headingLLabel = Label(contentFrame, text = "Status", font='bold')
+    headingPLabel = Label(contentFrame, text = "Pressures", font='bold')
 
 
-visButton = Button(contentFrame, text = "Use pose estimator")
-attrStr = 'useVisionFeedback'
-buttonObj = visButton
-buttonDict.update({"visButton" : buttonObj})
-visButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
-# visButton.config(command = (lambda s, f, b : toggleButton(s, f, b))(settingsClass, attrStr, buttonObj))
+    # Create buttons
 
-homeButton = Button(contentFrame, text = "Home Position")
-attrStr = 'goToHome'
-buttonObj = homeButton
-buttonDict.update({"homeButton" : buttonObj})
-homeButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+    buttonDict = {}
+    calibrateButton = Button(contentFrame, text = "Calibrate robot at start")
+    attrStr = 'startWithCalibration'
+    buttonObj = calibrateButton
+    buttonDict.update({"calibrateButton" : buttonObj})
+    calibrateButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+
+    optiButton = Button(contentFrame, text = "Use OptiTrack")
+    attrStr = 'useOptitrack'
+    buttonObj = optiButton
+    buttonDict.update({"optiButton" : buttonObj})
+    optiButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+
+    fibreButton = Button(contentFrame, text = "Use fibrebot")
+    attrStr = 'useFibrebot'
+    buttonObj = fibreButton
+    buttonDict.update({"fibreButton" : buttonObj})
+    fibreButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+
+    msButton = Button(contentFrame, text = "Use mass spec")
+    attrStr = 'moveRobotRunning'
+    buttonObj = msButton
+    buttonDict.update({"msButton" : buttonObj})
+    msButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+
+    omniButton = Button(contentFrame, text = "Use haptic device")
+    attrStr = 'useOmni'
+    buttonObj = omniButton
+    buttonDict.update({"omniButton" : buttonObj})
+    omniButton.config(command = partial(toggleInputButton, settingsClass, attrStr, buttonObj))
+    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
 
+    # pathButton = Button(rootWindow, text = "Follow preprogrammed path")
+    # attrStr = 'usePathFile'
+    # buttonObj = optiButton
+    # buttonDict.update({"optiButton" : buttonObj})
+    # pathButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    # buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
-#Start and stop buttons
-moveButton = Button(contentFrame, text = "Start robot")
-buttonObj = moveButton
-buttonDict.update({"moveButton" : buttonObj})
 
-stopButton = Button(contentFrame, text = "Stop")
-buttonObj = stopButton
-buttonDict.update({"stopButton" : buttonObj})
-stopButton.config(command = partial(stopFunction, settingsClass, buttonObj, moveButton))
+    visButton = Button(contentFrame, text = "Use pose estimator")
+    attrStr = 'useVisionFeedback'
+    buttonObj = visButton
+    buttonDict.update({"visButton" : buttonObj})
+    visButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+    # visButton.config(command = (lambda s, f, b : toggleButton(s, f, b))(settingsClass, attrStr, buttonObj))
 
-resetButton = Button(contentFrame, text = "Reset")
-buttonObj = stopButton
-resetButton.config(command = partial(resetFunction, settingsClass, buttonObj, moveButton))
-buttonObj = resetButton
-buttonDict.update({"resetButton" : buttonObj})
+    homeButton = Button(contentFrame, text = "Home Position")
+    attrStr = 'goToHome'
+    buttonObj = homeButton
+    buttonDict.update({"homeButton" : buttonObj})
+    homeButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
 
 
+    #Start and stop buttons
+    moveButton = Button(contentFrame, text = "Start robot")
+    buttonObj = moveButton
+    buttonDict.update({"moveButton" : buttonObj})
 
-# Status labels
-labelDict = {}
-pumpLabel = Label(contentFrame, text = "Pump controller connection")
-labelObj = pumpLabel
-labelDict.update({"pumpLabel" : labelObj})
+    stopButton = Button(contentFrame, text = "Stop")
+    buttonObj = stopButton
+    buttonDict.update({"stopButton" : buttonObj})
+    stopButton.config(command = partial(stopFunction, settingsClass, buttonObj, moveButton, qtViewerProcess))
 
-omniLabel = Label(contentFrame, text = "Haptic connected")
-labelObj = omniLabel
-labelDict.update({"omniLabel" : omniLabel})
-
-calibrationLabel = Label(contentFrame, text = "Calibration")
-labelObj = calibrationLabel
-labelDict.update({"calibrationLabel" : labelObj})
-
-grasperLabel = Label(contentFrame, text = "Grasper")
-labelObj = grasperLabel
-labelDict.update({"grasperLabel" : labelObj})
+    resetButton = Button(contentFrame, text = "Reset")
+    buttonObj = stopButton
+    resetButton.config(command = partial(resetFunction, settingsClass, buttonObj, moveButton))
+    buttonObj = resetButton
+    buttonDict.update({"resetButton" : buttonObj})
 
 
 
 
+    # Status labels
+    labelDict = {}
+    pumpLabel = Label(contentFrame, text = "Pump controller connection")
+    labelObj = pumpLabel
+    labelDict.update({"pumpLabel" : labelObj})
 
+    omniLabel = Label(contentFrame, text = "Haptic connected")
+    labelObj = omniLabel
+    labelDict.update({"omniLabel" : omniLabel})
 
-# Progressbars for pressure sensors
-pressureDict = {}
+    calibrationLabel = Label(contentFrame, text = "Calibration")
+    labelObj = calibrationLabel
+    labelDict.update({"calibrationLabel" : labelObj})
 
-barLength = 300
-barWidth = 80
-barAndPadWidth = 100
-padSize = int((barAndPadWidth-barWidth)/2)
-numberBars = 4
-# Other constants
-PRESS_MAX_KPA = 500 # TODO CHange back to 100 kPa
-VAC_PRESS = -40
-guiPressFactor = 1 - abs(VAC_PRESS)/(PRESS_MAX_KPA - VAC_PRESS)
-
-pressureDict.update({"lengthBar" : barLength})
-
-canvasHeight = 200
-pressureDict.update({"canvasHeight" : canvasHeight})
-pressCanvas = Canvas(contentFrame, width = barAndPadWidth*numberBars, height = canvasHeight, bg='gray')
-pressureDict.update({"pressCanvas":pressCanvas})
-
-rectNo = 0
-pressureBar1 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
-                                            padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
-pressureDict.update({"pressBar1":pressureBar1})
-
-rectNo = 1
-pressureBar2 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
-                                            padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
-pressureDict.update({"pressBar2":pressureBar2})
-
-rectNo = 2
-pressureBar3 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
-                                            padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
-pressureDict.update({"pressBar3":pressureBar3})
-
-rectNo = 3
-pressureBar4 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
-                                            padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
-pressureDict.update({"pressBarAir4":pressureBar4})
-
-pressureL = Label(contentFrame, text = "Pressure L")
-pressureR = Label(contentFrame, text = "Pressure R")
-pressureT = Label(contentFrame, text = "Pressure T")
-pressureStruct = Label(contentFrame, text = "Pressure Struct")
-pressureDict.update({"pressureL":pressureL})
-pressureDict.update({"pressureR":pressureR})
-pressureDict.update({"pressureT":pressureT})
-pressureDict.update({"pressureStruct":pressureStruct})
-
-
-press1Label = Label(contentFrame, text = "Pressure L")
-press2Label = Label(contentFrame, text = "Pressure R")
-press3Label = Label(contentFrame, text = "Pressure T")
-pressPLabel = Label(contentFrame, text = "Pressure Struct")
-pressureLabels = [press1Label, press2Label, press3Label, pressPLabel]
-
-
-# Creates slider to rotate input device coordinates.
-# To be placed below the pressure bars, so it is the same width as the pressure bar canvas
-rotationSlider = Scale(contentFrame, from_=180, to=-180, length = barAndPadWidth*numberBars, tickinterval=60, orient = HORIZONTAL)
-labelDict.update({"rotationSlider" : rotationSlider})
+    grasperLabel = Label(contentFrame, text = "Grasper")
+    labelObj = grasperLabel
+    labelDict.update({"grasperLabel" : labelObj})
 
 
 
-# Set command for move Robot button, taking in label dictionary
-moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, pressureDict, settingsClass]).start())
 
 
 
-#################################################################
-# Placement
+    # Progressbars for pressure sensors
+    pressureDict = {}
 
-contentFrame.grid(column=0, row=0)
-yPadding = 10
-xPadding = 10
+    barLength = 300
+    barWidth = 80
+    barAndPadWidth = 100
+    padSize = int((barAndPadWidth-barWidth)/2)
+    numberBars = 4
+    # Other constants
+    PRESS_MAX_KPA = 150 # TODO Change back to 100
+    VAC_PRESS = -40
+    guiPressFactor = 1 - abs(VAC_PRESS)/(PRESS_MAX_KPA - VAC_PRESS)
+
+    pressureDict.update({"lengthBar" : barLength})
+
+    canvasHeight = 200
+    pressureDict.update({"canvasHeight" : canvasHeight})
+    pressCanvas = Canvas(contentFrame, width = barAndPadWidth*numberBars, height = canvasHeight, bg='gray')
+    pressureDict.update({"pressCanvas":pressCanvas})
+
+    rectNo = 0
+    pressureBar1 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
+                                                padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
+    pressureDict.update({"pressBar1":pressureBar1})
+
+    rectNo = 1
+    pressureBar2 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
+                                                padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
+    pressureDict.update({"pressBar2":pressureBar2})
+
+    rectNo = 2
+    pressureBar3 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
+                                                padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
+    pressureDict.update({"pressBar3":pressureBar3})
+
+    rectNo = 3
+    pressureBar4 = pressCanvas.create_rectangle(padSize + rectNo*barAndPadWidth, guiPressFactor*canvasHeight,\
+                                                padSize + barWidth + rectNo*barAndPadWidth, guiPressFactor*canvasHeight, fill = 'red')
+    pressureDict.update({"pressBarAir4":pressureBar4})
+
+    pressureL = Label(contentFrame, text = "Pressure L")
+    pressureR = Label(contentFrame, text = "Pressure R")
+    pressureT = Label(contentFrame, text = "Pressure T")
+    pressureStruct = Label(contentFrame, text = "Pressure Struct")
+    pressureDict.update({"pressureL":pressureL})
+    pressureDict.update({"pressureR":pressureR})
+    pressureDict.update({"pressureT":pressureT})
+    pressureDict.update({"pressureStruct":pressureStruct})
 
 
-headingSLabel.grid(column = 0, row = 0, pady = yPadding, padx = xPadding)
-headingLLabel.grid(column = 1, row = 0, pady = yPadding, padx = xPadding)
-headingPLabel.grid(column = 4, row = 0, columnspan = 2, pady = yPadding, padx = xPadding)
-pressCanvas.grid(column = 3, row = 2, rowspan = 6, columnspan = 4, pady = yPadding, padx = xPadding)
+    press1Label = Label(contentFrame, text = "Pressure L")
+    press2Label = Label(contentFrame, text = "Pressure R")
+    press3Label = Label(contentFrame, text = "Pressure T")
+    pressPLabel = Label(contentFrame, text = "Pressure Struct")
+    pressureLabels = [press1Label, press2Label, press3Label, pressPLabel]
 
-# Place buttons
-rowZerothColumn = 1
-columnNo = 0
-for b in buttonDict:
-    if b not in ["moveButton", "stopButton", "resetButton"]:
-        buttonDict[b].grid(column = columnNo, row = rowZerothColumn, pady = yPadding, padx = xPadding)
-        rowZerothColumn = rowZerothColumn + 1
-    else:
-        buttonDict[b].grid(column = columnNo, row = rowZerothColumn + 1, pady = yPadding, padx = xPadding)
+
+    # Creates slider to rotate input device coordinates.
+    # To be placed below the pressure bars, so it is the same width as the pressure bar canvas
+    rotationSlider = Scale(contentFrame, from_=180, to=-180, length = barAndPadWidth*numberBars, tickinterval=60, orient = HORIZONTAL)
+    labelDict.update({"rotationSlider" : rotationSlider})
+
+    zeroAngle = 0
+    zeroPress = 0
+    buttonValue = 0
+    pumpController = threadArdComms.ardThreader()
+    # startThreader opens the serial connection and starts the communication thread
+    pumpController.startThreader()
+    pumpsConnected = pumpController.connected
+    HOLD_MODE = 1
+    ISOLATE_P_SUPPLY = 0
+
+    if pumpsConnected:
+        pumpController.sendStep(zeroAngle, zeroAngle, zeroAngle, zeroAngle, zeroPress, HOLD_MODE, ISOLATE_P_SUPPLY, buttonValue)
+
+    print("Connected to Control Unit? ", pumpsConnected)
+    labelDict["pumpLabel"].config(fg = "green") if pumpsConnected else labelDict["pumpLabel"].config(fg = "red")
+
+    # Set command for move Robot button, taking in label dictionary
+    moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, pressureDict, settingsClass, pumpController, qtViewerProcess, viewerInput]).start())
+
+
+
+    #################################################################
+    # Placement
+
+    contentFrame.grid(column=0, row=0)
+    yPadding = 10
+    xPadding = 10
+
+
+    headingSLabel.grid(column = 0, row = 0, pady = yPadding, padx = xPadding)
+    headingLLabel.grid(column = 1, row = 0, pady = yPadding, padx = xPadding)
+    headingPLabel.grid(column = 4, row = 0, columnspan = 2, pady = yPadding, padx = xPadding)
+    pressCanvas.grid(column = 3, row = 2, rowspan = 6, columnspan = 4, pady = yPadding, padx = xPadding)
+
+    # Place buttons
+    rowZerothColumn = 1
+    columnNo = 0
+    for b in buttonDict:
+        if b not in ["moveButton", "stopButton", "resetButton"]:
+            buttonDict[b].grid(column = columnNo, row = rowZerothColumn, pady = yPadding, padx = xPadding)
+            rowZerothColumn = rowZerothColumn + 1
+        else:
+            buttonDict[b].grid(column = columnNo, row = rowZerothColumn + 1, pady = yPadding, padx = xPadding)
+            columnNo = columnNo + 1
+    # columnNo = 0
+    # homeButton.grid(column = columnNo, row = rowZerothColumn + 2, pady = yPadding, padx = xPadding)
+    moveButtonRow = rowZerothColumn
+
+    columnNo = 3
+    rotationSlider.grid(column = columnNo, row = rowZerothColumn + 2, columnspan = 4, pady = yPadding, padx = xPadding)
+
+    # Place labels
+    rowFirstColumn = 1
+    columnNo = 1
+    for l in labelDict:
+        if l not in ["rotationSlider"]: # Exclude rotation slider here
+            labelDict[l].grid(column = columnNo, row = rowFirstColumn, pady = yPadding, padx = xPadding)
+            rowFirstColumn = rowFirstColumn + 1
+
+
+    # Place pressure displays and labels
+    lastRow = max(rowZerothColumn, rowFirstColumn)
+    columnNo = 3
+    labelIndex = 0
+    for pL in pressureLabels:
+        pL.grid(column = columnNo, row = 1, pady = yPadding, padx = xPadding)
         columnNo = columnNo + 1
-# columnNo = 0
-# homeButton.grid(column = columnNo, row = rowZerothColumn + 2, pady = yPadding, padx = xPadding)
-moveButtonRow = rowZerothColumn
+        labelIndex = labelIndex + 1
 
-columnNo = 3
-rotationSlider.grid(column = columnNo, row = rowZerothColumn + 2, columnspan = 4, pady = yPadding, padx = xPadding)
-
-# Place labels
-rowFirstColumn = 1
-columnNo = 1
-for l in labelDict:
-    if l not in ["rotationSlider"]: # Exclude rotation slider here
-        labelDict[l].grid(column = columnNo, row = rowFirstColumn, pady = yPadding, padx = xPadding)
-        rowFirstColumn = rowFirstColumn + 1
-
-
-# Place pressure displays and labels
-lastRow = max(rowZerothColumn, rowFirstColumn)
-columnNo = 3
-labelIndex = 0
-for pL in pressureLabels:
-    pL.grid(column = columnNo, row = 1, pady = yPadding, padx = xPadding)
-    columnNo = columnNo + 1
-    labelIndex = labelIndex + 1
-
-columnNo = 3
-for p in pressureDict:
-    if "pressure" in p:
-        pressureDict[p].grid(column = columnNo, row = moveButtonRow - 1, pady = yPadding, padx = xPadding)
-        columnNo = columnNo + 1
+    columnNo = 3
+    for p in pressureDict:
+        if "pressure" in p:
+            pressureDict[p].grid(column = columnNo, row = moveButtonRow - 1, pady = yPadding, padx = xPadding)
+            columnNo = columnNo + 1
 
 
 
-# Set what to do when window is closed
-rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass, buttonDict))
+    # Set what to do when window is closed
+    rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass, buttonDict, qtViewerProcess))
 
-# This is where the magic happens
-sv_ttk.set_theme("dark")
+    # This is where the magic happens
+    sv_ttk.set_theme("dark")
 
-#Begin Tk loop
-# rootWindow.attributes('-topmost',True)
-rootWindow.mainloop()
+    #Begin Tk loop
+    # rootWindow.attributes('-topmost',True)
+    # rootWindow.mainloop()
 
-#TODO close threads and disconnect properly if window closed
-# make a dict of buttons, not a list
-# add status labels e.g. to show if arduinos connected
-# add bars that change colour/height depending on pressure (normalse to MAX_PRESS)
+    while (settingsClass.destroyWindow is False):
+        rootWindow.update_idletasks()
+        rootWindow.update()
+        if pumpsConnected:
+            if (settingsClass.moveRobotRunning == False):
+                [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
+                pressList = [pressL, pressR, pressT, regulatorSensor]
+                # Change pressurebars
+                updatePressures(pressureDict, pressList, VAC_PRESS, PRESS_MAX_KPA)
+
+    rootWindow.destroy()
+
+    #TODO close threads and disconnect properly if window closed
+    # make a dict of buttons, not a list
+    # add status labels e.g. to show if arduinos connected
+    # add bars that change colour/height depending on pressure (normalse to MAX_PRESS)
 
 
 

@@ -94,7 +94,7 @@ class mouseTracker:
         self.yCallback = self.yPix
         self.mouseDown = False
         self.touchDown = False
-        self.start = time.time()
+        self.startTime = time.time()
         self.timeDiff = 0
         self.prevMillis = 0
         self.stopFlag = False
@@ -107,9 +107,28 @@ class mouseTracker:
         self.desX = []
         self.desY = []
         self.desZ = []
+        self.resetCoordsFlag = False
+
+        # self.pressureList = [0, 0, 0, 0]
+        # self.rotMatrix = np.array([[mt.cos(0), -mt.sin(0), 0],\
+        #                            [mt.sin(0),  mt.cos(0), 0],\
+        #                            [0,      0,             1]])
 
         self.insideBounds = False
+        # super(mouseTracker, self).__init__()
+        # self.t = threading.Thread(target = self.iterateTracker, args = (self.pressureList, self.rotMatrix))
+        # self.t.name = "cv2Thread"
+        # self.daemon = True
+        # self.alive = True
+        # # self._lock = threading.Lock()
+        # self._connection_made = threading.Event()
+        # self.protocol = None
 
+    # def startThreader(self):
+
+        #LocalReaderThread is the transport, SerialReaderProtocolLine is the protocol
+        # print(self.t)
+        # self.t.start()
 
 
     # Mouse callback function
@@ -120,6 +139,8 @@ class mouseTracker:
         self.trueMouseEvent = event
         self.xCallback = x
         self.yCallback = y
+        self.xShaftAttach = self.xCallback
+        self.yShaftAttach = self.yCallback
         if (self.mouseEvent == cv2.EVENT_LBUTTONDOWN) or (param is not None):
             self.mouseDown = True
         if self.mouseEvent == cv2.EVENT_LBUTTONUP:
@@ -147,7 +168,10 @@ class mouseTracker:
         # If inside, move end effector and log.
         touching = neighPath.contains_point([self.xCallback, self.yCallback])
         # Check if point is inside triangle workspace
+        # print("callack: ", self.xCallback, self.yCallback)
+        # print(self.xShaftAttach, self.yShaftAttach)
         insideTri = self.path.contains_point([self.xCallback, self.yCallback])
+        # insideTri = self.path.contains_point([self.xShaftAttach, self.yShaftAttach])
         radDiff1 = np.array([[self.vt1[0]], [self.vt1[1]]]) - np.array([[self.xCallback], [self.yCallback]])
         radDiff2 = np.array([[self.vt2[0]], [self.vt2[1]]]) - np.array([[self.xCallback], [self.yCallback]])
         radDiff3 = np.array([[self.vt3[0]], [self.vt3[1]]]) - np.array([[self.xCallback], [self.yCallback]])
@@ -156,7 +180,9 @@ class mouseTracker:
         proxVt3 = self.radRestrPixSma < la.norm(radDiff3) < self.radRestrictPix
         insideAll = insideTri*proxVt1*proxVt2*proxVt3
         self.insideBounds = insideAll
-        # print(insideAll)
+        if not proxVt3:
+            print("Touch")
+        # print(proxVt3)
 
         # Check if mouse button was pressed down (event = 1)
             # or if params is not None
@@ -183,12 +209,13 @@ class mouseTracker:
             # insideAll = True
 
         if insideAll == True:
+            self.resetCoordsFlag = False
             if self.mouseDown == True:
                 if self.touchDown == True:
                     # Check if moving
                     if (self.mouseEvent == cv2.EVENT_MOUSEMOVE):
                         # Draw objects:
-                        self.drawLines(self.xCallback, self.yCallback, attach_points)
+                        self.drawLines(self.xCallback, self.yCallback, self.xShaftAttach, self.yShaftAttach, attach_points)
                         # Find values in terms of triangle geometry, not pixels:
                         self.xPix = self.xCallback
                         self.yPix = self.yCallback
@@ -200,6 +227,7 @@ class mouseTracker:
                         #     [self.xCallback] + [self.yCallback])
         else:
             self.touchDown = False
+            self.resetCoordsFlag = True
 
 
 
@@ -207,7 +235,7 @@ class mouseTracker:
 # Call function to instantiate canvas and set callback function
     def createTracker(self, attach_points):
         # Create a blank image, a window and bind the callback function to window
-        self.drawLines(self.xPix, self.yPix, attach_points)
+        self.drawLines(self.xPix, self.yPix, self.xPix, self.yPix, attach_points)
         # Create a window with a given name
         cv2.namedWindow(self.windowName)
         cv2.moveWindow(self.windowName, 1000, 0)
@@ -216,7 +244,7 @@ class mouseTracker:
 
 
     # Redraws the canvas
-    def drawLines(self, POI_x, POI_y, attach_points):
+    def drawLines(self, POI_x_Plane, POI_y_Plane, POI_x, POI_y, attach_points):
         # Reset background
         self.bkGd[:,:] = (255, 255, 255)
         # Draw circles with radius of min reach
@@ -245,13 +273,13 @@ class mouseTracker:
         cv2.line(self.bkGd, (self.vt2[0], self.vt2[1]), (x_rhs, y_rhs), cableColour, cableThickness)
         cv2.line(self.bkGd, (self.vt3[0], self.vt3[1]), (x_top, y_top), cableColour, cableThickness)
         # Initial position of end effector (25, 14.435)
-        cv2.circle(self.bkGd, (POI_x, POI_y), self.radius, colourPOI, thicknessPOI)
+        cv2.circle(self.bkGd, (POI_x_Plane, POI_y_Plane), self.radius, colourPOI, thicknessPOI)
         # Entry point triangle
         cv2.polylines(self.bkGd, [self.vts], True, structColour, structThickness)
 
 
 
-    def iterateTracker(self, listPress, attach_points, POI = None, desiredPoints = None):
+    def iterateTracker(self, listPress, attach_points, POI = None, desiredPoints = None, targ_conty_glob = None, controller = None):
         # Bind mouseInfo mouse callback function to window
         # cv2.setMouseCallback(self.windowName, self.mouseInfo, POI)
         # If path coordinates not specified, use mouse. Path has priority
@@ -264,7 +292,9 @@ class mouseTracker:
             POI_canvas[1] = POI[1] + mt.tan(mt.pi/6)*self.sideLength/2
 
             self.xCallback = round(POI[0]/self.resolution)
+            self.xShaftAttach = round((targ_conty_glob[0] + self.sideLength/2)/self.resolution)
             self.yCallback = self.canvasY - round(POI[1]/self.resolution)
+            self.yShaftAttach = self.canvasY - round((targ_conty_glob[1] + mt.tan(mt.pi/6)*self.sideLength/2)/self.resolution)
 
             self.mouseEvent = cv2.EVENT_MOUSEMOVE
             self.drawCables(attach_points, POI_canvas)
@@ -334,11 +364,11 @@ class mouseTracker:
             self.stopFlag = True
         now = time.time()
         # Save time since beginning code in ms
-        numMillis = now - self.start #Still in seconds
+        numMillis = now - self.startTime #Still in seconds
         numMillis = numMillis*1000
         self.timeDiff = numMillis - self.prevMillis
         self.prevMillis = numMillis
-        return self.xCoord, self.yCoord, self.stopFlag, self.insideBounds
+        return self.xCoord, self.yCoord, self.stopFlag, self.insideBounds, self.resetCoordsFlag
 
 
 
@@ -394,19 +424,21 @@ if __name__ == "__main__":
     POICoords = None
 
     flagStop = False
+    resetCoordsFlag = False
     pressL = 0
     pressR = 0
     pressT = 0
-    pressList = [pressL, pressR, pressT]
+    pressRegulator = 0
+    pressList = [pressL, pressR, pressT, pressRegulator]
     count = 0
     insideBounds = False
     while flagStop is False:
-        [targetX, targetY, flagStop, insideBounds] = mouseTrack.iterateTracker(pressList, attach_points_rot, POICoords, XYZPathCoords)
+        [targetX, targetY, flagStop, insideBounds, resetCoordsFlag] = mouseTrack.iterateTracker(pressList, attach_points_rot, POICoords, XYZPathCoords)
         # print(insideBounds)
         pressL = 10 + 10*mt.sin(0.1*count)
         pressR = pressL*mt.cos(0.1*count)
         pressT = pressL*mt.sin(0.1*count)
-        pressList = [pressL, pressR, pressT]
+        pressList = [pressL, pressR, pressT, pressRegulator]
 
         XYZPathCoords = [XYZPathCoords[0] + 10*mt.sin(0.01*count), XYZPathCoords[1] + mt.cos(0.01*count), XYZPathCoords[2] + 10*mt.sin(0.01*count)]
         count = count + 1
