@@ -72,18 +72,20 @@ int selectPinY = 11;        // CS3
 int selectPinZ = 12;        // CS4
 int selectPinP = 9;         // CS1
 int selectPinAir = 13;      // CS_DAC
-int selectPinGrasper = 26;  // CS5
+int selectPinGrasper = 30;  // CS5
 
 int pressPinX = A4;
 int pressPinY = A3;
 int pressPinZ = A2;
 int pressPinP = A1;
+int pressPinG = A5;
 int pressPinAir = A0;
 
 int limitPinX = 35;
 int limitPinY = 37;
 int limitPinZ = 25;
 int limitPinP = 23;
+int limitPinG = 36; //Not connected to anything
 
 int valvePin = 48;
 int valvePinStruct = 49;
@@ -237,6 +239,7 @@ void setup() {
   // P_measured limited to maximum of 531.97 kPa, resolution of 0.65 kPa for actuators
   // P_measured limited to maximum of 354.65 kPa, resolution of 0.43 kPa for structure
   analogReference(INTERNAL2V56);
+  
 
   // Initialise pumps 
   axisList[0].init(selectPinX, pressPinX, LOOP_PERIOD, limitPinX);
@@ -248,7 +251,7 @@ void setup() {
   pressureRegulator.init(selectPinAir, pressPinAir, valvePin, valvePinStruct);
 
   //Initialise grasper control motor
-  grasperMotor.init(selectPinP, pressPinP, LOOP_PERIOD, limitPinP);
+  grasperMotor.init(selectPinGrasper, pressPinG, LOOP_PERIOD, limitPinG);
   grasperMotor.angleAtZeroVol = 0.0;
 
   // Grasper control from haptic
@@ -295,6 +298,7 @@ void updateEncoderData(){
   int i = 0;
   for(auto &item : axisList){
     angles[i] = item.angleIn;
+    // Serial.println(item.angleIn);
     i++;
   }
 }
@@ -1034,7 +1038,7 @@ void loop() {
     // Read pressures and put in array to be sent
     // updateAllPressures();
 
-    // Put encoder values in array to be sent
+    // Put encoder values in array to be sent to control computer
     updateEncoderData();
 
     // // Read data from load cells

@@ -127,6 +127,8 @@ ISR (SPI_STC_vect){
     // delayMicroseconds(microDelay);
     // If start byte was received in a previous call and
     // number of bytes received is in correct range, then store data
+    // Serial.println(c);
+
     if (startMsgReceived == true){
       // Serial.println(posIndex);
       if (posIndex < NUM_CHARS){
@@ -302,7 +304,10 @@ void loop(void)
 
 
   }
-
+  // Serial.print("Est angle:  ");
+  // Serial.println(angleEstDriver);
+  // Serial.print("Angle in:   ");
+  // Serial.println(angleDesired);
 
   // If both start and end messages received correctly,
   // change angular position received from controller
