@@ -36,9 +36,8 @@ from modules import pandaViewer
 
 
 ######################################################################
-def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, viewerProcess, viewerInputList):
+def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, viewerInputList):
     
-    viewerProcess.start()
     print("'Move robot' button pressed")
 
     minPress = VAC_PRESS
@@ -49,7 +48,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
     classSettings.moveRobotRunning = True
     
     print("Settings: ", vars(classSettings))
-
+    classSettings.pandaViewerProcess.start()
 
     ############################################################
     # Instantiate classes:
@@ -850,7 +849,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
 class controlSettings:
     def __init__(self):
         self.useVisionFeedback = False
-        self.visionFeedFlag = False
+        self.pandaViewerProcess = False
         self.startWithCalibration = False
         self.useOmni = False
         self.socketOmni = None
@@ -899,6 +898,8 @@ def stopFunction(classSettings, stopButton, startButton, viewerProcess):
 
     if viewerProcess.is_alive():
         viewerProcess.kill()
+        classSettings.pandaViewerProcess = multiprocessing.Process(target=viewer_process, args=(viewerInput,))
+        classSettings.pandaViewerProcess.daemon = True
 
 
 def resetFunction(classSettings, button, startButton):
@@ -1011,9 +1012,9 @@ if __name__ == '__main__':
     initialAngle1, initialAngle2, prismShaft = 0, 0, 0
     shaftStartX, shaftStartY, shaftStartZ = 0, 0, 0,
     viewerInput = manager.list([initialAngle1, initialAngle2, prismShaft, shaftStartX, shaftStartY, shaftStartZ])
-    qtViewerProcess = multiprocessing.Process(target=viewer_process, args=(viewerInput,))
-    qtViewerProcess.daemon = True
-
+    pandaViewerProcess = multiprocessing.Process(target=viewer_process, args=(viewerInput,))
+    pandaViewerProcess.daemon = True
+    settingsClass.pandaViewerProcess = pandaViewerProcess
 
     # Headings
     headingSLabel = Label(contentFrame, text = "Settings", font='bold')
@@ -1093,7 +1094,7 @@ if __name__ == '__main__':
     stopButton = Button(contentFrame, text = "Stop")
     buttonObj = stopButton
     buttonDict.update({"stopButton" : buttonObj})
-    stopButton.config(command = partial(stopFunction, settingsClass, buttonObj, moveButton, qtViewerProcess))
+    stopButton.config(command = partial(stopFunction, settingsClass, buttonObj, moveButton, pandaViewerProcess))
 
     resetButton = Button(contentFrame, text = "Reset")
     buttonObj = stopButton
@@ -1206,7 +1207,7 @@ if __name__ == '__main__':
     labelDict["pumpLabel"].config(fg = "green") if pumpsConnected else labelDict["pumpLabel"].config(fg = "red")
 
     # Set command for move Robot button, taking in label dictionary
-    moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, pressureDict, settingsClass, pumpController, qtViewerProcess, viewerInput]).start())
+    moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, pressureDict, settingsClass, pumpController, viewerInput]).start())
 
 
 
@@ -1267,7 +1268,7 @@ if __name__ == '__main__':
 
 
     # Set what to do when window is closed
-    rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass, buttonDict, qtViewerProcess))
+    rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass, buttonDict, pandaViewerProcess))
 
     # This is where the magic happens
     sv_ttk.set_theme("dark")

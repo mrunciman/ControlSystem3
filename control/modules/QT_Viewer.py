@@ -109,7 +109,7 @@ class RobotViewer(QtWidgets.QMainWindow):
 
     def update_robot(self, angles, prismLen, shaftPosit):
         """Update robot joint positions based on angles (degrees)."""
-        inclination = angles[0]*180/mt.pi - mt.pi/2
+        inclination = angles[0]*180/mt.pi
         azimuth = -angles[1]*180/mt.pi
         self.shaftCyl.SetHeight(self.shaftLength + prismLen) # Account for prismatic extension
         self.robotShaft.SetPosition(0, 0, (self.shaftLength + prismLen)/2) # Maintain local axes at shaft base
