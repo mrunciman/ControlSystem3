@@ -1,48 +1,51 @@
 from direct.showbase.ShowBase import ShowBase
-from panda3d.core import LineSegs, NodePath
-from panda3d.core import WindowProperties
+from panda3d.core import LineSegs, NodePath, WindowProperties, LMatrix4f, DirectionalLight, PointLight
 import math as mt
+import numpy as np
 
 
 class RobotViewer(ShowBase):
     def __init__(self, inputList):
-        super().__init__()
+        ShowBase.__init__(self)
         props = WindowProperties()
         props.setTitle("Robot Arm Viewer (Panda3D)")
         self.win.requestProperties(props)
-        # self.setWindowTitle("Robot Arm Viewer (Panda3D)")
-
-        # Camera setup
-        self.setBackgroundColor(0.1, 0.1, 0.1, 1)
-        # self.camera.setPos(50, -80, 50)
-        self.camera.lookAt(0, 0, 0)
 
         # Store input reference (list from Tkinter/shared memory)
         self.inputList = inputList
         self.lastAngles = [None, None]
         self.lastPrismatic = None
-        self.lastPos = [None, None, None]
 
         # Shaft parameters
         self.shaftLength = 30
         self.shaftRadius = 1.5
+        self.leverBaseZ = 10
 
         # Make shaft and add local axes
-        self.robotShaft = self.make_cylinder(self.shaftRadius, self.shaftLength)
-        self.robotShaft.setColor(0.5, 0.75, 0.95, 1)
-        self.robotShaft.setHpr(-90, 0, 0)
-
-        axes_local = self.make_axes(length=10)
-        axes_local.reparentTo(self.robotShaft)
-
         self.RobotAssembly = NodePath("RobotAssembly")
+        self.robotShaft = self.make_cylinder(self.shaftRadius, self.shaftLength)
         self.robotShaft.reparentTo(self.RobotAssembly)
-
+        axes_local = self.make_axes(length=5)
+        axes_local.reparentTo(self.RobotAssembly)
         self.RobotAssembly.reparentTo(self.render)
 
         # Global axes
-        axes_global = self.make_axes(length=5)
-        axes_global.reparentTo(self.render)
+        self.axes_global = self.make_axes(length=5)
+        self.axes_global.reparentTo(self.render)
+
+        self.tranMatrix = self.RobotAssembly.get_mat(self.axes_global)
+
+        # Camera setup
+        self.setBackgroundColor(0.6, 0.3, 0.3, 1)
+        self.cam.setPos(0, 0, 150)
+        self.cam.lookAt(0,0,0)
+
+        # Add a light to the scene
+        plight = PointLight('plight')
+        # plight.attenuation = (1, 0, 1)
+        plnp = self.render.attachNewNode(plight)
+        plnp.setPos(-100, 0, 100)
+        self.render.setLight(plnp)
 
         # Update task
         self.taskMgr.add(self.check_input, "CheckInputTask")
@@ -50,7 +53,7 @@ class RobotViewer(ShowBase):
     def make_cylinder(self, radius, height, slices=32):
         """Use Panda3D's built-in geometry for a cylinder."""
         cyl = self.loader.loadModel("models/teapot")
-        cyl.reparent_to(self.render)
+        # cyl.reparent_to(self.render)
         cyl_np = NodePath(cyl)
         return cyl_np
 
@@ -79,19 +82,41 @@ class RobotViewer(ShowBase):
 
     def update_robot(self, angles, prismLen, shaftPosit):
         """Update robot joint positions based on angles and prismatic extension."""
-        inclination = angles[0] * 180 / mt.pi - 90
-        azimuth = -angles[1] * 180 / mt.pi
+        inclination = angles[0] 
+        azimuth = -angles[1] 
+        # print(inclination, azimuth, shaftPosit)
 
         # Scale cylinder along Z for prismatic extension
         scale_z = (self.shaftLength + prismLen) / self.shaftLength
         self.robotShaft.setScale(1, 1, scale_z)
 
-        # Keep base at origin by moving it half height
-        self.robotShaft.setZ((self.shaftLength + prismLen) / 2.0)
+        tMatrixTrans = np.array([[1, 0, 0, shaftPosit[0]],\
+                                [0, 1, 0, shaftPosit[1]],\
+                                [0, 0, 1, self.leverBaseZ + shaftPosit[2]],\
+                                [0, 0, 0, 1]])
 
+        tMatrixRotX = np.array([[1, 0, 0, 0],\
+                                [0, mt.cos(inclination), -mt.sin(inclination), 0],\
+                                [0, mt.sin(inclination),  mt.cos(inclination), 0],\
+                                [0, 0, 0, 1]])
+        
+        tMatrixRotY = np.array([[mt.cos(azimuth), 0, mt.sin(azimuth), 0],\
+                                [ 0, 1, 0, 0],\
+                                [-mt.sin(azimuth), 0, mt.cos(azimuth), 0],\
+                                [0, 0, 0, 1]])
+        
+        # tMatrixTrans*tMatrixRotX*tMatrixRotY
+        intermed1 = np.dot(tMatrixRotX, tMatrixTrans) 
+        tMatrixRobot = np.dot(tMatrixRotY, intermed1)
+        listOfLists = np.transpose(tMatrixRobot).tolist()
+        # print(np.transpose(tMatrixRobot).tolist())
+        flat_list = [x for xs in listOfLists for x in xs]
+        self.tranMatrix = LMatrix4f(*flat_list)
+        
         # Apply transform to assembly (position + rotations)
-        self.RobotAssembly.setPos(*shaftPosit)
-        self.RobotAssembly.setHpr(inclination, azimuth, 0)
+        self.RobotAssembly.set_mat(self.tranMatrix)
+        self.cam.setPos(0, 0, 150)
+
 
     def check_input(self, task):
         """Poll inputList for updates (simulating Tkinter shared state)."""
@@ -108,7 +133,6 @@ class RobotViewer(ShowBase):
                 self.update_robot(angles, prism, shaftPosit)
                 self.lastAngles = angles
                 self.lastPrismatic = prism
-                self.lastPos = shaftPosit
         except Exception as e:
             print("Error:", e)
 
