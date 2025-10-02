@@ -13,14 +13,14 @@ import math as mt
 
 # DS4 controller ids (might be different on your side)
 VENDOR_ID = 0x54c # 1356 in decimal
-PRODUCT_ID = 0x9cc #0x5c4 = 1476 in dec; #0x9cc = 2508
+PRODUCT_ID = 0x5c4 #0x5c4 = 1476 in dec; #0x9cc = 2508
 
 # Don't forget to change the path to libusb-1.0.dll
-# BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 
-BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\InflatableRobotControl\\ControlSystemThree\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+# BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\InflatableRobotControl\\ControlSystemThree\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 
-INTERFACE_DS4 = 3 # 0 # HID interface number in cfg list
+INTERFACE_DS4 = 0#3 # 0 # HID interface number in cfg list
 SETTING_DS4 = 0
 
 ENDPOINT_DS4_OUT = 0 # Input endpoint
