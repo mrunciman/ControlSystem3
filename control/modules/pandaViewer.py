@@ -37,7 +37,7 @@ class RobotViewer(ShowBase):
         self.tranMatrix = self.RobotAssembly.get_mat(self.axes_global)
 
         # Camera setup
-        self.setBackgroundColor(0.8, 0.8, 0.85, 1)
+        self.setBackgroundColor(0.9, 0.9, 0.95, 1)
         self.cam.setPos(0, 0, 300)
         self.cam.lookAt(0,0,0)
 
@@ -56,10 +56,10 @@ class RobotViewer(ShowBase):
         cyl = self.loader.loadModel("models/cylinder")
         tex = self.loader.loadTexture("models/LOGO.png")
 
-        # tex.setWrapU(Texture.WM_border_color)
-        # tex.setWrapV(Texture.WM_border_color)
-        # tex.setBorderColor((0.0, 0.0, 0*160/255, 1))
-        # cyl.setTexture(tex, 1)
+        tex.setWrapU(Texture.WM_border_color)
+        tex.setWrapV(Texture.WM_border_color)
+        tex.setBorderColor((0.0, 0.0, 0*160/255, 1))
+        cyl.setTexture(tex, 1)
 
         # ts = TextureStage.getDefault()
         cyl_np = NodePath(cyl)
