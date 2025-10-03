@@ -1,5 +1,5 @@
 from direct.showbase.ShowBase import ShowBase
-from panda3d.core import LineSegs, NodePath, WindowProperties, LMatrix4f, DirectionalLight, PointLight
+from panda3d.core import LineSegs, NodePath, WindowProperties, LMatrix4f, PointLight, Texture, Material
 import math as mt
 import numpy as np
 
@@ -17,6 +17,7 @@ class RobotViewer(ShowBase):
         self.lastPrismatic = None
 
         # Shaft parameters
+        self.cylModelLength = 30
         self.shaftLength = 30
         self.shaftRadius = 1.5
         self.leverBaseZ = 10
@@ -25,19 +26,19 @@ class RobotViewer(ShowBase):
         self.RobotAssembly = NodePath("RobotAssembly")
         self.robotShaft = self.make_cylinder(self.shaftRadius, self.shaftLength)
         self.robotShaft.reparentTo(self.RobotAssembly)
-        axes_local = self.make_axes(length=5)
-        axes_local.reparentTo(self.RobotAssembly)
+        self.axes_local = self.make_axes(length=10)
+        self.axes_local.reparentTo(self.RobotAssembly)
         self.RobotAssembly.reparentTo(self.render)
 
         # Global axes
-        self.axes_global = self.make_axes(length=5)
+        self.axes_global = self.make_axes(length=10)
         self.axes_global.reparentTo(self.render)
 
         self.tranMatrix = self.RobotAssembly.get_mat(self.axes_global)
 
         # Camera setup
-        self.setBackgroundColor(0.6, 0.3, 0.3, 1)
-        self.cam.setPos(0, 0, 150)
+        self.setBackgroundColor(0.9, 0.9, 0.95, 1)
+        self.cam.setPos(0, 0, 300)
         self.cam.lookAt(0,0,0)
 
         # Add a light to the scene
@@ -50,10 +51,17 @@ class RobotViewer(ShowBase):
         # Update task
         self.taskMgr.add(self.check_input, "CheckInputTask")
 
-    def make_cylinder(self, radius, height, slices=32):
+    def make_cylinder(self, radius, height):
         """Use Panda3D's built-in geometry for a cylinder."""
-        cyl = self.loader.loadModel("models/teapot")
-        # cyl.reparent_to(self.render)
+        cyl = self.loader.loadModel("models/cylinder")
+        tex = self.loader.loadTexture("models/LOGO.png")
+
+        tex.setWrapU(Texture.WM_border_color)
+        tex.setWrapV(Texture.WM_border_color)
+        tex.setBorderColor((0.0, 0.0, 0*160/255, 1))
+        cyl.setTexture(tex, 1)
+
+        # ts = TextureStage.getDefault()
         cyl_np = NodePath(cyl)
         return cyl_np
 
@@ -87,7 +95,7 @@ class RobotViewer(ShowBase):
         # print(inclination, azimuth, shaftPosit)
 
         # Scale cylinder along Z for prismatic extension
-        scale_z = (self.shaftLength + prismLen) / self.shaftLength
+        scale_z = (self.shaftLength + prismLen)/self.cylModelLength
         self.robotShaft.setScale(1, 1, scale_z)
 
         tMatrixTrans = np.array([[1, 0, 0, shaftPosit[0]],\
@@ -115,7 +123,6 @@ class RobotViewer(ShowBase):
         
         # Apply transform to assembly (position + rotations)
         self.RobotAssembly.set_mat(self.tranMatrix)
-        self.cam.setPos(0, 0, 150)
 
 
     def check_input(self, task):
