@@ -850,13 +850,13 @@ class controlSettings:
     def __init__(self):
         self.useVisionFeedback = False
         self.pandaViewerProcess = False
-        self.startWithCalibration = False
+        self.startWithCalibration = True
         self.useOmni = False
         self.socketOmni = None
         self.useOptitrack = False
         self.useFibrebot = False
         self.moveRobotRunning = False
-        self.usePathFile = False
+        self.usePathFile = False    
         self.goToHome = False
         self.stopFlag = False
         self.socketFalcon = None

@@ -11,6 +11,8 @@ class RobotViewer(ShowBase):
         props.setTitle("Robot Arm Viewer (Panda3D)")
         self.win.requestProperties(props)
 
+        self.t = 0
+
         # Store input reference (list from Tkinter/shared memory)
         self.inputList = inputList
         self.lastAngles = [None, None]
@@ -145,6 +147,8 @@ class RobotViewer(ShowBase):
 
     def check_input(self, task):
         """Poll inputList for updates (simulating Tkinter shared state)."""
+        # self.t += 0.1
+        # self.inputList = [mt.cos(self.t)]
         try:
             anglesAndPosition = self.inputList
             angles = [anglesAndPosition[0], anglesAndPosition[1]]

@@ -22,7 +22,7 @@ class ardThreader:
 
     def __init__(self):
         self.ser = serial.Serial()
-        self.ser.port = 'COM7'
+        self.ser.port = 'COM5'
         self.ser.baudrate = 115200
         self.ser.timeout = 1
         self.connected = False
