@@ -67,12 +67,12 @@ int calibratedBytes = 0;
 int resetPin1 = 8;
 
 // X is Left actuator, Y is Right, Z is Top
-int selectPinX = 10;        // CS2
-int selectPinY = 11;        // CS3
-int selectPinZ = 12;        // CS4
-int selectPinP = 9;         // CS1
+int selectPinX = 26;        // CS2
+int selectPinY = 27;        // CS3
+int selectPinZ = 28;        // CS4
+int selectPinP = 29;         // CS1
 int selectPinAir = 13;      // CS_DAC
-int selectPinGrasper = 30;  // CS5
+int selectPinGrasper = 30;  // CS9
 
 int pressPinX = A4;
 int pressPinY = A3;
@@ -81,8 +81,8 @@ int pressPinP = A1;
 int pressPinG = A5;
 int pressPinAir = A0;
 
-int limitPinX = 35;
-int limitPinY = 37;
+int limitPinX = 35; //Not connected to anything
+int limitPinY = 37; //Not connected to anything
 int limitPinZ = 25;
 int limitPinP = 23;
 int limitPinG = 36; //Not connected to anything
@@ -93,8 +93,6 @@ int valvePinStruct = 49;
 // Pins for grapser open and close functions
 int grasper_RHS_FWD = 22;
 int grasper_RHS_BWD = 24;
-// int grasper_LHS_FWD = 27;
-// int grasper_LHS_BWD = 29;
 
 
 // Position and pressure variables
