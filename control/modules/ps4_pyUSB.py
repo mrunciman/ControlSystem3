@@ -69,6 +69,12 @@ class ps4USB(threading.Thread):
 		self.yChange = None
 		self.pChange = None
 
+		self.axialChange = None
+		self.rotChange = None
+		self.wristChange = None
+		self.toolChange = None
+		self.graspChange = None
+
 		self.thetaChange = None
 		self.phiChange = None
 		self.radChange = None
@@ -89,10 +95,14 @@ class ps4USB(threading.Thread):
 		self.TRIGGER_SHIFT = 1
 		self.XY_DEADTHRESH = 0.05
 		self.PRISM_CHANGE = 0.1
+		self.TOOL_CHANGE = 0.1
+		self.GRASP_CHANGE = 0.1
 		self.XY_SENSITIVITY = 0.25
 		self.PHI_SENSITIVITY = 0.5 #0.0087 approx half a degree
 		self.THETA_SENSITIVITY = 0.5/2
 		self.P_SENSITIVITY = 2.5
+		self.TOOL_SENSITIVITY = 2.5
+		self.GRASP_SENSITIVITY = 2.5
 
 
 	def stopped(self):
@@ -165,6 +175,7 @@ class ps4USB(threading.Thread):
 		# normR2 = (self.R2 + self.TRIGGER_SHIFT)/self.TRIGGER_RANGE
 		# print("normalised R2: ",normR2, self.R2)
 
+		# Axial coord
 		if (self.R1):
 			self.pChange = -self.P_SENSITIVITY*self.PRISM_CHANGE
 			self.radChange = -self.P_SENSITIVITY*self.PRISM_CHANGE
@@ -175,7 +186,69 @@ class ps4USB(threading.Thread):
 		else:
 			self.pChange = 0
 			self.radChange = 0
+		self.axialChange = self.pChange
 
+		# Tool extension
+		if (self.SquButton):
+			self.toolChange = -self.TOOL_SENSITIVITY*self.TOOL_CHANGE
+		elif (self.TriButton):
+			self.toolChange = self.TOOL_SENSITIVITY*self.TOOL_CHANGE
+		else:
+			self.toolChange = 0
+
+		# Grasper control increment
+		if (self.CroButton):
+			self.graspChange = -self.GRASP_SENSITIVITY*self.GRASP_CHANGE
+		elif (self.CirButton):
+			self.graspChange = self.GRASP_SENSITIVITY*self.GRASP_CHANGE
+		else:
+			self.graspChange = 0
+
+
+
+	def getUserInputs(self):
+		return self.xChange, self.yChange, self.pChange
+	
+	def incrementCylCoords(self, cAxialPos, cRotaryPos, cToolExt, cWristAngle, cGrasper):
+		
+		# Axial position
+		if self.axialChange is not None:
+			nAxialPos = cAxialPos + self.axialChange
+		else:
+			nAxialPos = cAxialPos
+
+		# Rotary position
+		if self.xChange is not None:
+			nRotaryPos = cRotaryPos + self.xChange
+		else:
+			nRotaryPos = cRotaryPos
+
+		# Tool extension
+		if self.toolChange is not None:
+			nToolExt = cToolExt + self.toolChange
+		else:
+			nToolExt = cToolExt
+
+		# Wrist position
+		if self.yChange is not None:
+			nWristAngle = cWristAngle + self.yChange
+		else:
+			nWristAngle = cWristAngle
+
+		# Grasp position
+		if self.graspChange is not None:
+			nGrasper = cGrasper + self.graspChange
+		else:
+			nGrasper = cGrasper
+
+		nAxialPos = round(nAxialPos,2)
+		nRotaryPos = round(nRotaryPos,2)
+		nToolExt = round(nToolExt,2)
+		nWristAngle = round(nWristAngle,2)
+		nGrasper = round(nGrasper,2)
+
+		return nAxialPos, nRotaryPos, nToolExt, nWristAngle, nGrasper
+		
 
 
 	def incrementXYZCoords(self, cX, cY, cZ, degreesToRotate,  LEVER_POINT = None):

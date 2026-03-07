@@ -907,6 +907,69 @@ class forceDetector:
         # 1 means actuator in tension, -1 means compression, 0 means no contact
         self.conDetected = self.conDetected*np.sign(centredDeriv)
         return self.conDetected, centredDeriv, secondDeriv
+    
+
+
+    # self.STEPS_PER_REV = 200
+    # self.MICROSTEPS = 16
+    # self.MICROSTEPS_PRI = 4
+    # self.LEAD = 8
+    # self.STEPS_PER_MM = (self.STEPS_PER_REV*self.MICROSTEPS)/(self.LEAD) # steps per mm
+    # self.STEPS_PER_MM_PRI = (self.STEPS_PER_REV*self.MICROSTEPS_PRI)/(self.LEAD) # steps per mm
+
+
+    def setAxialMotor(self, desAxialPos):
+        # Impose contraction range
+        if (desAxialPos < self.MIN_EXTEND):
+            desAxialPos = self.MIN_EXTEND
+        elif (desAxialPos > self.MAX_EXTEND):
+            desAxialPos = self.MAX_EXTEND
+
+        axialMotorAngle = 360.0*desAxialPos/self.LEAD
+            
+        return axialMotorAngle
+
+
+    def setRotaryMotor(self, desRotaryPos):
+        # TODO define MIN and MAX ROTARY angles
+        if (desRotaryPos < self.MIN_ROTARY):
+            desRotaryPos = self.MIN_ROTARY
+        elif (desRotaryPos > self.MAX_ROTARY):
+            desRotaryPos = self.MAX_ROTARY
+
+        rotaryMotorAngle = desRotaryPos
+
+        return rotaryMotorAngle
+
+
+    def setToolMotor(self, desToolExt):
+
+        if (desToolExt < self.MIN_TOOL_EXT):
+            desToolExt = self.MIN_TOOL_EXT
+        elif (desToolExt > self.MAX_TOOL_EXT):
+            desToolExt = self.MAX_TOOL_EXT
+            
+        toolMotorAngle = desToolExt/self.TOOL_EXT_ROLLER_RADIUS
+
+        return toolMotorAngle
+
+
+    def setWristMotor(self, desWristAngle):
+        if (desWristAngle < self.MIN_WRIST_ANGLE):
+            desWristAngle = self.MIN_WRIST_ANGLE
+        elif (desWristAngle > self.MAX_WRIST_ANGLE):
+            desWristAngle = self.MAX_WRIST_ANGLE
+
+        wristMotorAngle = (2*HYPOT_TIP/RADIUS_SPOOL)*mt.sin((THETA_REST - (desWristAngle/NUM_SUBSECTIONS))/2)
+        return wristMotorAngle
+
+
+    def setGraspMotor(self, desGraspPos):
+        
+        graspMotorAngle = 360.0*desGraspPos/self.LEAD
+        return graspMotorAngle
+
+
 
 
 if __name__ == "__main__":

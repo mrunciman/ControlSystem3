@@ -513,6 +513,16 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
                         reflateFlag = 0 if reflateFlag else 1
                         # print(regulatorPressure, reflateFlag)
                     controllerButtons = ps4Buttons
+
+                    # This gives desired joint values 
+                    [desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos] = ps4.incrementCylCoords(axialPos, rotaryPos, toolExt, wristAngle, graspPos)
+                    # Convert desired joint values into angular positions of each motor
+                    targetAxialMotor = kineSolve.setAxialMotor(desAxialPos)
+                    targetRotaryMotor = kineSolve.setRotaryMotor(desRotaryPos)
+                    targetToolMotor = kineSolve.setToolMotor(desTooExt)
+                    targetWristMotor = kineSolve.setWristMotor(desWristAngle)
+                    targetGraspMotor = kineSolve.setGraspMotor(desGraspPos)
+
                     frameRotAngle = dictLabel["rotationSlider"].get()
                     prevThetaPS4 = thetaDesired
                     prevAziPS4 = azimuthDesired
