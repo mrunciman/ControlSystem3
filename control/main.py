@@ -996,7 +996,7 @@ def viewer_process(angleList):
 if __name__ == '__main__':
     rootWindow = Tk()
     rootWindow.title("Soft Robot Control System")
-    rootWindow.geometry("1000x500")
+    rootWindow.geometry("650x400")
 
     contentFrame = ttk.Frame(rootWindow)
     winStyle = ttk.Style()
@@ -1029,26 +1029,26 @@ if __name__ == '__main__':
     calibrateButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
     buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
-    optiButton = Button(contentFrame, text = "Use OptiTrack")
-    attrStr = 'useOptitrack'
-    buttonObj = optiButton
-    buttonDict.update({"optiButton" : buttonObj})
-    optiButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+    # optiButton = Button(contentFrame, text = "Use OptiTrack")
+    # attrStr = 'useOptitrack'
+    # buttonObj = optiButton
+    # buttonDict.update({"optiButton" : buttonObj})
+    # optiButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    # buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
-    fibreButton = Button(contentFrame, text = "Use fibrebot")
-    attrStr = 'useFibrebot'
-    buttonObj = fibreButton
-    buttonDict.update({"fibreButton" : buttonObj})
-    fibreButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+    # fibreButton = Button(contentFrame, text = "Use fibrebot")
+    # attrStr = 'useFibrebot'
+    # buttonObj = fibreButton
+    # buttonDict.update({"fibreButton" : buttonObj})
+    # fibreButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    # buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
-    msButton = Button(contentFrame, text = "Use mass spec")
-    attrStr = 'moveRobotRunning'
-    buttonObj = msButton
-    buttonDict.update({"msButton" : buttonObj})
-    msButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+    # msButton = Button(contentFrame, text = "Use mass spec")
+    # attrStr = 'moveRobotRunning'
+    # buttonObj = msButton
+    # buttonDict.update({"msButton" : buttonObj})
+    # msButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    # buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
     omniButton = Button(contentFrame, text = "Use haptic device")
     attrStr = 'useOmni'
@@ -1066,13 +1066,13 @@ if __name__ == '__main__':
     # buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
 
-    visButton = Button(contentFrame, text = "Use pose estimator")
-    attrStr = 'useVisionFeedback'
-    buttonObj = visButton
-    buttonDict.update({"visButton" : buttonObj})
-    visButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
-    # visButton.config(command = (lambda s, f, b : toggleButton(s, f, b))(settingsClass, attrStr, buttonObj))
+    # visButton = Button(contentFrame, text = "Use pose estimator")
+    # attrStr = 'useVisionFeedback'
+    # buttonObj = visButton
+    # buttonDict.update({"visButton" : buttonObj})
+    # visButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    # buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+    # # visButton.config(command = (lambda s, f, b : toggleButton(s, f, b))(settingsClass, attrStr, buttonObj))
 
     homeButton = Button(contentFrame, text = "Home Position")
     attrStr = 'goToHome'
@@ -1218,8 +1218,8 @@ if __name__ == '__main__':
 
     headingSLabel.grid(column = 0, row = 0, pady = yPadding, padx = xPadding)
     headingLLabel.grid(column = 1, row = 0, pady = yPadding, padx = xPadding)
-    headingPLabel.grid(column = 4, row = 0, columnspan = 2, pady = yPadding, padx = xPadding)
-    pressCanvas.grid(column = 3, row = 2, rowspan = 6, columnspan = 4, pady = yPadding, padx = xPadding)
+    # headingPLabel.grid(column = 4, row = 0, columnspan = 2, pady = yPadding, padx = xPadding)
+    # pressCanvas.grid(column = 3, row = 2, rowspan = 6, columnspan = 4, pady = yPadding, padx = xPadding)
 
     # Place buttons
     rowZerothColumn = 1
@@ -1229,14 +1229,14 @@ if __name__ == '__main__':
             buttonDict[b].grid(column = columnNo, row = rowZerothColumn, pady = yPadding, padx = xPadding)
             rowZerothColumn = rowZerothColumn + 1
         else:
-            buttonDict[b].grid(column = columnNo, row = rowZerothColumn + 1, pady = yPadding, padx = xPadding)
+            buttonDict[b].grid(column = columnNo, row = rowZerothColumn + 2, pady = yPadding, padx = xPadding)
             columnNo = columnNo + 1
     # columnNo = 0
     # homeButton.grid(column = columnNo, row = rowZerothColumn + 2, pady = yPadding, padx = xPadding)
     moveButtonRow = rowZerothColumn
 
-    columnNo = 3
-    rotationSlider.grid(column = columnNo, row = rowZerothColumn + 2, columnspan = 4, pady = yPadding, padx = xPadding)
+    # columnNo = 1
+    # rotationSlider.grid(column = columnNo, row = rowZerothColumn + 1, columnspan = 4, pady = yPadding, padx = xPadding)
 
     # Place labels
     rowFirstColumn = 1
@@ -1247,20 +1247,20 @@ if __name__ == '__main__':
             rowFirstColumn = rowFirstColumn + 1
 
 
-    # Place pressure displays and labels
-    lastRow = max(rowZerothColumn, rowFirstColumn)
-    columnNo = 3
-    labelIndex = 0
-    for pL in pressureLabels:
-        pL.grid(column = columnNo, row = 1, pady = yPadding, padx = xPadding)
-        columnNo = columnNo + 1
-        labelIndex = labelIndex + 1
+    # # Place pressure displays and labels
+    # lastRow = max(rowZerothColumn, rowFirstColumn)
+    # columnNo = 3
+    # labelIndex = 0
+    # for pL in pressureLabels:
+    #     pL.grid(column = columnNo, row = 1, pady = yPadding, padx = xPadding)
+    #     columnNo = columnNo + 1
+    #     labelIndex = labelIndex + 1
 
-    columnNo = 3
-    for p in pressureDict:
-        if "pressure" in p:
-            pressureDict[p].grid(column = columnNo, row = moveButtonRow - 1, pady = yPadding, padx = xPadding)
-            columnNo = columnNo + 1
+    # columnNo = 3
+    # for p in pressureDict:
+    #     if "pressure" in p:
+    #         pressureDict[p].grid(column = columnNo, row = moveButtonRow - 1, pady = yPadding, padx = xPadding)
+    #         columnNo = columnNo + 1
 
 
 
