@@ -1,5 +1,5 @@
 from direct.showbase.ShowBase import ShowBase
-from panda3d.core import LineSegs, NodePath, WindowProperties, LMatrix4f, PointLight, Texture, Material
+from panda3d.core import LineSegs, NodePath, WindowProperties, LMatrix4f, PointLight, Texture, Material, TextureStage, DirectionalLight, AmbientLight
 import math as mt
 import numpy as np
 
@@ -27,26 +27,39 @@ class RobotViewer(ShowBase):
         self.robotShaft = self.make_cylinder(self.shaftRadius, self.shaftLength)
         self.robotShaft.reparentTo(self.RobotAssembly)
         self.axes_local = self.make_axes(length=10)
+        self.axes_local.setLightOff(1)
         self.axes_local.reparentTo(self.RobotAssembly)
         self.RobotAssembly.reparentTo(self.render)
 
         # Global axes
         self.axes_global = self.make_axes(length=10)
+        self.axes_global.setLightOff(1)
         self.axes_global.reparentTo(self.render)
 
         self.tranMatrix = self.RobotAssembly.get_mat(self.axes_global)
 
         # Camera setup
-        self.setBackgroundColor(0.9, 0.9, 0.95, 1)
+        self.setBackgroundColor(0.0, 0.0, 0.0, 1)
         self.cam.setPos(0, 0, 300)
         self.cam.lookAt(0,0,0)
 
         # Add a light to the scene
-        plight = PointLight('plight')
-        # plight.attenuation = (1, 0, 1)
-        plnp = self.render.attachNewNode(plight)
-        plnp.setPos(-100, 0, 100)
-        self.render.setLight(plnp)
+        # plight = PointLight('plight')
+        # # plight.attenuation = (1, 0, 1)
+        # plnp = self.render.attachNewNode(plight)
+        # plnp.setPos(0, 100, 500)
+        # self.render.setLight(plnp)
+
+        dlight = DirectionalLight('dlight')
+        dlight.setColor((1, 1, 1, 1))
+        dlnp = self.render.attachNewNode(dlight)
+        dlnp.setHpr(0, 180, 0)
+        self.render.setLight(dlnp)
+
+        alight = AmbientLight('alight')
+        alight.setColor((0.2, 0.2, 0.2, 1))
+        alnp = self.render.attachNewNode(alight)
+        self.render.setLight(alnp)
 
         # Update task
         self.taskMgr.add(self.check_input, "CheckInputTask")
@@ -54,14 +67,19 @@ class RobotViewer(ShowBase):
     def make_cylinder(self, radius, height):
         """Use Panda3D's built-in geometry for a cylinder."""
         cyl = self.loader.loadModel("models/cylinder")
-        tex = self.loader.loadTexture("models/LOGO.png")
+        tex = self.loader.loadTexture("models/LOGO_ROT.png")
+
 
         tex.setWrapU(Texture.WM_border_color)
         tex.setWrapV(Texture.WM_border_color)
-        tex.setBorderColor((0.0, 0.0, 0*160/255, 1))
-        cyl.setTexture(tex, 1)
+        tex.setBorderColor((1.0, 1.0, 1.0, 1))
 
-        # ts = TextureStage.getDefault()
+        ts = TextureStage("logo")
+        cyl.setTexture(ts, tex)
+        cyl.setTexScale(ts, 1/0.15, 1/0.2)
+        cyl.setTexRotate(ts, 0)
+        cyl.setTexOffset(ts, -1, -3.5)
+
         cyl_np = NodePath(cyl)
         return cyl_np
 
