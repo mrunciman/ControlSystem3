@@ -288,6 +288,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
 
     StepNoL, StepNoR, StepNoT, StepNoP = tStepL, tStepR, tStepT, tStepP
     initStepNoL, initStepNoR, initStepNoT = 0, 0, 0
+    initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp = 0, 0, 0, 0, 0
     realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA = 0, 0, 0, 0, 0, 0, 0
     pneuPress = 2000
 
@@ -316,7 +317,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
     dictLabel["pumpLabel"].config(fg = "green") if pumpsConnected else dictLabel["pumpLabel"].config(fg = "red")
 
     if pumpsConnected:
-        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, ISOLATE_P_SUPPLY, controllerButtons)
+        pumpController.sendStep(initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp, HOLD_MODE, ISOLATE_P_SUPPLY, controllerButtons)
 
 
     fibrebotLink = fibrebotInterface.fibreBot()
@@ -342,7 +343,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
                 raise
             #  Inflate structure and give some time to stabilise:
             # print("Inflating structure...")
-            pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
+            pumpController.sendStep(initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
             # count = 0
             # countLimit = 50
             # rampTime = 0.1 # seconds
@@ -647,6 +648,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
             desiredThetaP = 360.0*targetOpP/kineSolve.LEAD
             # print("Motor angles: ", desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, "\n")
 
+            # desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp
+            initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp = 0, 0, 0, 0, 0
             # Log desired positions
             if pumpDataUpdated:
                 posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, ang_around_shaft)
@@ -656,15 +659,16 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
                 if firstMoveDelay < firstMoveDivider:
                     firstMoveDelay += 1
                     # RStep = dStepR scaled for speed (w rounding differences)
-                    initStepNoL = (desiredThetaL*(firstMoveDelay/firstMoveDivider))
-                    initStepNoR = (desiredThetaR*(firstMoveDelay/firstMoveDivider))
-                    initStepNoT = (desiredThetaT*(firstMoveDelay/firstMoveDivider))
-                    initStepNoP = (desiredThetaP*(firstMoveDelay/firstMoveDivider))
+                    initThetaAxial = (desiredThetaAxial*(firstMoveDelay/firstMoveDivider))
+                    initThetaRot = (desiredThetaRotary*(firstMoveDelay/firstMoveDivider))
+                    initThetaTool = (desiredThetaTool*(firstMoveDelay/firstMoveDivider))
+                    initThetaWrist = (desiredThetaWrist*(firstMoveDelay/firstMoveDivider))
+                    initThetaGrasp = (desiredThetaGrasp*(firstMoveDelay/firstMoveDivider))
                     # Send scaled step number to arduinos:
-                    pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, initStepNoP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE, controllerButtons)
+                    pumpController.sendStep(initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp, ACTIVE_MODE, SET_PRESS_MODE, controllerButtons)
                 else:
                     # Send step number to arduinos:
-                    pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, ACTIVE_MODE, SET_PRESS_MODE, controllerButtons)
+                    pumpController.sendStep(desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, ACTIVE_MODE, SET_PRESS_MODE, controllerButtons)
 
                 # Log values from arduinos
                 if pumpDataUpdated:
@@ -775,7 +779,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
 
                 # if calibrated:
                 controllerButtons = 0
-                pumpController.sendStep(desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, regulatorPressure, HOLD_MODE, DEFLATION_MODE, controllerButtons)
+                pumpController.sendStep(desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, HOLD_MODE, DEFLATION_MODE, controllerButtons)
 
                 time.sleep(0.2)
                 [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
