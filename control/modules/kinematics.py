@@ -210,6 +210,32 @@ class kineSolver:
         # print(self.volToAngle(self.MAX_VOL))
 
 
+
+
+        ###################################################################
+        # Gantry robot geometry and limits
+        ###################################################################
+        # Limits on angle change of torque coil / rotary axis
+        self.MIN_ROTARY = -190.0   # degrees 
+        self.MAX_ROTARY =  190.0   # degrees 
+
+        # Limits on wrist angle
+        self.MIN_WRIST_ANGLE = 0   # degrees 
+        self.MAX_WRIST_ANGLE = 90  # degrees 
+        # Geometry of wrist motor
+        self.HYPOT_TIP = 5         # mm
+        self.TIP_CUTAWAY_WIDTH = 5 # mm
+        self.NUM_SUBSECTIONS = 5   # number of cutaways
+        self.RADIUS_SPOOL = 15     # mm
+        self.THETA_REST = 2*mt.asin((self.TIP_CUTAWAY_WIDTH/2)/self.HYPOT_TIP)
+
+        # Limits on how far instrument can be extended
+        self.MIN_TOOL_EXT = 5      # mm
+        self.MAX_TOOL_EXT = 50     # mm
+        # Geometry of tool extensionm motor 
+        self.TOOL_EXT_ROLLER_RADIUS = 15 #mm
+
+
     def intersect(self, tDesX, tDesY, tExt):
         # CONTINUUM JOINT
         # Transform coords to reference base of continuum joint, not parallel mech centre
@@ -848,7 +874,66 @@ class kineSolver:
         return errCableL, errCableR, errCableT, errPrism
     
 
+    # self.STEPS_PER_REV = 200
+    # self.MICROSTEPS = 16
+    # self.MICROSTEPS_PRI = 4
+    # self.LEAD = 8
+    # self.STEPS_PER_MM = (self.STEPS_PER_REV*self.MICROSTEPS)/(self.LEAD) # steps per mm
+    # self.STEPS_PER_MM_PRI = (self.STEPS_PER_REV*self.MICROSTEPS_PRI)/(self.LEAD) # steps per mm
 
+
+    def setAxialMotor(self, desAxialPos):
+        # Impose contraction range
+        if (desAxialPos < self.MIN_EXTEND):
+            desAxialPos = self.MIN_EXTEND
+        elif (desAxialPos > self.MAX_EXTEND):
+            desAxialPos = self.MAX_EXTEND
+
+        axialMotorAngle = 360.0*desAxialPos/self.LEAD
+            
+        return axialMotorAngle
+
+
+    def setRotaryMotor(self, desRotaryPos):
+        # TODO define MIN and MAX ROTARY angles
+        if (desRotaryPos < self.MIN_ROTARY):
+            desRotaryPos = self.MIN_ROTARY
+        elif (desRotaryPos > self.MAX_ROTARY):
+            desRotaryPos = self.MAX_ROTARY
+
+        rotaryMotorAngle = desRotaryPos
+
+        return rotaryMotorAngle
+
+
+    def setToolMotor(self, desToolExt):
+
+        if (desToolExt < self.MIN_TOOL_EXT):
+            desToolExt = self.MIN_TOOL_EXT
+        elif (desToolExt > self.MAX_TOOL_EXT):
+            desToolExt = self.MAX_TOOL_EXT
+            
+        toolMotorAngle = desToolExt/self.TOOL_EXT_ROLLER_RADIUS
+
+        return toolMotorAngle
+
+
+    def setWristMotor(self, desWristAngle):
+        if (desWristAngle < self.MIN_WRIST_ANGLE):
+            desWristAngle = self.MIN_WRIST_ANGLE
+        elif (desWristAngle > self.MAX_WRIST_ANGLE):
+            desWristAngle = self.MAX_WRIST_ANGLE
+
+        wristMotorAngle = (2*self.HYPOT_TIP/self.RADIUS_SPOOL)  \
+              *mt.sin((self.THETA_REST - (desWristAngle/self.NUM_SUBSECTIONS))/2)
+        
+        return wristMotorAngle
+
+
+    def setGraspMotor(self, desGraspPos):
+        
+        graspMotorAngle = 360.0*desGraspPos/self.LEAD
+        return graspMotorAngle
 
 
 
@@ -908,67 +993,6 @@ class forceDetector:
         self.conDetected = self.conDetected*np.sign(centredDeriv)
         return self.conDetected, centredDeriv, secondDeriv
     
-
-
-    # self.STEPS_PER_REV = 200
-    # self.MICROSTEPS = 16
-    # self.MICROSTEPS_PRI = 4
-    # self.LEAD = 8
-    # self.STEPS_PER_MM = (self.STEPS_PER_REV*self.MICROSTEPS)/(self.LEAD) # steps per mm
-    # self.STEPS_PER_MM_PRI = (self.STEPS_PER_REV*self.MICROSTEPS_PRI)/(self.LEAD) # steps per mm
-
-
-    def setAxialMotor(self, desAxialPos):
-        # Impose contraction range
-        if (desAxialPos < self.MIN_EXTEND):
-            desAxialPos = self.MIN_EXTEND
-        elif (desAxialPos > self.MAX_EXTEND):
-            desAxialPos = self.MAX_EXTEND
-
-        axialMotorAngle = 360.0*desAxialPos/self.LEAD
-            
-        return axialMotorAngle
-
-
-    def setRotaryMotor(self, desRotaryPos):
-        # TODO define MIN and MAX ROTARY angles
-        if (desRotaryPos < self.MIN_ROTARY):
-            desRotaryPos = self.MIN_ROTARY
-        elif (desRotaryPos > self.MAX_ROTARY):
-            desRotaryPos = self.MAX_ROTARY
-
-        rotaryMotorAngle = desRotaryPos
-
-        return rotaryMotorAngle
-
-
-    def setToolMotor(self, desToolExt):
-
-        if (desToolExt < self.MIN_TOOL_EXT):
-            desToolExt = self.MIN_TOOL_EXT
-        elif (desToolExt > self.MAX_TOOL_EXT):
-            desToolExt = self.MAX_TOOL_EXT
-            
-        toolMotorAngle = desToolExt/self.TOOL_EXT_ROLLER_RADIUS
-
-        return toolMotorAngle
-
-
-    def setWristMotor(self, desWristAngle):
-        if (desWristAngle < self.MIN_WRIST_ANGLE):
-            desWristAngle = self.MIN_WRIST_ANGLE
-        elif (desWristAngle > self.MAX_WRIST_ANGLE):
-            desWristAngle = self.MAX_WRIST_ANGLE
-
-        wristMotorAngle = (2*HYPOT_TIP/RADIUS_SPOOL)*mt.sin((THETA_REST - (desWristAngle/NUM_SUBSECTIONS))/2)
-        return wristMotorAngle
-
-
-    def setGraspMotor(self, desGraspPos):
-        
-        graspMotorAngle = 360.0*desGraspPos/self.LEAD
-        return graspMotorAngle
-
 
 
 

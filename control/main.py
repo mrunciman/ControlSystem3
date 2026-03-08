@@ -36,7 +36,7 @@ from modules import pandaViewer
 ######################################################################
 def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, viewerInputList):
     
-    print("'Move robot' button pressed")
+    print("Motion control started.")
 
     minPress = VAC_PRESS
     deactivateButtons(dictButtons)
@@ -44,8 +44,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
     [useVisionFeedback, visionFeedFlag, startWithCalibration, useOmni, socketOmni, useOptitrack, useFibrebot, moveRobotRunning, usePathFile, goHome, flagStop, socketFalcon, destroyWindow]\
         = list(vars(classSettings).values())
     classSettings.moveRobotRunning = True
+    startWithCalibration = False
     
-    print("Settings: ", vars(classSettings))
+    # print("Settings: ", vars(classSettings))
     classSettings.pandaViewerProcess.start()
 
     ############################################################
@@ -148,8 +149,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
         xPS4, yPS4, zPS4 = 0, 0, 0
         ps4Buttons = 0
 
-    print("Haptic device connected? ", omni_connected)
-    print("Falcon device connected? ", falcon_connected)
+    # print("Haptic device connected? ", omni_connected)
+    # print("Falcon device connected? ", falcon_connected)
     print("PS4Controller connected? ", ps4.controller==1)
     
     if omni_connected:
@@ -246,12 +247,16 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
     tStepP = 0
     LcRealP = tStepP/kineSolve.STEPS_PER_MM_PRI
     [LStep, RStep, TStep, PStep] = kineSolve.freqScale(fStepL, fStepR, fStepT, fStepP)
+
+    desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos = 0, 0, 0, 0, 0
+    axialPos, rotaryPos, toolExt, wristAngle, graspPos = 0, 0, 0, 0, 0
     LStep, RStep, TStep, PStep = 0, 0, 0, 0
 
     desiredThetaL = kineSolve.volToAngle(tVolL)
     desiredThetaR = kineSolve.volToAngle(tVolR)
     desiredThetaT = kineSolve.volToAngle(tVolT)
     desiredThetaP = 360.0*targetP/kineSolve.LEAD
+    desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp = 0, 0, 0, 0, 0
 
     # Set initial pressure and calibration variables
     pressL, pressR, pressT, pressP = 0, 0, 0, 0
@@ -328,126 +333,126 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
     try:
 
         if pumpsConnected:
-            dictPress["pressureL"].config(fg = "white")
-            dictPress["pressureR"].config(fg = "white")
-            dictPress["pressureT"].config(fg = "white")
-            dictPress["pressureStruct"].config(fg = "white")
+            # dictPress["pressureL"].config(fg = "white")
+            # dictPress["pressureR"].config(fg = "white")
+            # dictPress["pressureT"].config(fg = "white")
+            # dictPress["pressureStruct"].config(fg = "white")
             time.sleep(1.5)
-            if not messagebox.askokcancel("Inflate structure?", "Would you like to inflate the structure?"):
+            if not messagebox.askokcancel("Structure deployed?", "Has the structure been deployed?"):
                 raise
             #  Inflate structure and give some time to stabilise:
-            print("Inflating structure...")
+            # print("Inflating structure...")
             pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
-            count = 0
-            countLimit = 50
-            rampTime = 0.1 # seconds
-            while (count <= countLimit):
-                regulatorPressure = round(inflationPressure*(count/countLimit))
-                # print(regulatorPressure)
+            # count = 0
+            # countLimit = 50
+            # rampTime = 0.1 # seconds
+            # while (count <= countLimit):
+            #     regulatorPressure = round(inflationPressure*(count/countLimit))
+            #     # print(regulatorPressure)
 
-                [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
-                time.sleep(rampTime/countLimit)
+            #     [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
+            #     time.sleep(rampTime/countLimit)
 
-                pressList = [pressL, pressR, pressT, regulatorSensor]
-                # Change pressurebars
-                updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
-                count = count + 1
+            #     pressList = [pressL, pressR, pressT, regulatorSensor]
+            #     # Change pressurebars
+            #     updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
+            #     count = count + 1
 
-                # Stop operation if Stop button hit
-                flagStop = classSettings.stopFlag
-                if flagStop == True:
-                    activateButtons(dictButtons, flagStop)
-                    raise 
+            #     # Stop operation if Stop button hit
+            #     flagStop = classSettings.stopFlag
+            #     if flagStop == True:
+            #         activateButtons(dictButtons, flagStop)
+            #         raise 
 
-                ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, loadL, timeL)
-                ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, loadR, timeR)
-                ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, loadT, timeT)
-                ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, loadP, timeP)
-                ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
-                # Ensure same number of rows in position log file
-                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, ang_around_shaft)
+            #     ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, loadL, timeL)
+            #     ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, loadR, timeR)
+            #     ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, loadT, timeT)
+            #     ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, loadP, timeP)
+            #     ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
+            #     # Ensure same number of rows in position log file
+            #     posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, ang_around_shaft)
 
-                pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
-            time.sleep(0.07)
-            pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
+            #     pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
+            # time.sleep(0.07)
+            # pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
 
             # Wait an additional 3 s to stabilise
 
-            if not messagebox.askokcancel("Proceed?", "Was inflation succesfull?"):
-                raise
+            # if not messagebox.askokcancel("Proceed?", "Was inflation succesfull?"):
+            #     raise
 
-            if startWithCalibration:
+            # if startWithCalibration:
                 
-                # Has the mechanism been calibrated/want to run without calibration?:
-                calibrated = not startWithCalibration
+            #     # Has the mechanism been calibrated/want to run without calibration?:
+            #     calibrated = not startWithCalibration
 
 
 
-                if (not calibrated):
-                    # Perform calibration:
-                    print("Zeroing hydraulic actuators...")
-                    dictLabel["calibrationLabel"].config(fg = "red")
-                    pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE, controllerButtons)
+            #     if (not calibrated):
+            #         # Perform calibration:
+            #         print("Zeroing hydraulic actuators...")
+            #         dictLabel["calibrationLabel"].config(fg = "red")
+            #         pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE, controllerButtons)
 
-                prevCaliState = pumpController.calibrationByte
+            #     prevCaliState = pumpController.calibrationByte
                     
-                while (not calibrated):
+            #     while (not calibrated):
 
-                    # Stop operation if Stop button hit
-                    flagStop = classSettings.stopFlag
-                    if flagStop == True:
-                        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
-                        time.sleep(0.1)
-                        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
-                        activateButtons(dictButtons, flagStop)
-                        raise
+            #         # Stop operation if Stop button hit
+            #         flagStop = classSettings.stopFlag
+            #         if flagStop == True:
+            #             pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
+            #             time.sleep(0.1)
+            #             pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
+            #             activateButtons(dictButtons, flagStop)
+            #             raise
 
-                    pressLMed = medPressL.newPressMed(pressL)
-                    pressRMed = medPressR.newPressMed(pressR)
-                    pressTMed = medPressT.newPressMed(pressT)
-                    pressP = regulatorSensor
-                    pressPMed = medPressP.newPressMed(regulatorSensor)
-                    if (max(pressLMed, pressRMed, pressTMed) > PRESS_MAX_KPA):
-                        print("Overpressure: ", max(pressL, pressR, pressT), " kPa")
-                        raise
+            #         pressLMed = medPressL.newPressMed(pressL)
+            #         pressRMed = medPressR.newPressMed(pressR)
+            #         pressTMed = medPressT.newPressMed(pressT)
+            #         pressP = regulatorSensor
+            #         pressPMed = medPressP.newPressMed(regulatorSensor)
+            #         if (max(pressLMed, pressRMed, pressTMed) > PRESS_MAX_KPA):
+            #             print("Overpressure: ", max(pressL, pressR, pressT), " kPa")
+            #             raise
 
-                    [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
-                    [timeL, timeR, timeT, timeP] = [timeL]*4
-                    if prevCaliState != pumpController.calibrationByte:
-                        prevCaliState = pumpController.calibrationByte
+            #         [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
+            #         [timeL, timeR, timeT, timeP] = [timeL]*4
+            #         if prevCaliState != pumpController.calibrationByte:
+            #             prevCaliState = pumpController.calibrationByte
 
-                    if (int.from_bytes(pumpController.calibrationByte,'little') & 1 != 0):
-                        dictPress["pressureL"].config(fg = "green")
-                    if (int.from_bytes(pumpController.calibrationByte,'little') & 2 != 0):
-                        dictPress["pressureR"].config(fg = "green")
-                    if (int.from_bytes(pumpController.calibrationByte,'little') & 4 != 0):
-                        dictPress["pressureT"].config(fg = "green")
-                    if (int.from_bytes(pumpController.calibrationByte,'little') & 8 != 0):
-                        dictPress["pressureStruct"].config(fg = "cyan")
-                    # print(pressL, pressR, pressT, regulatorSensor, "\n")
+            #         if (int.from_bytes(pumpController.calibrationByte,'little') & 1 != 0):
+            #             dictPress["pressureL"].config(fg = "green")
+            #         if (int.from_bytes(pumpController.calibrationByte,'little') & 2 != 0):
+            #             dictPress["pressureR"].config(fg = "green")
+            #         if (int.from_bytes(pumpController.calibrationByte,'little') & 4 != 0):
+            #             dictPress["pressureT"].config(fg = "green")
+            #         if (int.from_bytes(pumpController.calibrationByte,'little') & 8 != 0):
+            #             dictPress["pressureStruct"].config(fg = "cyan")
+            #         # print(pressL, pressR, pressT, regulatorSensor, "\n")
 
-                    pressList = [pressLMed, pressRMed, pressTMed, pressPMed]
-                    # Change pressurebars
-                    updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
+            #         pressList = [pressLMed, pressRMed, pressTMed, pressPMed]
+            #         # Change pressurebars
+            #         updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
 
-                    if (pumpController.calibrationFlag == 'Y'):
-                        dictLabel["calibrationLabel"].config(fg = "green")
-                        calibrated = True
-                        # Send 0s instead of desiredTheta and pressMed as signal that calibration done
-                        desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, StepNoA = 0, 0, 0, 0, 0
-                        pressLMed, pressRMed, pressTMed, pressPMed, pressAMed = 0, 0, 0, 0, 0
-                    else:
-                        time.sleep(0.009)
-                        pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE, controllerButtons)
+            #         if (pumpController.calibrationFlag == 'Y'):
+            #             dictLabel["calibrationLabel"].config(fg = "green")
+            #             calibrated = True
+            #             # Send 0s instead of desiredTheta and pressMed as signal that calibration done
+            #             desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, StepNoA = 0, 0, 0, 0, 0
+            #             pressLMed, pressRMed, pressTMed, pressPMed, pressAMed = 0, 0, 0, 0, 0
+            #         else:
+            #             time.sleep(0.009)
+            #             pumpController.sendStep(initStepNoL, initStepNoR, initStepNoT, StepNoP, regulatorPressure, CALIBRATION_MODE, SET_PRESS_MODE, controllerButtons)
 
-                    ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, loadL, timeL)
-                    ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, loadR, timeR)
-                    ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, loadT, timeT)
-                    ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, loadP, timeP)
-                    ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
-                    # Ensure same number of rows in position log file
-                    posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, ang_around_shaft)
-                print("Calibration done.")
+            #         ardLogging.ardLog(realStepL, LcRealL, angleL, desiredThetaL, pressL, pressLMed, loadL, timeL)
+            #         ardLogging.ardLog(realStepR, LcRealR, angleR, desiredThetaR, pressR, pressRMed, loadR, timeR)
+            #         ardLogging.ardLog(realStepT, LcRealT, angleT, desiredThetaT, pressT, pressTMed, loadT, timeT)
+            #         ardLogging.ardLog(realStepP, LcRealP, angleP, desiredThetaP, pressP, pressPMed, loadP, timeP)
+            #         ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
+            #         # Ensure same number of rows in position log file
+            #         posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, ang_around_shaft)
+            #     print("Calibration done.")
 
         else:
             print("PUMP CONTROLLER NOT CONNECTED. RUNNING WITHOUT PUMPS.")
@@ -465,11 +470,8 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
 
         ################################################################
         # Begin main loop
-        mouseTrack.createTracker(kineSolve.attach_points_rot)
-        dictPress["pressureL"].config(fg = "white")
-        dictPress["pressureR"].config(fg = "white")
-        dictPress["pressureT"].config(fg = "white")
-        dictPress["pressureStruct"].config(fg = "white")
+        # mouseTrack.createTracker(kineSolve.attach_points_rot)
+
         while(flagStop == False):
 
             useOmni = classSettings.useOmni
@@ -517,11 +519,13 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
                     # This gives desired joint values 
                     [desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos] = ps4.incrementCylCoords(axialPos, rotaryPos, toolExt, wristAngle, graspPos)
                     # Convert desired joint values into angular positions of each motor
-                    targetAxialMotor = kineSolve.setAxialMotor(desAxialPos)
-                    targetRotaryMotor = kineSolve.setRotaryMotor(desRotaryPos)
-                    targetToolMotor = kineSolve.setToolMotor(desTooExt)
-                    targetWristMotor = kineSolve.setWristMotor(desWristAngle)
-                    targetGraspMotor = kineSolve.setGraspMotor(desGraspPos)
+                    desiredThetaAxial = kineSolve.setAxialMotor(desAxialPos)
+                    desiredThetaRotary = kineSolve.setRotaryMotor(desRotaryPos)
+                    desiredThetaTool = kineSolve.setToolMotor(desTooExt)
+                    desiredThetaWrist = kineSolve.setWristMotor(desWristAngle)
+                    desiredThetaGrasp = kineSolve.setGraspMotor(desGraspPos)
+                    print("Motor angles: ", desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, "\n")
+                    
 
                     frameRotAngle = dictLabel["rotationSlider"].get()
                     prevThetaPS4 = thetaDesired
@@ -570,7 +574,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
             elif controllerButtons == 2:
                 dictLabel["grasperLabel"].config(text = "Grasper close", fg = "red")
             elif controllerButtons == 3:
-                dictLabel["grasperLabel"].config(text = "Re-inflate", fg = "orange")
+                dictLabel["grasperLabel"].config(text = "Square", fg = "orange")
             else:
                 dictLabel["grasperLabel"].config(text = "Grasper", fg = "white")
 
@@ -587,7 +591,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
             # If no controller connected, set POI_PlaneCoords to None to make mouse control possible
             if (omni_connected == False) and (ps4.controller is None):
                 POI_PlaneCoords = None
-            [targetX_mouse, targetY_mouse, flagStop, insideBounds, resetFlag] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_rot, POI_PlaneCoords, XYZPathCoords, targ_conty_glob, ps4.controller)
+            # [targetX_mouse, targetY_mouse, flagStop, insideBounds, resetFlag] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_rot, POI_PlaneCoords, XYZPathCoords, targ_conty_glob, ps4.controller)
             viewerInputList[0] = thetaDesired
             viewerInputList[1] = azimuthDesired
             viewerInputList[2] = targetOpP
@@ -686,12 +690,12 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
                 loadList = [loadL, loadR, loadT, loadP]
  
                 # Change pressurebars
-                updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
+                # updatePressures(dictPress, pressList, minPress, PRESS_MAX_KPA)
 
                 # Check for high pressure
-                if (max(pressLMed, pressRMed, pressTMed) > PRESS_MAX_KPA): # TODO Add filtered pressure values back again to use here
-                    print("Overpressure: ", max(pressL, pressR, pressT), " kPa")
-                    break
+                # if (max(pressLMed, pressRMed, pressTMed) > PRESS_MAX_KPA): # TODO Add filtered pressure values back again to use here
+                #     print("Overpressure: ", max(pressL, pressR, pressT), " kPa")
+                #     break
 
             # Check if new data has been received from pump controller 
             if (timeL - prevTimeL > 0):
@@ -729,6 +733,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
             prevPathCounter = pathCounter
             pathCounter += 1
             # if pumpDataUpdated: pathCounter += 1
+            axialPos, rotaryPos, toolExt, wristAngle, graspPos = desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos
 
             # Stop operation if Stop button hit
             flagStop = classSettings.stopFlag
@@ -750,7 +755,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
         # Reactivate selection buttons 
         activateButtons(dictButtons, flagStop)
 
-        print("Ending control loop...")
+        print("Ending loop...")
 
         ###########################################################################
         # Stop program
@@ -776,10 +781,10 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
                 [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
                 [timeL, timeR, timeT, timeP] = [timeL]*4
                 # print("Connection to pump controller closed.")
-                print(realStepL, pressL, timeL)
-                print(realStepR, pressR, timeR)
-                print(realStepT, pressT, timeT)
-                print(realStepP, pressP, timeP)
+                # print(realStepL, pressL, timeL)
+                # print(realStepR, pressR, timeR)
+                # print(realStepT, pressT, timeT)
+                # print(realStepP, pressP, timeP)
 
 
 
@@ -829,7 +834,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
 
 
 
-            mouseTrack.closeTracker()
+            # mouseTrack.closeTracker()
 
         except TypeError as exTE:
             tb_linesTE = traceback.format_exception(exTE.__class__, exTE, exTE.__traceback__)
@@ -1005,7 +1010,7 @@ def viewer_process(angleList):
 ########################################################################################################
 if __name__ == '__main__':
     rootWindow = Tk()
-    rootWindow.title("Soft Robot Control System")
+    rootWindow.title("Lannsair Endoluminal Robotics")
     rootWindow.geometry("650x400")
 
     contentFrame = ttk.Frame(rootWindow)
