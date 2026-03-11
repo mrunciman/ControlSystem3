@@ -53,7 +53,7 @@ class ardThreader:
 
  
     # The pump controller takes the desired angles (from zero volume)
-    def sendStep(self, desiredAngle1, desiredAngle2, desiredAngle3, desiredAngle4, desiredPressure, controlState = None, inflationState = None, buttonsValue = None):
+    def sendStepOld(self, desiredAngle1, desiredAngle2, desiredAngle3, desiredAngle4, desiredPressure, controlState = None, inflationState = None, buttonsValue = None):
         """
         This function sends ideal position (stepNumber) then receives
         the real step count (stepCount) from arduino.
@@ -61,6 +61,38 @@ class ardThreader:
         """
         # self.ser.reset_output_buffer()
         inputList = [desiredAngle1, desiredAngle2, desiredAngle3, desiredAngle4, desiredPressure]
+        stringList = ['', '', '', '', '']
+
+        for i in range(len(inputList)):
+            if type(inputList[i]) != str:
+                stringList[i] = "{:7.2f}".format(inputList[i])
+            else:
+                stringList[i] = inputList[i]
+
+        # If we are sending the extra state variables, alter the 
+        # output message appropriately
+        # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
+        if controlState is not None:
+            msg = self.setState(controlState, inflationState, buttonsValue)
+        else:
+            msg = 'H_N'
+        message = 'B' + msg + '[' + stringList[0] + ',' + stringList[1] + ',' + stringList[2] + ',' + stringList[3] + ',' + stringList[4] + ',]' + "\n"
+        # print("Message: ", repr(message))
+        message = message.encode('utf-8', 'replace')
+        numBytes = self.t.write(message)
+        # print(numBytes)
+        return
+    
+
+    # The pump controller takes the desired angles (from zero volume)
+    def sendStep(self, desiredAngle1, desiredAngle2, desiredAngle3, desiredAngle4, desiredAngle5, controlState = None, inflationState = None, buttonsValue = None):
+        """
+        This function sends ideal position (stepNumber) then receives
+        the real step count (stepCount) from arduino.
+        steps = sendStep(serialConnection, stepNumber)
+        """
+        # self.ser.reset_output_buffer()
+        inputList = [desiredAngle1, desiredAngle2, desiredAngle3, desiredAngle4, desiredAngle5]
         stringList = ['', '', '', '', '']
 
         for i in range(len(inputList)):

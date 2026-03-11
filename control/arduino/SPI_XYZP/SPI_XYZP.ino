@@ -27,8 +27,8 @@ unsigned long LOOP_FREQ = 100; // Hz
 unsigned long LOOP_PERIOD_MICRO = round(1000000/LOOP_FREQ);
 float LOOP_PERIOD = 1/float(LOOP_FREQ);
 
-const int number_pumps = 4;
-const int number_pressure_regs = 1;
+const int number_pumps = 5;
+const int number_pressure_regs = 0;
 
 
 /////////////////////////////////////////////////////////////
@@ -66,11 +66,11 @@ int calibratedBytes = 0;
 int resetPin1 = 8;
 
 // X is Left actuator, Y is Right, Z is Top
-int selectPinX = 10;
-int selectPinY = 11;
-int selectPinZ = 12;
-int selectPinP = 9;
-int selectPinAir = 13;
+int selectPinRot = 10;
+int selectPinTool = 11;
+int selectPinWrist = 12;
+int selectPinAxial = 9;
+int selectPinGrasp = 13;
 
 int pressPinX = A4;
 int pressPinY = A3;
@@ -78,10 +78,11 @@ int pressPinZ = A2;
 int pressPinP = A1;
 int pressPinAir = A0;
 
-int limitPinX = 22;
-int limitPinY = 24;
-int limitPinZ = 26;
-int limitPinP = 30;
+int limitPinRot = 22;
+int limitPinTool = 24;
+int limitPinWrist = 26;
+int limitPinAxial = 30;
+int limitPinGrasp = 32;
 
 int valvePin = 37;
 int valvePinStruct = 41;
@@ -130,7 +131,7 @@ unsigned long timeLastExecution;
 ////////////////////////////////////////////////////////
 // uStepper data structures
 
-LinAxis axisList[4] = {LinAxis(), LinAxis(), LinAxis(), LinAxis()};
+LinAxis axisList[5] = {LinAxis(), LinAxis(), LinAxis(), LinAxis(), LinAxis()};
 
 
 ////////////////////////////////////////////////////////
@@ -229,13 +230,14 @@ void setup() {
   analogReference(INTERNAL2V56);
 
   // Initialise pumps 
-  axisList[0].init(selectPinX, pressPinX, LOOP_PERIOD, limitPinX);
-  axisList[1].init(selectPinY, pressPinY, LOOP_PERIOD, limitPinY);
-  axisList[2].init(selectPinZ, pressPinZ, LOOP_PERIOD, limitPinZ);
-  axisList[3].init(selectPinP, pressPinP, LOOP_PERIOD, limitPinP);
+  axisList[0].init(selectPinRot, pressPinX, LOOP_PERIOD, limitPinRot);
+  axisList[1].init(selectPinTool, pressPinY, LOOP_PERIOD, limitPinTool);
+  axisList[2].init(selectPinWrist, pressPinZ, LOOP_PERIOD, limitPinWrist);
+  axisList[3].init(selectPinAxial, pressPinP, LOOP_PERIOD, limitPinAxial);
+  axisList[4].init(selectPinGrasp, pressPinP, LOOP_PERIOD, limitPinGrasp);
 
   //Initialise pressure regulator
-  pressureRegulator.init(selectPinAir, pressPinAir, valvePin, valvePinStruct);
+  pressureRegulator.init(selectPinGrasp, pressPinAir, valvePin, valvePinStruct);
 
   // Grasper control from haptic
   pinMode(grasper_RHS_FWD, OUTPUT);
@@ -559,7 +561,7 @@ void readSerial() {
         getArray(); // THIS IS BLOCKING - WAITS for '\n' CHAR
         // Split array and assign desired positions to each pump
         // Serial.println("Split");
-        pressureRegulator.prevInputPress = pressureRegulator.inputPress;
+        // pressureRegulator.prevInputPress = pressureRegulator.inputPress;
         // Serial.println(pressureRegulator.prevInputPress);
         splitArray(); 
       }
@@ -757,10 +759,10 @@ void splitArray(){
       // For all the uStepper motors save desired positions based on index
       positionInputs[i] = ptr;
     }
-    else if(i == number_pumps){
-      // For pressure regulator, save in designated char pointer
-      pressureInput[0] = ptr;
-    }
+    // else if(i == number_pumps){
+    //   // For pressure regulator, save in designated char pointer
+    //   pressureInput[0] = ptr;
+    // }
     i++;
     ptr = strtok(NULL, ",");
   }
@@ -777,14 +779,14 @@ void splitArray(){
       // Serial.println(positionInputs[j]);
       j++;
     }
-    float interPress = atof(*pressureInput);
-    if (interPress < pressureRegulator.STRUCT_MAX_PRESS){
-      if ((interPress =! 100.0) || (interPress != 101.0)){
-        interPress = 100.0;
-      }
-      pressureRegulator.inputPress = interPress;
-      // Serial.print("Pressure: "); Serial.println(interPress);
-    }
+    // float interPress = atof(*pressureInput);
+    // if (interPress < pressureRegulator.STRUCT_MAX_PRESS){
+    //   if ((interPress =! 100.0) || (interPress != 101.0)){
+    //     interPress = 100.0;
+    //   }
+    //   pressureRegulator.inputPress = interPress;
+    //   // Serial.print("Pressure: "); Serial.println(interPress);
+    // }
   }
 }
 
@@ -1014,13 +1016,13 @@ void loop() {
 
 
     // Read pressures and put in array to be sent
-    updateAllPressures();
+    // updateAllPressures();
 
     // Put encoder values in array to be sent
     updateEncoderData();
 
     // // Read data from load cells
-    readLoadCells();
+    // readLoadCells();
 
     // // Read pressure sensors from 16  bit ADC
     // readADC();
@@ -1037,67 +1039,67 @@ void loop() {
     // Change inflatable structure behaviour based on inflatationState
     // inflationState determined by input in readSerial()
     // Firstly change from input_set state to isolated state if pressure has had time to settle
-    if (inflationState == INPUTPRESSURE){
-      if (pressureRegulator.prevInputPress != pressureRegulator.inputPress){ // current desired pressure different from last time
-          inflationCounter = 0;
-      }
-      else if (inflationCounter >= infStableTime){
-        inflationState = ISOLATED;
-      }
-    }
+    // if (inflationState == INPUTPRESSURE){
+    //   if (pressureRegulator.prevInputPress != pressureRegulator.inputPress){ // current desired pressure different from last time
+    //       inflationCounter = 0;
+    //   }
+    //   else if (inflationCounter >= infStableTime){
+    //     inflationState = ISOLATED;
+    //   }
+    // }
     // else if (inflationState == DEFLATING){
     //   if (deflationCounter >= 3*infStableTime){
     //     inflationState = ISOLATED;
     //   }
     // }
 
-    switch (inflationState){
+    // switch (inflationState){
 
-      case ISOLATED:
-        //Change valve states
-        pressureRegulator.isolateSupply();
-        // set to atmospheric pressure
-        pressureRegulator.desStructPress = P_ATMOS; 
-        // Change pressure regulator value 
-        pressureRegulator.writePressureReg();
-        break;
+    //   case ISOLATED:
+    //     //Change valve states
+    //     pressureRegulator.isolateSupply();
+    //     // set to atmospheric pressure
+    //     pressureRegulator.desStructPress = P_ATMOS; 
+    //     // Change pressure regulator value 
+    //     pressureRegulator.writePressureReg();
+    //     break;
       
-      case DEFLATING:
-        if (prevInfState != DEFLATING){
-          deflationCounter = 0;
-          prevInfState = DEFLATING;
-        }
+    //   case DEFLATING:
+    //     if (prevInfState != DEFLATING){
+    //       deflationCounter = 0;
+    //       prevInfState = DEFLATING;
+    //     }
         
-        deflationCounter = deflationCounter + 1;
-        if (deflationCounter >= 3*infStableTime){
-          inflationState = ISOLATED;
-        }
+    //     deflationCounter = deflationCounter + 1;
+    //     if (deflationCounter >= 3*infStableTime){
+    //       inflationState = ISOLATED;
+    //     }
 
-        pressureRegulator.desStructPress = P_INFLATED; // Allow regulator to open
-        // Change pressure regulator value 
-        pressureRegulator.writePressureReg();
-        //Change valve states
-        pressureRegulator.deflateStructure();
-        break;
+    //     pressureRegulator.desStructPress = P_INFLATED; // Allow regulator to open
+    //     // Change pressure regulator value 
+    //     pressureRegulator.writePressureReg();
+    //     //Change valve states
+    //     pressureRegulator.deflateStructure();
+    //     break;
 
-      case INPUTPRESSURE:
-        if (prevInfState != INPUTPRESSURE){
-          inflationCounter = 0;
-        }
-        else if (prevInfState == INPUTPRESSURE){
-          inflationCounter = inflationCounter + 1;
-        }
-        // Serial.println(atof(*pressureInput));
-        if (pressureRegulator.inputPress > 5.0){
-          pressureRegulator.desStructPress = pressureRegulator.inputPress; // set by control computer
-          // Change pressure regulator value 
-          pressureRegulator.writePressureReg();
-          //Change valve states
-          pressureRegulator.inflateStructure();
-        }
-        break;
+    //   case INPUTPRESSURE:
+    //     if (prevInfState != INPUTPRESSURE){
+    //       inflationCounter = 0;
+    //     }
+    //     else if (prevInfState == INPUTPRESSURE){
+    //       inflationCounter = inflationCounter + 1;
+    //     }
+    //     // Serial.println(atof(*pressureInput));
+    //     if (pressureRegulator.inputPress > 5.0){
+    //       pressureRegulator.desStructPress = pressureRegulator.inputPress; // set by control computer
+    //       // Change pressure regulator value 
+    //       pressureRegulator.writePressureReg();
+    //       //Change valve states
+    //       pressureRegulator.inflateStructure();
+    //     }
+    //     break;
         
-    } //Inflation switch
+    // } //Inflation switch
   
   } //Timing loop
   
