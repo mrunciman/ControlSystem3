@@ -12,7 +12,7 @@ import math as mt
 
 # DS4 controller ids (might be different on your side)
 VENDOR_ID = 0x54c # = 1356 in decimal
-PRODUCT_ID = 0x5c4 #0x5c4 = 1476 in decimal #0x9cc = 2508 in decimal
+PRODUCT_ID = 0x9cc #0x5c4 = 1476 in decimal #0x9cc = 2508 in decimal
 
 # Don't forget to change the path to libusb-1.0.dll
 BACKEND = usb.backend.libusb1.get_backend() 
@@ -20,7 +20,7 @@ BACKEND = usb.backend.libusb1.get_backend()
 
 # BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\InflatableRobotControl\\ControlSystemThree\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 
-INTERFACE_DS4 = 0#3 # 0 # HID interface number in cfg list
+INTERFACE_DS4 = 3 # 0 # HID interface number in cfg list
 SETTING_DS4 = 0
 
 ENDPOINT_DS4_OUT = 0 # Input endpoint
@@ -54,7 +54,8 @@ class ps4USB(threading.Thread):
 			self.endpoint = self.interface[ENDPOINT_DS4_OUT]
 			interfaceNo = self.cfg[(INTERFACE_DS4, SETTING_DS4)].bInterfaceNumber
 			try:
-				for i in range(interfaceNo):
+				for i in range(interfaceNo+1):
+					# print(i)
 					if self.dev.is_kernel_driver_active(i):
 						self.dev.detach_kernel_driver(i)
 			except usb.core.USBError as e:
@@ -96,7 +97,7 @@ class ps4USB(threading.Thread):
 
 
 	def stopped(self):
-		return self._connection_made.isSet()
+		return self._connection_made.is_set()
 
 
 
@@ -343,12 +344,12 @@ class ps4USB(threading.Thread):
 
 if __name__ == "__main__":
 	ps4 = ps4USB()
-	print(ps4.controller)
+	# print(ps4.controller)
 	if ps4.controller is not None:
 		ps4.start()
 
 	cX, cY, cZ = 0, 0, 0
-	num = 50
+	num = 25
 	rotateDegrees = 90
 
 	while num > 0:

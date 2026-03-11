@@ -22,7 +22,7 @@ class ardThreader:
 
     def __init__(self):
         self.ser = serial.Serial()
-        self.ser.port = '/dev/ttyUSB0'
+        self.ser.port = '/dev/ttyACM0'
         self.ser.baudrate = 115200
         self.ser.timeout = 1
         self.connected = False
