@@ -216,24 +216,26 @@ class kineSolver:
         # Gantry robot geometry and limits
         ###################################################################
         # Limits on angle change of torque coil / rotary axis
-        self.MIN_ROTARY = -190.0   # degrees 
-        self.MAX_ROTARY =  190.0   # degrees 
+        self.MIN_ROTARY = -300.0   # degrees 
+        self.MAX_ROTARY =  300.0   # degrees 
 
         # Limits on wrist angle
         self.MIN_WRIST_ANGLE = 0   # degrees 
         self.MAX_WRIST_ANGLE = 90  # degrees 
         # Geometry of wrist motor
-        self.HYPOT_TIP = 5         # mm
-        self.TIP_CUTAWAY_WIDTH = 5 # mm
-        self.NUM_SUBSECTIONS = 5   # number of cutaways
-        self.RADIUS_SPOOL = 15     # mm
+        self.HYPOT_TIP = 5.62      # mm
+        self.TIP_CUTAWAY_WIDTH = 2.34 # mm
+        self.NUM_SUBSECTIONS = 6   # number of cutaways
+        self.RADIUS_SPOOL = 5      # mm
         self.THETA_REST = 2*mt.asin((self.TIP_CUTAWAY_WIDTH/2)/self.HYPOT_TIP)
+        self.WRIST_THETA_0 = mt.radians(24)
+        self.WRIST_D_0 = 2*self.HYPOT_TIP*mt.sin(self.WRIST_THETA_0/2)
 
         # Limits on how far instrument can be extended
         self.MIN_TOOL_EXT = 5      # mm
-        self.MAX_TOOL_EXT = 50     # mm
+        self.MAX_TOOL_EXT = 150     # mm
         # Geometry of tool extensionm motor 
-        self.TOOL_EXT_ROLLER_RADIUS = 15 #mm
+        self.TOOL_EXT_ROLLER_RADIUS = 5 #mm
 
 
     def intersect(self, tDesX, tDesY, tExt):
@@ -890,6 +892,7 @@ class kineSolver:
             desAxialPos = self.MAX_EXTEND
 
         axialMotorAngle = 360.0*desAxialPos/self.LEAD
+        axialMotorAngle = round(axialMotorAngle,2)
             
         return axialMotorAngle
 
@@ -902,6 +905,7 @@ class kineSolver:
             desRotaryPos = self.MAX_ROTARY
 
         rotaryMotorAngle = desRotaryPos
+        rotaryMotorAngle = round(rotaryMotorAngle,2)
 
         return rotaryMotorAngle
 
@@ -913,7 +917,8 @@ class kineSolver:
         elif (desToolExt > self.MAX_TOOL_EXT):
             desToolExt = self.MAX_TOOL_EXT
             
-        toolMotorAngle = desToolExt/self.TOOL_EXT_ROLLER_RADIUS
+        toolMotorAngle = mt.degrees(desToolExt/self.TOOL_EXT_ROLLER_RADIUS)
+        toolMotorAngle = round(toolMotorAngle,2)
 
         return toolMotorAngle
 
@@ -924,15 +929,24 @@ class kineSolver:
         elif (desWristAngle > self.MAX_WRIST_ANGLE):
             desWristAngle = self.MAX_WRIST_ANGLE
 
-        wristMotorAngle = (2*self.HYPOT_TIP/self.RADIUS_SPOOL)  \
-              *mt.sin((self.THETA_REST - (desWristAngle/self.NUM_SUBSECTIONS))/2)
+        # print(desWristAngle)
+
+        # wrist_d_new = 2*self.HYPOT_TIP*mt.sin((self.WRIST_THETA_0 - mt.radians(desWristAngle)/self.NUM_SUBSECTIONS)/2)
+        # wrist_total_d = self.NUM_SUBSECTIONS*(self.WRIST_D_0 - wrist_d_new)
+        # wristMotorAngle = wrist_total_d/self.RADIUS_SPOOL
+
+        wristMotorAngle = round(desWristAngle,2)
+
+        # wristMotorAngle = mt.degrees((2*self.HYPOT_TIP/self.RADIUS_SPOOL)  \
+        #       *mt.sin((self.THETA_REST - (mt.radians(desWristAngle)/self.NUM_SUBSECTIONS))/2))
         
         return wristMotorAngle
 
 
     def setGraspMotor(self, desGraspPos):
-        
+        #TODO Set limits on grasper motor angles
         graspMotorAngle = 360.0*desGraspPos/self.LEAD
+        graspMotorAngle = round(graspMotorAngle,2)
         return graspMotorAngle
 
 

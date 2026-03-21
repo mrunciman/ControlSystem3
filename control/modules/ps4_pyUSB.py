@@ -96,14 +96,45 @@ class ps4USB(threading.Thread):
 		self.TRIGGER_SHIFT = 1
 		self.XY_DEADTHRESH = 0.05
 		self.PRISM_CHANGE = 0.1
-		self.TOOL_CHANGE = 0.1
-		self.GRASP_CHANGE = 0.1
+		self.TOOL_CHANGE = 1
+		self.GRASP_CHANGE = 1
 		self.XY_SENSITIVITY = 0.25
+		self.X_SENSITIVITY = 1.75
+		self.Y_SENSITIVITY = 1.25
 		self.PHI_SENSITIVITY = 0.5 #0.0087 approx half a degree
 		self.THETA_SENSITIVITY = 0.5/2
-		self.P_SENSITIVITY = 2.5
-		self.TOOL_SENSITIVITY = 2.5
-		self.GRASP_SENSITIVITY = 2.5
+		self.P_SENSITIVITY = 1
+		self.TOOL_SENSITIVITY = 0.4
+		self.GRASP_SENSITIVITY = 0.025
+
+
+		###################################################################
+		# Gantry robot geometry and limits
+		###################################################################
+		#Limits on axial extension
+		self.MIN_EXTEND = 0.5 # mm
+		self.MAX_EXTEND = 55 # mm
+		
+		# Limits on angle change of torque coil / rotary axis
+		self.MIN_ROTARY = -300.0   # degrees 
+		self.MAX_ROTARY =  300.0   # degrees 
+
+		# Limits on wrist angle
+		self.MIN_WRIST_ANGLE = 0   # degrees 
+		self.MAX_WRIST_ANGLE = 90  # degrees 
+		# Geometry of wrist motor
+		# self.HYPOT_TIP = 5         # mm
+		# self.TIP_CUTAWAY_WIDTH = 5 # mm
+		# self.NUM_SUBSECTIONS = 5   # number of cutaways
+		# self.RADIUS_SPOOL = 15     # mm
+		# self.THETA_REST = 2*mt.asin((self.TIP_CUTAWAY_WIDTH/2)/self.HYPOT_TIP)
+
+		# Limits on how far instrument can be extended
+		self.MIN_TOOL_EXT = 5      # mm
+		self.MAX_TOOL_EXT = 150     # mm
+		# Geometry of tool extensionm motor 
+		# self.TOOL_EXT_ROLLER_RADIUS = 10 #mm
+
 
 
 	def stopped(self):
@@ -155,17 +186,20 @@ class ps4USB(threading.Thread):
 
 	def getChanges(self):
 	# print("Data getter:", self.RstickH, self.RstickV)
+		# Rotary
 		if (abs(self.RstickX) > self.XY_DEADTHRESH):
 			self.phiChange = float(self.PHI_SENSITIVITY*self.RstickX)
-			self.xChange = self.XY_SENSITIVITY*self.RstickX
+			self.xChange = -self.X_SENSITIVITY*self.RstickX
 			# print("RstickH", self.RstickH)
 			# print("Phi Change: ", self.phiChange)
 		else:
 			self.xChange = float(0)
 			self.phiChange = float(0)
 
+
+		# Wrist 
 		if (abs(self.RstickY) > self.XY_DEADTHRESH):
-			self.yChange = self.XY_SENSITIVITY*self.RstickY
+			self.yChange = self.Y_SENSITIVITY*self.RstickY
 			self.thetaChange = self.THETA_SENSITIVITY*self.RstickY
 			# print("Theta Change: ", self.phiChange)
 
@@ -199,9 +233,9 @@ class ps4USB(threading.Thread):
 
 		# Grasper control increment
 		if (self.CroButton):
-			self.graspChange = -self.GRASP_SENSITIVITY*self.GRASP_CHANGE
-		elif (self.CirButton):
 			self.graspChange = self.GRASP_SENSITIVITY*self.GRASP_CHANGE
+		elif (self.CirButton):
+			self.graspChange = -self.GRASP_SENSITIVITY*self.GRASP_CHANGE
 		else:
 			self.graspChange = 0
 
@@ -218,11 +252,22 @@ class ps4USB(threading.Thread):
 		else:
 			nAxialPos = cAxialPos
 
+		if (nAxialPos < self.MIN_EXTEND):
+			nAxialPos = self.MIN_EXTEND
+		elif (nAxialPos > self.MAX_EXTEND):
+			nAxialPos = self.MAX_EXTEND
+		# print(nAxialPos)
+
 		# Rotary position
 		if self.xChange is not None:
 			nRotaryPos = cRotaryPos + self.xChange
 		else:
 			nRotaryPos = cRotaryPos
+
+		if (nRotaryPos < self.MIN_ROTARY):
+			nRotaryPos = self.MIN_ROTARY
+		elif (nRotaryPos > self.MAX_ROTARY):
+			nRotaryPos = self.MAX_ROTARY
 
 		# Tool extension
 		if self.toolChange is not None:
@@ -230,11 +275,21 @@ class ps4USB(threading.Thread):
 		else:
 			nToolExt = cToolExt
 
+		if (nToolExt < self.MIN_TOOL_EXT):
+			nToolExt = self.MIN_TOOL_EXT
+		elif (nToolExt > self.MAX_TOOL_EXT):
+			nToolExt = self.MAX_TOOL_EXT
+
 		# Wrist position
 		if self.yChange is not None:
 			nWristAngle = cWristAngle + self.yChange
 		else:
 			nWristAngle = cWristAngle
+
+		if (nWristAngle < self.MIN_WRIST_ANGLE):
+			nWristAngle = self.MIN_WRIST_ANGLE
+		elif (nWristAngle > self.MAX_WRIST_ANGLE):
+			nWristAngle = self.MAX_WRIST_ANGLE
 
 		# Grasp position
 		if self.graspChange is not None:

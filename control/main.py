@@ -525,7 +525,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
                     desiredThetaTool = kineSolve.setToolMotor(desTooExt)
                     desiredThetaWrist = kineSolve.setWristMotor(desWristAngle)
                     desiredThetaGrasp = kineSolve.setGraspMotor(desGraspPos)
-                    print("Motor angles: ", desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, "\n")
+                    print("Motor angles: ", desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp)
                     
 
                     frameRotAngle = dictLabel["rotationSlider"].get()
@@ -649,7 +649,6 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
             # print("Motor angles: ", desiredThetaL, desiredThetaR, desiredThetaT, desiredThetaP, "\n")
 
             # desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp
-            initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp = 0, 0, 0, 0, 0
             # Log desired positions
             if pumpDataUpdated:
                 posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, ang_around_shaft)
