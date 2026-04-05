@@ -13,6 +13,8 @@ class RobotViewer(ShowBase):
 
         # Store input reference (list from Tkinter/shared memory)
         self.inputList = inputList
+        self.jointSpace = None
+        self.lastJointSpace = None
         self.lastAngles = [None, None]
         self.lastPrismatic = None
 
@@ -62,7 +64,7 @@ class RobotViewer(ShowBase):
         self.render.setLight(alnp)
 
         # Update task
-        self.taskMgr.add(self.check_input, "CheckInputTask")
+        self.taskMgr.add(self.check_input_gantry, "CheckInputTask")
 
     def make_cylinder(self, radius, height):
         """Use Panda3D's built-in geometry for a cylinder."""
@@ -143,6 +145,95 @@ class RobotViewer(ShowBase):
         self.RobotAssembly.set_mat(self.tranMatrix)
 
 
+    def update_robot_gantry(self, jointSpace):
+        """Update robot joint positions based on angles and prismatic extension."""
+        theta0 = 0
+        prism0 = jointSpace[0] # Axial extension
+        alpha0 = 0
+        dist0 = 0
+
+        theta1 = mt.radians(jointSpace[1]) # Rotary angle
+        prism1 = 0 # Axial extension
+        alpha1 = -mt.pi/2
+        dist1 = 0
+
+        theta2 = -mt.pi/2   # Intermediate
+        prism2 = 0
+        alpha2 = 0
+        dist2 = 0
+
+        theta3 = mt.radians(jointSpace[3]) # Wrist angle
+        prism3 = 0
+        alpha3 = 0
+        dist3 = 0
+
+        theta4 = mt.pi/2    # Intermediate 2
+        prism4 = 0
+        alpha4 = mt.pi/2
+        dist4 = 0
+
+        theta5 = 0
+        prism5 = jointSpace[2] # Tool extension
+        alpha5 = 0
+        dist5 = 0
+
+        grasp = jointSpace[4]  # Grapser position
+
+        # Scale cylinder along Z for prismatic extension
+        scale_z = (self.shaftLength + prism5)/self.cylModelLength
+        self.robotShaft.setScale(1, 1, scale_z)
+
+      
+        T_0_1 = np.array([  [mt.cos(alpha0), -mt.sin(theta0)*mt.cos(alpha0),  mt.sin(theta0)*mt.sin(alpha0), 0],\
+                            [mt.sin(theta0),  mt.cos(theta0)*mt.cos(alpha0), -mt.cos(theta0)*mt.sin(alpha0), 0],\
+                            [0,               mt.sin(alpha0),                 mt.cos(alpha0),                prism0],\
+                            [0, 0, 0, 1]])
+        print(T_0_1)
+        
+        T_1_2 = np.array([  [mt.cos(alpha1), -mt.sin(theta1)*mt.cos(alpha1),  mt.sin(theta1)*mt.sin(alpha1), 0],\
+                            [mt.sin(theta1),  mt.cos(theta1)*mt.cos(alpha1), -mt.cos(theta1)*mt.sin(alpha1), 0],\
+                            [0,               mt.sin(alpha1),                 mt.cos(alpha1),                prism1],\
+                            [0, 0, 0, 1]])
+        
+        T_2_3 = np.array([  [mt.cos(alpha2), -mt.sin(theta2)*mt.cos(alpha2),  mt.sin(theta2)*mt.sin(alpha2), 0],\
+                            [mt.sin(theta2),  mt.cos(theta2)*mt.cos(alpha2), -mt.cos(theta2)*mt.sin(alpha2), 0],\
+                            [0,               mt.sin(alpha2),                 mt.cos(alpha2),                prism2],\
+                            [0, 0, 0, 1]])
+        
+        T_3_4 = np.array([  [mt.cos(alpha3), -mt.sin(theta3)*mt.cos(alpha3),  mt.sin(theta3)*mt.sin(alpha3), 0],\
+                            [mt.sin(theta3),  mt.cos(theta3)*mt.cos(alpha3), -mt.cos(theta3)*mt.sin(alpha3), 0],\
+                            [0,               mt.sin(alpha3),                 mt.cos(alpha3),                prism3],\
+                            [0, 0, 0, 1]])
+        
+        T_4_5 = np.array([  [mt.cos(alpha4), -mt.sin(theta4)*mt.cos(alpha4),  mt.sin(theta4)*mt.sin(alpha4), 0],\
+                            [mt.sin(theta4),  mt.cos(theta4)*mt.cos(alpha4), -mt.cos(theta4)*mt.sin(alpha4), 0],\
+                            [0,               mt.sin(alpha4),                 mt.cos(alpha4),                prism4],\
+                            [0, 0, 0, 1]])
+        
+        T_5_6 = np.array([  [mt.cos(alpha5), -mt.sin(theta5)*mt.cos(alpha5),  mt.sin(theta5)*mt.sin(alpha5), 0],\
+                            [mt.sin(theta5),  mt.cos(theta5)*mt.cos(alpha5), -mt.cos(theta5)*mt.sin(alpha5), 0],\
+                            [0,               mt.sin(alpha5),                 mt.cos(alpha5),                prism5],\
+                            [0, 0, 0, 1]])
+
+        
+        # tMatrixTrans*tMatrixRotX*tMatrixRotY
+        T_0_2 = np.dot(T_1_2, T_0_1)
+        T_0_3 = np.dot(T_2_3, T_0_2)
+        T_0_4 = np.dot(T_3_4, T_0_3)
+        T_0_5 = np.dot(T_4_5, T_0_4)
+        T_0_6 = np.dot(T_5_6, T_0_5)
+
+        listOfLists = np.transpose(T_0_6).tolist()
+        print(listOfLists)
+
+        # print(np.transpose(tMatrixRobot).tolist())
+        flat_list = [x for xs in listOfLists for x in xs]
+        self.tranMatrix = LMatrix4f(*flat_list)
+        
+        # Apply transform to assembly (position + rotations)
+        self.RobotAssembly.set_mat(self.tranMatrix)
+
+
     def check_input(self, task):
         """Poll inputList for updates (simulating Tkinter shared state)."""
         try:
@@ -161,6 +252,20 @@ class RobotViewer(ShowBase):
         except Exception as e:
             print("Error:", e)
 
+
+
+    def check_input_gantry(self, task):
+        """Poll inputList for updates (simulating Tkinter shared state)."""
+        try:
+            self.jointSpace = self.inputList
+
+            if (self.jointSpace != self.lastJointSpace):
+                # print(angles)
+                self.update_robot_gantry(self.jointSpace)
+                self.lastJointSpace = self.jointSpace
+        except Exception as e:
+            print("Error:", e)
+
         return task.cont
 
 
@@ -171,4 +276,5 @@ def run_viewer(inputList):
 
 if __name__ == "__main__":
     # Test with dummy values
+    # Axial, rotary, extension, wrist, grasper
     run_viewer([0.5, 0.3, 20, 10, 10, 10])

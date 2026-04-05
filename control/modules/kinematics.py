@@ -891,7 +891,7 @@ class kineSolver:
 
         axialMotorAngle = 360.0*desAxialPos/self.LEAD
             
-        return axialMotorAngle
+        return axialMotorAngle, desAxialPos
 
 
     def setRotaryMotor(self, desRotaryPos):
@@ -903,7 +903,7 @@ class kineSolver:
 
         rotaryMotorAngle = desRotaryPos
 
-        return rotaryMotorAngle
+        return rotaryMotorAngle, desRotaryPos
 
 
     def setToolMotor(self, desToolExt):
@@ -915,7 +915,7 @@ class kineSolver:
             
         toolMotorAngle = desToolExt/self.TOOL_EXT_ROLLER_RADIUS
 
-        return toolMotorAngle
+        return toolMotorAngle, desToolExt
 
 
     def setWristMotor(self, desWristAngle):
@@ -927,13 +927,13 @@ class kineSolver:
         wristMotorAngle = (2*self.HYPOT_TIP/self.RADIUS_SPOOL)  \
               *mt.sin((self.THETA_REST - (desWristAngle/self.NUM_SUBSECTIONS))/2)
         
-        return wristMotorAngle
+        return wristMotorAngle, desWristAngle
 
 
     def setGraspMotor(self, desGraspPos):
         
         graspMotorAngle = 360.0*desGraspPos/self.LEAD
-        return graspMotorAngle
+        return graspMotorAngle, desGraspPos
 
 
 
