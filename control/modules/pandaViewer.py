@@ -33,6 +33,18 @@ class RobotViewer(ShowBase):
         self.axes_local.reparentTo(self.RobotAssembly)
         self.RobotAssembly.reparentTo(self.render)
 
+        # Make shaft up to wrist
+        self.UpToWrist = NodePath("UpToWrist")
+        self.upToWrist = self.make_cylinder(self.shaftRadius, self.shaftLength)
+        self.upToWrist.reparentTo(self.UpToWrist)
+        self.UpToWrist.reparentTo(self.render)
+
+        self.RobotWrist = NodePath("RobotWrist")
+        self.axes_local = self.make_axes(length=10)
+        self.axes_local.setLightOff(1)
+        self.axes_local.reparentTo(self.RobotWrist)
+        self.RobotWrist.reparentTo(self.render)
+
         # Global axes
         self.axes_global = self.make_axes(length=10)
         self.axes_global.setLightOff(1)
@@ -147,84 +159,157 @@ class RobotViewer(ShowBase):
 
     def update_robot_gantry(self, jointSpace):
         """Update robot joint positions based on angles and prismatic extension."""
-        theta0 = 0
-        prism0 = jointSpace[0] # Axial extension
         alpha0 = 0
         dist0 = 0
+        theta0 = 0
+        prism0 = jointSpace[0] # Axial extension        
 
+        alpha1 = 0
+        dist1 = 0
         theta1 = mt.radians(jointSpace[1]) # Rotary angle
         prism1 = 0 # Axial extension
-        alpha1 = -mt.pi/2
-        dist1 = 0
 
-        theta2 = -mt.pi/2   # Intermediate
-        prism2 = 0
-        alpha2 = 0
+        alpha2 = -mt.pi/2
         dist2 = 0
+        theta2 = -mt.pi/2   # Intermediate 1
+        prism2 = 0
 
-        theta3 = mt.radians(jointSpace[3]) # Wrist angle
-        prism3 = 0
         alpha3 = 0
         dist3 = 0
+        theta3 = mt.radians(jointSpace[3]) # Wrist angle
+        prism3 = 0
 
+        alpha4 = 0
+        dist4 = 0
         theta4 = mt.pi/2    # Intermediate 2
         prism4 = 0
-        alpha4 = mt.pi/2
-        dist4 = 0
 
-        theta5 = 0
-        prism5 = jointSpace[2] # Tool extension
-        alpha5 = 0
+        alpha5 = mt.pi/2
         dist5 = 0
+        theta5 = 0
+        prism5 = 0
+
+        alpha6 = 0
+        dist6 = 0
+        theta6 = 0
+        prism6 = jointSpace[2] # Tool extension
 
         grasp = jointSpace[4]  # Grapser position
 
-        # Scale cylinder along Z for prismatic extension
-        scale_z = (self.shaftLength + prism5)/self.cylModelLength
-        self.robotShaft.setScale(1, 1, scale_z)
+        # Scale cylinder along Z up to the wrist
+        scale_z_axial = (self.shaftLength + prism0)/self.cylModelLength
+        self.upToWrist.setScale(1, 1, 1)
+
+        # Scale cylinder along Z for the tool extension
+        scale_z_tool = (self.shaftLength + prism5)/self.cylModelLength
+        self.robotShaft.setScale(1, 1, 1)
 
       
-        T_0_1 = np.array([  [mt.cos(alpha0), -mt.sin(theta0)*mt.cos(alpha0),  mt.sin(theta0)*mt.sin(alpha0), 0],\
-                            [mt.sin(theta0),  mt.cos(theta0)*mt.cos(alpha0), -mt.cos(theta0)*mt.sin(alpha0), 0],\
+        T_0_1 = np.array([  [mt.cos(theta0), -mt.sin(theta0)*mt.cos(alpha0),  mt.sin(theta0)*mt.sin(alpha0), dist0*mt.cos(theta0)],\
+                            [mt.sin(theta0),  mt.cos(theta0)*mt.cos(alpha0), -mt.cos(theta0)*mt.sin(alpha0), dist0*mt.sin(theta0)],\
                             [0,               mt.sin(alpha0),                 mt.cos(alpha0),                prism0],\
                             [0, 0, 0, 1]])
-        print(T_0_1)
+        # print(T_0_1)
         
-        T_1_2 = np.array([  [mt.cos(alpha1), -mt.sin(theta1)*mt.cos(alpha1),  mt.sin(theta1)*mt.sin(alpha1), 0],\
-                            [mt.sin(theta1),  mt.cos(theta1)*mt.cos(alpha1), -mt.cos(theta1)*mt.sin(alpha1), 0],\
+        T_1_2 = np.array([  [mt.cos(theta1), -mt.sin(theta1)*mt.cos(alpha1),  mt.sin(theta1)*mt.sin(alpha1), dist1*mt.cos(theta1)],\
+                            [mt.sin(theta1),  mt.cos(theta1)*mt.cos(alpha1), -mt.cos(theta1)*mt.sin(alpha1), dist1*mt.sin(theta1)],\
                             [0,               mt.sin(alpha1),                 mt.cos(alpha1),                prism1],\
                             [0, 0, 0, 1]])
+        # print(T_1_2)
         
-        T_2_3 = np.array([  [mt.cos(alpha2), -mt.sin(theta2)*mt.cos(alpha2),  mt.sin(theta2)*mt.sin(alpha2), 0],\
-                            [mt.sin(theta2),  mt.cos(theta2)*mt.cos(alpha2), -mt.cos(theta2)*mt.sin(alpha2), 0],\
+        T_2_3 = np.array([  [mt.cos(theta2), -mt.sin(theta2)*mt.cos(alpha2),  mt.sin(theta2)*mt.sin(alpha2), dist2*mt.cos(theta2)],\
+                            [mt.sin(theta2),  mt.cos(theta2)*mt.cos(alpha2), -mt.cos(theta2)*mt.sin(alpha2), dist2*mt.sin(theta2)],\
                             [0,               mt.sin(alpha2),                 mt.cos(alpha2),                prism2],\
                             [0, 0, 0, 1]])
+        print(T_2_3)
         
-        T_3_4 = np.array([  [mt.cos(alpha3), -mt.sin(theta3)*mt.cos(alpha3),  mt.sin(theta3)*mt.sin(alpha3), 0],\
-                            [mt.sin(theta3),  mt.cos(theta3)*mt.cos(alpha3), -mt.cos(theta3)*mt.sin(alpha3), 0],\
+        T_3_4 = np.array([  [mt.cos(theta3), -mt.sin(theta3)*mt.cos(alpha3),  mt.sin(theta3)*mt.sin(alpha3), dist3*mt.cos(theta3)],\
+                            [mt.sin(theta3),  mt.cos(theta3)*mt.cos(alpha3), -mt.cos(theta3)*mt.sin(alpha3), dist3*mt.sin(theta3)],\
                             [0,               mt.sin(alpha3),                 mt.cos(alpha3),                prism3],\
                             [0, 0, 0, 1]])
+        # print(T_3_4)
         
-        T_4_5 = np.array([  [mt.cos(alpha4), -mt.sin(theta4)*mt.cos(alpha4),  mt.sin(theta4)*mt.sin(alpha4), 0],\
-                            [mt.sin(theta4),  mt.cos(theta4)*mt.cos(alpha4), -mt.cos(theta4)*mt.sin(alpha4), 0],\
+        T_4_5 = np.array([  [mt.cos(theta4), -mt.sin(theta4)*mt.cos(alpha4),  mt.sin(theta4)*mt.sin(alpha4), dist4*mt.cos(theta4)],\
+                            [mt.sin(theta4),  mt.cos(theta4)*mt.cos(alpha4), -mt.cos(theta4)*mt.sin(alpha4), dist4*mt.sin(theta4)],\
                             [0,               mt.sin(alpha4),                 mt.cos(alpha4),                prism4],\
                             [0, 0, 0, 1]])
+        # print(T_4_5)
         
-        T_5_6 = np.array([  [mt.cos(alpha5), -mt.sin(theta5)*mt.cos(alpha5),  mt.sin(theta5)*mt.sin(alpha5), 0],\
-                            [mt.sin(theta5),  mt.cos(theta5)*mt.cos(alpha5), -mt.cos(theta5)*mt.sin(alpha5), 0],\
+        T_5_6 = np.array([  [mt.cos(theta5), -mt.sin(theta5)*mt.cos(alpha5),  mt.sin(theta5)*mt.sin(alpha5), dist5*mt.cos(theta5)],\
+                            [mt.sin(theta5),  mt.cos(theta5)*mt.cos(alpha5), -mt.cos(theta5)*mt.sin(alpha5), dist5*mt.sin(theta5)],\
                             [0,               mt.sin(alpha5),                 mt.cos(alpha5),                prism5],\
                             [0, 0, 0, 1]])
+        # print(T_5_6)
+
+        T_6_7 = np.array([  [mt.cos(theta6), -mt.sin(theta6)*mt.cos(alpha6),  mt.sin(theta6)*mt.sin(alpha6), dist6*mt.cos(theta6)],\
+                            [mt.sin(theta6),  mt.cos(theta6)*mt.cos(alpha6), -mt.cos(theta6)*mt.sin(alpha6), dist6*mt.sin(theta6)],\
+                            [0,               mt.sin(alpha6),                 mt.cos(alpha6),                prism6],\
+                            [0, 0, 0, 1]])
+        # print(T_6_7)
 
         
-        # tMatrixTrans*tMatrixRotX*tMatrixRotY
-        T_0_2 = np.dot(T_1_2, T_0_1)
-        T_0_3 = np.dot(T_2_3, T_0_2)
-        T_0_4 = np.dot(T_3_4, T_0_3)
-        T_0_5 = np.dot(T_4_5, T_0_4)
-        T_0_6 = np.dot(T_5_6, T_0_5)
+        # T_0_2 = np.dot(T_1_2, T_0_1)
+        # print("T_0_2: ",T_0_2)
+        # T_0_3 = np.dot(T_2_3, T_0_2)
+        # print("T_0_3: ",T_0_3)
+        # T_0_4 = np.dot(T_3_4, T_0_3)
+        # print("T_0_4: ",T_0_4)
+        # T_0_5 = np.dot(T_4_5, T_0_4)
+        # print("T_0_5: ",T_0_5)
+        # T_0_6 = np.dot(T_5_6, T_0_5)
+        # print("T_0_6: ",T_0_6)
+        # T_0_7 = np.dot(T_6_7, T_0_6)
+        # print("T_0_7: ",T_0_7)
+
+
+        # # tMatrixTrans*tMatrixRotX*tMatrixRotY
+        # T_0_2 = np.dot(T_0_1, T_1_2)
+        # T_0_3 = np.dot(T_0_2, T_2_3)
+        # T_0_4 = np.dot(T_0_3, T_3_4)
+        # T_0_5 = np.dot(T_0_4, T_4_5)
+        # T_0_6 = np.dot(T_0_5, T_5_6)
+
+        T_0_2 = np.dot(T_0_1, T_1_2)
+        print("GT_0_2: ",T_0_2)
+        T_0_3 = np.dot(T_0_2, T_2_3)
+        print("GT_0_3: ",T_0_3)
+        T_0_4 = np.dot(T_0_3, T_3_4)
+        print("GT_0_4: ",T_0_4)
+        T_0_5 = np.dot(T_0_4, T_4_5)
+        print("GT_0_5: ",T_0_5)
+        T_0_6 = np.dot(T_0_5, T_5_6)
+        print("GT_0_6: ",T_0_6)
+        T_0_7 = np.dot(T_0_6, T_6_7)
+        print("GT_0_7: ",T_0_7)
+
+        # print(T_0_6)
+
+
+        listOfLists = np.transpose(T_0_2).tolist()
+        # print(listOfLists)
+
+        flat_list = [x for xs in listOfLists for x in xs]
+        self.tranMatrix = LMatrix4f(*flat_list)
+        
+        # Apply transform to assembly (position + rotations)
+        self.UpToWrist.set_mat(self.tranMatrix)
+
+
+
 
         listOfLists = np.transpose(T_0_6).tolist()
-        print(listOfLists)
+        # print(listOfLists)
+
+        flat_list = [x for xs in listOfLists for x in xs]
+        self.tranMatrix = LMatrix4f(*flat_list)
+        
+        # Apply transform to assembly (position + rotations)
+        self.RobotWrist.set_mat(self.tranMatrix)
+
+
+
+        listOfLists = np.transpose(T_0_7).tolist()
+        # print(listOfLists)
 
         # print(np.transpose(tMatrixRobot).tolist())
         flat_list = [x for xs in listOfLists for x in xs]
@@ -277,4 +362,4 @@ def run_viewer(inputList):
 if __name__ == "__main__":
     # Test with dummy values
     # Axial, rotary, extension, wrist, grasper
-    run_viewer([0.5, 0.3, 20, 10, 10, 10])
+    run_viewer([50, 0, 20, 0, 0, 0])
