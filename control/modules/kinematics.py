@@ -894,7 +894,7 @@ class kineSolver:
         axialMotorAngle = 360.0*desAxialPos/self.LEAD
         axialMotorAngle = round(axialMotorAngle,2)
             
-        return axialMotorAngle
+        return axialMotorAngle, desAxialPos
 
 
     def setRotaryMotor(self, desRotaryPos):
@@ -907,7 +907,7 @@ class kineSolver:
         rotaryMotorAngle = desRotaryPos
         rotaryMotorAngle = round(rotaryMotorAngle,2)
 
-        return rotaryMotorAngle
+        return rotaryMotorAngle, desRotaryPos
 
 
     def setToolMotor(self, desToolExt):
@@ -920,7 +920,7 @@ class kineSolver:
         toolMotorAngle = mt.degrees(desToolExt/self.TOOL_EXT_ROLLER_RADIUS)
         toolMotorAngle = round(toolMotorAngle,2)
 
-        return toolMotorAngle
+        return toolMotorAngle, desToolExt
 
 
     def setWristMotor(self, desWristAngle):
@@ -929,25 +929,24 @@ class kineSolver:
         elif (desWristAngle > self.MAX_WRIST_ANGLE):
             desWristAngle = self.MAX_WRIST_ANGLE
 
-        # print(desWristAngle)
-
         # wrist_d_new = 2*self.HYPOT_TIP*mt.sin((self.WRIST_THETA_0 - mt.radians(desWristAngle)/self.NUM_SUBSECTIONS)/2)
         # wrist_total_d = self.NUM_SUBSECTIONS*(self.WRIST_D_0 - wrist_d_new)
         # wristMotorAngle = wrist_total_d/self.RADIUS_SPOOL
 
         wristMotorAngle = round(desWristAngle,2)
 
-        # wristMotorAngle = mt.degrees((2*self.HYPOT_TIP/self.RADIUS_SPOOL)  \
-        #       *mt.sin((self.THETA_REST - (mt.radians(desWristAngle)/self.NUM_SUBSECTIONS))/2))
+        # wristMotorAngle = (2*self.HYPOT_TIP/self.RADIUS_SPOOL)  \
+        #       *mt.sin((self.THETA_REST - (desWristAngle/self.NUM_SUBSECTIONS))/2)
         
-        return wristMotorAngle
+        return wristMotorAngle, desWristAngle
+
 
 
     def setGraspMotor(self, desGraspPos):
         #TODO Set limits on grasper motor angles
         graspMotorAngle = 360.0*desGraspPos/self.LEAD
         graspMotorAngle = round(graspMotorAngle,2)
-        return graspMotorAngle
+        return graspMotorAngle, desGraspPos
 
 
 

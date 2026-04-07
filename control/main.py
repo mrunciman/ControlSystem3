@@ -520,12 +520,12 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
                     # This gives desired joint values 
                     [desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos] = ps4.incrementCylCoords(axialPos, rotaryPos, toolExt, wristAngle, graspPos)
                     # Convert desired joint values into angular positions of each motor
-                    desiredThetaAxial = kineSolve.setAxialMotor(desAxialPos)
-                    desiredThetaRotary = kineSolve.setRotaryMotor(desRotaryPos)
-                    desiredThetaTool = kineSolve.setToolMotor(desTooExt)
-                    desiredThetaWrist = kineSolve.setWristMotor(desWristAngle)
-                    desiredThetaGrasp = kineSolve.setGraspMotor(desGraspPos)
-                    print("Motor angles: ", desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp)
+                    desiredThetaAxial, desAxialPos = kineSolve.setAxialMotor(desAxialPos)
+                    desiredThetaRotary, desRotaryPos = kineSolve.setRotaryMotor(desRotaryPos)
+                    desiredThetaTool, desTooExt = kineSolve.setToolMotor(desTooExt)
+                    desiredThetaWrist, desWristAngle = kineSolve.setWristMotor(desWristAngle)
+                    desiredThetaGrasp, desGraspPos = kineSolve.setGraspMotor(desGraspPos)
+                    print("Motor angles: ", desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, "\n")
                     
 
                     frameRotAngle = dictLabel["rotationSlider"].get()
@@ -593,12 +593,12 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
             if (omni_connected == False) and (ps4.controller is None):
                 POI_PlaneCoords = None
             # [targetX_mouse, targetY_mouse, flagStop, insideBounds, resetFlag] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_rot, POI_PlaneCoords, XYZPathCoords, targ_conty_glob, ps4.controller)
-            viewerInputList[0] = thetaDesired
-            viewerInputList[1] = azimuthDesired
-            viewerInputList[2] = targetOpP
-            viewerInputList[3] = float(targ_conty_glob[0])
-            viewerInputList[4] = float(targ_conty_glob[1])
-            viewerInputList[5] = float(targ_conty_glob[2])
+            viewerInputList[0] = desAxialPos
+            viewerInputList[1] = desRotaryPos
+            viewerInputList[2] = desTooExt
+            viewerInputList[3] = desWristAngle
+            viewerInputList[4] = desGraspPos
+            viewerInputList[5] = 0
             # print("From tkinter ", viewerInputList)
 
             # Return target cable lengths at target coords and jacobian at current coords
