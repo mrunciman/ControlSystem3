@@ -217,7 +217,10 @@ class kineSolver:
         ###################################################################
         # Limits on angle change of torque coil / rotary axis
         self.MIN_ROTARY = -300.0   # degrees 
-        self.MAX_ROTARY =  300.0   # degrees 
+        self.MAX_ROTARY =  300.0   # degrees
+        self.targDirRot = 1
+        self.prevDirRot = 1
+        self.antiHystDegRot = 360/20
 
         # Limits on wrist angle
         self.MIN_WRIST_ANGLE = 0   # degrees 
@@ -897,7 +900,19 @@ class kineSolver:
         return axialMotorAngle, desAxialPos
 
 
-    def setRotaryMotor(self, desRotaryPos):
+    def setRotaryMotor(self, desRotaryPos, prevRotPos):
+
+        # For anti-hysteresis in prismatic joint, check target direction and current direction of motion:
+        if desRotaryPos > prevRotPos:
+            self.targDirRot = 1
+        elif desRotaryPos < prevRotPos:
+            self.targDirRot = -1
+        # If stopped, preserve previous direction as target direction: 
+        elif desRotaryPos == prevRotPos:
+            self.targDirRot = self.prevDirRot
+
+        desRotaryPos = desRotaryPos + self.targDirRot*self.antiHystDegRot
+
         # TODO define MIN and MAX ROTARY angles
         if (desRotaryPos < self.MIN_ROTARY):
             desRotaryPos = self.MIN_ROTARY

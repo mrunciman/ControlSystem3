@@ -521,7 +521,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
                     [desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos] = ps4.incrementCylCoords(axialPos, rotaryPos, toolExt, wristAngle, graspPos)
                     # Convert desired joint values into angular positions of each motor
                     desiredThetaAxial, desAxialPos = kineSolve.setAxialMotor(desAxialPos)
-                    desiredThetaRotary, desRotaryPos = kineSolve.setRotaryMotor(desRotaryPos)
+                    desiredThetaRotary, desRotaryPos = kineSolve.setRotaryMotor(desRotaryPos, rotaryPos)
                     desiredThetaTool, desTooExt = kineSolve.setToolMotor(desTooExt)
                     desiredThetaWrist, desWristAngle = kineSolve.setWristMotor(desWristAngle)
                     desiredThetaGrasp, desGraspPos = kineSolve.setGraspMotor(desGraspPos)
