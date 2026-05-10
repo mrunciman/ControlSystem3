@@ -525,7 +525,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
                     desiredThetaTool, desTooExt = kineSolve.setToolMotor(desTooExt)
                     desiredThetaWrist, desWristAngle = kineSolve.setWristMotor(desWristAngle)
                     desiredThetaGrasp, desGraspPos = kineSolve.setGraspMotor(desGraspPos)
-                    print("Motor angles: ", desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, "\n")
+                    # print("Motor angles: ", desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, "\n")
                     
 
                     frameRotAngle = dictLabel["rotationSlider"].get()
