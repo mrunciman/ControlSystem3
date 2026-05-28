@@ -197,7 +197,7 @@ class RobotViewer(ShowBase):
 
         # grasp = jointSpace[4]  # Grapser position
 
-        # # Scale cylinder along Z up to the wrist
+        # Scale cylinder along Z up to the wrist
         # scale_z_axial = (self.shaftLength + prism0)/self.cylModelLength
         # self.upToWrist.setScale(1, 1, 1)
 
@@ -249,27 +249,7 @@ class RobotViewer(ShowBase):
         # # print(T_6_7)
 
         
-        # # T_0_2 = np.dot(T_1_2, T_0_1)
-        # # print("T_0_2: ",T_0_2)
-        # # T_0_3 = np.dot(T_2_3, T_0_2)
-        # # print("T_0_3: ",T_0_3)
-        # # T_0_4 = np.dot(T_3_4, T_0_3)
-        # # print("T_0_4: ",T_0_4)
-        # # T_0_5 = np.dot(T_4_5, T_0_4)
-        # # print("T_0_5: ",T_0_5)
-        # # T_0_6 = np.dot(T_5_6, T_0_5)
-        # # print("T_0_6: ",T_0_6)
-        # # T_0_7 = np.dot(T_6_7, T_0_6)
-        # # print("T_0_7: ",T_0_7)
 
-
-        # # # tMatrixTrans*tMatrixRotX*tMatrixRotY
-        # # T_0_2 = np.dot(T_0_1, T_1_2)
-        # # T_0_3 = np.dot(T_0_2, T_2_3)
-        # # T_0_4 = np.dot(T_0_3, T_3_4)
-        # # T_0_5 = np.dot(T_0_4, T_4_5)
-        # # T_0_6 = np.dot(T_0_5, T_5_6)
-        # # print(T_0_6)
 
         # T_0_2 = np.dot(T_0_1, T_1_2)
         # # print("GT_0_2: ",T_0_2)
@@ -320,6 +300,82 @@ class RobotViewer(ShowBase):
         # # Apply transform to assembly (position + rotations)
         # self.RobotAssembly.set_mat(self.tranMatrix)
 
+
+
+
+        # 1. Extract moving variables and evaluate trig functions once
+        prism0 = jointSpace[0]
+        prism6 = jointSpace[2]
+        
+        theta1 = mt.radians(jointSpace[1])
+        theta3 = mt.radians(jointSpace[3]) + mt.pi/2
+        
+        c1 = mt.cos(theta1)
+        s1 = mt.sin(theta1)
+        c3 = mt.cos(theta3)
+        s3 = mt.sin(theta3)
+
+        # Apply transform to UpToWrist (T_0_2 in Column-Major order)
+        self.tranMatrix_T_0_2 = LMatrix4f(
+            c1, s1, 0, 0,
+            -s1, c1, 0, 0,
+            0, 0, 1, 0,
+            0, 0, prism0, 1
+        )
+        self.UpToWrist.set_mat(self.tranMatrix_T_0_2)
+
+        # Apply transform to RobotWrist (T_0_6 in Column-Major order)
+        self.tranMatrix_T_0_6 = LMatrix4f(
+            -s1*s3, c1*s3, -c3, 0,
+            c1, s1, 0, 0,
+            s1*c3, -c1*c3, -s3, 0,
+            0, 0, prism0, 1
+        )
+        self.RobotWrist.set_mat(self.tranMatrix_T_0_6)
+
+        # Apply transform to RobotAssembly (T_0_7 in Column-Major order)
+        self.tranMatrix_T_0_7 = LMatrix4f(
+            -s1*s3, c1*s3, -c3, 0,
+            c1, s1, 0, 0,
+            s1*c3, -c1*c3, -s3, 0,
+            prism6*s1*c3, -prism6*c1*c3, prism0 - prism6*s3, 1
+        )
+        self.RobotAssembly.set_mat(self.tranMatrix_T_0_7)
+
+        # Scale cylinders 
+        scale_z_axial = (self.shaftLength + prism0)/self.cylModelLength
+        self.upToWrist.setScale(1, 1, 1)
+
+        scale_z_tool = (self.shaftLength + 0)/self.cylModelLength
+        self.robotShaft.setScale(1, 1, 1)
+
+
+
+
+
+
+
+        # T_0_2 = np.dot(T_1_2, T_0_1)
+        # print("T_0_2: ",T_0_2)
+        # T_0_3 = np.dot(T_2_3, T_0_2)
+        # print("T_0_3: ",T_0_3)
+        # T_0_4 = np.dot(T_3_4, T_0_3)
+        # print("T_0_4: ",T_0_4)
+        # T_0_5 = np.dot(T_4_5, T_0_4)
+        # print("T_0_5: ",T_0_5)
+        # T_0_6 = np.dot(T_5_6, T_0_5)
+        # print("T_0_6: ",T_0_6)
+        # T_0_7 = np.dot(T_6_7, T_0_6)
+        # print("T_0_7: ",T_0_7)
+
+
+        # # tMatrixTrans*tMatrixRotX*tMatrixRotY
+        # T_0_2 = np.dot(T_0_1, T_1_2)
+        # T_0_3 = np.dot(T_0_2, T_2_3)
+        # T_0_4 = np.dot(T_0_3, T_3_4)
+        # T_0_5 = np.dot(T_0_4, T_4_5)
+        # T_0_6 = np.dot(T_0_5, T_5_6)
+        # print(T_0_6)
 
     # def check_input(self, task):
     #     """Poll inputList for updates (simulating Tkinter shared state)."""
