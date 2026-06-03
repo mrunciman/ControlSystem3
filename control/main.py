@@ -248,7 +248,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
     LcRealP = tStepP/kineSolve.STEPS_PER_MM_PRI
     [LStep, RStep, TStep, PStep] = kineSolve.freqScale(fStepL, fStepR, fStepT, fStepP)
 
-    desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos = 0, 0, 0, 0, 0
+    desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos = 20, 0, 0, 0, 0
     axialPos, rotaryPos, toolExt, wristAngle, graspPos = 0, 0, 0, 0, 0
     LStep, RStep, TStep, PStep = 0, 0, 0, 0
 
@@ -575,7 +575,9 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
             elif controllerButtons == 2:
                 dictLabel["grasperLabel"].config(text = "Grasper close", fg = "red")
             elif controllerButtons == 3:
-                dictLabel["grasperLabel"].config(text = "Square", fg = "orange")
+                dictLabel["grasperLabel"].config(text = "Grasper retract", fg = "orange")
+            elif controllerButtons == 4:
+                dictLabel["grasperLabel"].config(text = "Grasper extend", fg = "cyan")
             else:
                 dictLabel["grasperLabel"].config(text = "Grasper", fg = "white")
 
@@ -779,7 +781,12 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
                 # if calibrated:
                 controllerButtons = 0
                 pumpController.sendStep(desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, HOLD_MODE, DEFLATION_MODE, controllerButtons)
-
+                time.sleep(0.2)
+                n = 20
+                for x in range(n):
+                    pumpController.sendStep(desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, HOLD_MODE, DEFLATION_MODE, controllerButtons)
+                    time.sleep(0.2)
+                    print(x)
                 time.sleep(0.2)
                 [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
                 [timeL, timeR, timeT, timeP] = [timeL]*4
@@ -1213,10 +1220,14 @@ if __name__ == '__main__':
     pumpController.startThreader()
     pumpsConnected = pumpController.connected
     HOLD_MODE = 1
-    ISOLATE_P_SUPPLY = 0
+    ISOLATE_P_SUPPLY = 1
 
     if pumpsConnected:
-        pumpController.sendStep(zeroAngle, zeroAngle, zeroAngle, zeroAngle, zeroPress, HOLD_MODE, ISOLATE_P_SUPPLY, buttonValue)
+        n = 1
+        for x in range(n):
+            pumpController.sendStep(zeroAngle, zeroAngle, zeroAngle, zeroAngle, zeroPress, HOLD_MODE, ISOLATE_P_SUPPLY, buttonValue)
+            time.sleep(0.2)
+            print(x)
 
     print("Connected to Control Unit? ", pumpsConnected)
     labelDict["pumpLabel"].config(fg = "green") if pumpsConnected else labelDict["pumpLabel"].config(fg = "red")
@@ -1303,7 +1314,7 @@ if __name__ == '__main__':
                 updatePressures(pressureDict, pressList, VAC_PRESS, PRESS_MAX_KPA)
 
     rootWindow.destroy()
-
+    pumpController.closeSerial()
     #TODO close threads and disconnect properly if window closed
     # make a dict of buttons, not a list
     # add status labels e.g. to show if arduinos connected

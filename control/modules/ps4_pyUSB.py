@@ -99,7 +99,7 @@ class ps4USB(threading.Thread):
 		self.TOOL_CHANGE = 1
 		self.GRASP_CHANGE = 1
 		self.XY_SENSITIVITY = 0.25
-		self.X_SENSITIVITY = 1.75
+		self.X_SENSITIVITY = 2.25
 		self.Y_SENSITIVITY = 1.25
 		self.PHI_SENSITIVITY = 0.5 #0.0087 approx half a degree
 		self.THETA_SENSITIVITY = 0.5/2
@@ -116,8 +116,11 @@ class ps4USB(threading.Thread):
 		self.MAX_EXTEND = 55 # mm
 		
 		# Limits on angle change of torque coil / rotary axis
-		self.MIN_ROTARY = -300.0   # degrees 
-		self.MAX_ROTARY =  300.0   # degrees 
+		self.MIN_ROTARY = -400.0   # degrees 
+		self.MAX_ROTARY =  400.0   # degrees 
+		self.targDirRot = 1
+		self.prevDirRot = 1
+		self.antiHystDegRot = 360/12
 
 		# Limits on wrist angle
 		self.MIN_WRIST_ANGLE = 0   # degrees 
@@ -131,9 +134,13 @@ class ps4USB(threading.Thread):
 
 		# Limits on how far instrument can be extended
 		self.MIN_TOOL_EXT = 5      # mm
-		self.MAX_TOOL_EXT = 150     # mm
+		self.MAX_TOOL_EXT = 159    # mm
 		# Geometry of tool extensionm motor 
-		# self.TOOL_EXT_ROLLER_RADIUS = 10 #mm
+		# self.TOOL_EXT_ROLLER_RADIUS = 5 #mm
+
+		# Limits on grasper control
+		self.MIN_GRASP_POS = 0   # mm 
+		self.MAX_GRASP_POS = 2   # mm
 
 
 
@@ -455,6 +462,8 @@ class ps4USB(threading.Thread):
 			self.ps4Buttons = 2
 		elif self.SquButton:
 			self.ps4Buttons = 3
+		elif self.TriButton:
+			self.ps4Buttons = 4
 		return self.ps4Buttons
 	
 
