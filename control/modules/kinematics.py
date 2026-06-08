@@ -216,8 +216,11 @@ class kineSolver:
         # Gantry robot geometry and limits
         ###################################################################
         # Limits on angle change of torque coil / rotary axis
-        self.MIN_ROTARY = -300.0   # degrees 
-        self.MAX_ROTARY =  300.0   # degrees 
+        self.MIN_ROTARY = -400.0   # degrees 
+        self.MAX_ROTARY =  400.0   # degrees
+        self.targDirRot = 1
+        self.prevDirRot = 1
+        self.antiHystDegRot = 360/15
 
         # Limits on wrist angle
         self.MIN_WRIST_ANGLE = 0   # degrees 
@@ -233,9 +236,13 @@ class kineSolver:
 
         # Limits on how far instrument can be extended
         self.MIN_TOOL_EXT = 5      # mm
-        self.MAX_TOOL_EXT = 150     # mm
+        self.MAX_TOOL_EXT = 159    # mm
         # Geometry of tool extensionm motor 
         self.TOOL_EXT_ROLLER_RADIUS = 5 #mm
+
+        # Limits on grasper control
+        self.MIN_GRASP_POS = 0   # mm 
+        self.MAX_GRASP_POS = 2   # mm
 
 
     def intersect(self, tDesX, tDesY, tExt):
@@ -897,14 +904,26 @@ class kineSolver:
         return axialMotorAngle, desAxialPos
 
 
-    def setRotaryMotor(self, desRotaryPos):
+    def setRotaryMotor(self, desRotaryPos, prevRotPos):
+
+        # For anti-hysteresis in prismatic joint, check target direction and current direction of motion:
+        if desRotaryPos > prevRotPos:
+            self.targDirRot = 1
+        elif desRotaryPos < prevRotPos:
+            self.targDirRot = -1
+        # If stopped, preserve previous direction as target direction: 
+        elif desRotaryPos == prevRotPos:
+            self.targDirRot = self.prevDirRot
+
+        self.prevDirRot = self.targDirRot
+
         # TODO define MIN and MAX ROTARY angles
         if (desRotaryPos < self.MIN_ROTARY):
             desRotaryPos = self.MIN_ROTARY
         elif (desRotaryPos > self.MAX_ROTARY):
             desRotaryPos = self.MAX_ROTARY
 
-        rotaryMotorAngle = desRotaryPos
+        rotaryMotorAngle = desRotaryPos + self.targDirRot*self.antiHystDegRot
         rotaryMotorAngle = round(rotaryMotorAngle,2)
 
         return rotaryMotorAngle, desRotaryPos
@@ -944,6 +963,13 @@ class kineSolver:
 
     def setGraspMotor(self, desGraspPos):
         #TODO Set limits on grasper motor angles
+
+        if (desGraspPos < self.MIN_GRASP_POS):
+            desGraspPos = self.MIN_GRASP_POS
+        elif (desGraspPos > self.MAX_GRASP_POS):
+            desGraspPos = self.MAX_GRASP_POS
+
+    
         graspMotorAngle = 360.0*desGraspPos/self.LEAD
         graspMotorAngle = round(graspMotorAngle,2)
         return graspMotorAngle, desGraspPos
