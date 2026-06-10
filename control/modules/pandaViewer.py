@@ -120,41 +120,41 @@ class RobotViewer(ShowBase):
         node = lines.create()
         return NodePath(node)
 
-    def update_robot(self, angles, prismLen, shaftPosit):
-        """Update robot joint positions based on angles and prismatic extension."""
-        inclination = angles[0] 
-        azimuth = -angles[1] 
-        # print(inclination, azimuth, shaftPosit)
+    # def update_robot(self, angles, prismLen, shaftPosit):
+    #     """Update robot joint positions based on angles and prismatic extension."""
+    #     inclination = angles[0] 
+    #     azimuth = -angles[1] 
+    #     # print(inclination, azimuth, shaftPosit)
 
-        # Scale cylinder along Z for prismatic extension
-        scale_z = (self.shaftLength + prismLen)/self.cylModelLength
-        self.robotShaft.setScale(1, 1, scale_z)
+    #     # Scale cylinder along Z for prismatic extension
+    #     scale_z = (self.shaftLength + prismLen)/self.cylModelLength
+    #     self.robotShaft.setScale(1, 1, scale_z)
 
-        tMatrixTrans = np.array([[1, 0, 0, shaftPosit[0]],\
-                                [0, 1, 0, shaftPosit[1]],\
-                                [0, 0, 1, self.leverBaseZ + shaftPosit[2]],\
-                                [0, 0, 0, 1]])
+    #     tMatrixTrans = np.array([[1, 0, 0, shaftPosit[0]],\
+    #                             [0, 1, 0, shaftPosit[1]],\
+    #                             [0, 0, 1, self.leverBaseZ + shaftPosit[2]],\
+    #                             [0, 0, 0, 1]])
 
-        tMatrixRotX = np.array([[1, 0, 0, 0],\
-                                [0, mt.cos(inclination), -mt.sin(inclination), 0],\
-                                [0, mt.sin(inclination),  mt.cos(inclination), 0],\
-                                [0, 0, 0, 1]])
+    #     tMatrixRotX = np.array([[1, 0, 0, 0],\
+    #                             [0, mt.cos(inclination), -mt.sin(inclination), 0],\
+    #                             [0, mt.sin(inclination),  mt.cos(inclination), 0],\
+    #                             [0, 0, 0, 1]])
         
-        tMatrixRotY = np.array([[mt.cos(azimuth), 0, mt.sin(azimuth), 0],\
-                                [ 0, 1, 0, 0],\
-                                [-mt.sin(azimuth), 0, mt.cos(azimuth), 0],\
-                                [0, 0, 0, 1]])
+    #     tMatrixRotY = np.array([[mt.cos(azimuth), 0, mt.sin(azimuth), 0],\
+    #                             [ 0, 1, 0, 0],\
+    #                             [-mt.sin(azimuth), 0, mt.cos(azimuth), 0],\
+    #                             [0, 0, 0, 1]])
         
-        # tMatrixTrans*tMatrixRotX*tMatrixRotY
-        intermed1 = np.dot(tMatrixRotX, tMatrixTrans) 
-        tMatrixRobot = np.dot(tMatrixRotY, intermed1)
-        listOfLists = np.transpose(tMatrixRobot).tolist()
-        # print(np.transpose(tMatrixRobot).tolist())
-        flat_list = [x for xs in listOfLists for x in xs]
-        self.tranMatrix = LMatrix4f(*flat_list)
+    #     # tMatrixTrans*tMatrixRotX*tMatrixRotY
+    #     intermed1 = np.dot(tMatrixRotX, tMatrixTrans) 
+    #     tMatrixRobot = np.dot(tMatrixRotY, intermed1)
+    #     listOfLists = np.transpose(tMatrixRobot).tolist()
+    #     # print(np.transpose(tMatrixRobot).tolist())
+    #     flat_list = [x for xs in listOfLists for x in xs]
+    #     self.tranMatrix = LMatrix4f(*flat_list)
         
-        # Apply transform to assembly (position + rotations)
-        self.RobotAssembly.set_mat(self.tranMatrix)
+    #     # Apply transform to assembly (position + rotations)
+    #     self.RobotAssembly.set_mat(self.tranMatrix)
 
 
     def update_robot_gantry(self, jointSpace):
@@ -197,8 +197,8 @@ class RobotViewer(ShowBase):
 
         grasp = jointSpace[4]  # Grapser position
 
-        # --- Compute all intermediate steps natively on the GPU/C++ layer ---
-        # Pass any custom, changing variables right into the function arguments
+        # # --- Compute all intermediate steps natively on the GPU/C++ layer ---
+        # # Pass any custom, changing variables right into the function arguments
         T_0_1 = self.make_dh_matrix(theta0, alpha0, dist0, prism0)
         T_1_2 = self.make_dh_matrix(theta1, alpha1, dist1, prism1)
         T_2_3 = self.make_dh_matrix(theta2, alpha2, dist2, prism2)
@@ -207,10 +207,10 @@ class RobotViewer(ShowBase):
         T_5_6 = self.make_dh_matrix(theta5, alpha5, dist5, prism5)
         T_6_7 = self.make_dh_matrix(theta6, alpha6, dist6, prism6)
 
-        # Pure C++ matrix multiplications (Incredibly fast)
-        T_0_2 = T_0_1 * T_1_2
-        T_0_6 = T_0_2 * T_2_3 * T_3_4 * T_4_5 * T_5_6
-        T_0_7 = T_0_6 * T_6_7
+        # # Pure C++ matrix multiplications (Incredibly fast)
+        T_0_2 = T_1_2 * T_0_1
+        T_0_6 = T_5_6 * T_4_5 * T_3_4 * T_2_3 * T_0_2
+        T_0_7 = T_6_7 * T_0_6 
 
        
         # Apply transform to assembly (position + rotations)
@@ -233,51 +233,54 @@ class RobotViewer(ShowBase):
 
 
 
-        # 1. Extract moving variables and evaluate trig functions once
-        prism0 = jointSpace[0]
-        prism6 = jointSpace[2]
+        # # 1. Extract moving variables and evaluate trig functions once
+        # prism0 = jointSpace[0]
+        # prism6 = jointSpace[2]
         
-        theta1 = mt.radians(jointSpace[1])
-        theta3 = mt.radians(jointSpace[3]) + mt.pi/2
+        # theta1 = mt.radians(jointSpace[1])
+        # theta3 = mt.radians(jointSpace[3]) + mt.pi/2
         
-        c1 = mt.cos(theta1)
-        s1 = mt.sin(theta1)
-        c3 = mt.cos(theta3)
-        s3 = mt.sin(theta3)
+        # c1 = mt.cos(theta1)
+        # s1 = mt.sin(theta1)
+        # c3 = mt.cos(theta3)
+        # s3 = mt.sin(theta3)
 
-        # Apply transform to UpToWrist (T_0_2 in Column-Major order)
-        self.tranMatrix_T_0_2 = LMatrix4f(
-            c1, s1, 0, 0,
-            -s1, c1, 0, 0,
-            0, 0, 1, 0,
-            0, 0, prism0, 1
-        )
-        self.UpToWrist.set_mat(self.tranMatrix_T_0_2)
+        # # Apply transform to UpToWrist (T_0_2 in Column-Major order)
+        # self.tranMatrix_T_0_2 = LMatrix4f(
+        #     c1, s1, 0, 0,
+        #     -s1, c1, 0, 0,
+        #     0, 0, 1, 0,
+        #     0, 0, prism0, 1
+        # )
+        # self.UpToWrist.set_mat(self.tranMatrix_T_0_2)
 
-        # Apply transform to RobotWrist (T_0_6 in Column-Major order)
-        self.tranMatrix_T_0_6 = LMatrix4f(
-            -s1*s3, c1*s3, -c3, 0,
-            c1, s1, 0, 0,
-            s1*c3, -c1*c3, -s3, 0,
-            0, 0, prism0, 1
-        )
-        self.RobotWrist.set_mat(self.tranMatrix_T_0_6)
+        # # Apply transform to RobotWrist (T_0_6 in Column-Major order)
+        # self.tranMatrix_T_0_6 = LMatrix4f(
+        #     -s1*s3, c1*s3, -c3, 0,
+        #     c1, s1, 0, 0,
+        #     s1*c3, -c1*c3, -s3, 0,
+        #     0, 0, prism0, 1
+        # )
+        # self.RobotWrist.set_mat(self.tranMatrix_T_0_6)
 
-        # Apply transform to RobotAssembly (T_0_7 in Column-Major order)
-        self.tranMatrix_T_0_7 = LMatrix4f(
-            -s1*s3, c1*s3, -c3, 0,
-            c1, s1, 0, 0,
-            s1*c3, -c1*c3, -s3, 0,
-            prism6*s1*c3, -prism6*c1*c3, prism0 - prism6*s3, 1
-        )
-        self.RobotAssembly.set_mat(self.tranMatrix_T_0_7)
+        # # Apply transform to RobotAssembly (T_0_7 in Column-Major order)
+        # self.tranMatrix_T_0_7 = LMatrix4f(
+        #     -s1*s3, c1*s3, -c3, 0,
+        #     c1, s1, 0, 0,
+        #     s1*c3, -c1*c3, -s3, 0,
+        #     prism6*s1*c3, -prism6*c1*c3, prism0 - prism6*s3, 1
+        # )
+        # self.RobotAssembly.set_mat(self.tranMatrix_T_0_7)
 
-        # Scale cylinders 
-        scale_z_axial = (self.shaftLength + prism0)/self.cylModelLength
-        self.upToWrist.setScale(1, 1, 1)
+        # print("C++ version: ", T_0_7)
+        # print("Pre version: ", self.tranMatrix_T_0_7)
 
-        scale_z_tool = (self.shaftLength + 0)/self.cylModelLength
-        self.robotShaft.setScale(1, 1, 1)
+        # # Scale cylinders 
+        # scale_z_axial = (self.shaftLength + prism0)/self.cylModelLength
+        # self.upToWrist.setScale(1, 1, 1)
+
+        # scale_z_tool = (self.shaftLength + 0)/self.cylModelLength
+        # self.robotShaft.setScale(1, 1, 1)
 
 
 
@@ -307,16 +310,19 @@ class RobotViewer(ShowBase):
     def check_input_gantry(self, task):
         """Poll inputList for updates (simulating Tkinter shared state)."""
         try:
-            localLastJointSpace = self.lastJointSpace
+            # localLastJointSpace = self.lastJointSpace
             localJointSpace = self.inputList
 
-            # print(localJointSpace[0])
-            # print(localLastJointSpace)
-            for l1, l2 in zip(localJointSpace, localLastJointSpace):
-                if l1 != l2:
-                    self.update_robot_gantry(localJointSpace)
-                    self.lastJointSpace = localJointSpace
-                    break
+            # # print(localJointSpace[0])
+            # # print(localLastJointSpace)
+            # for l1, l2 in zip(localJointSpace, localLastJointSpace):
+            #     if l1 != l2:
+            #         self.lastJointSpace = localJointSpace
+            #         # print("Update visualisation")
+            #         # print("L1", l1)
+            #         # print("L2", l2)
+            #         break
+            self.update_robot_gantry(localJointSpace)
         except Exception as e:
             print("Error:", e)
 

@@ -530,13 +530,20 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
                         jointOffsetIndex = jointOffsetIndex + 1
 
                     # Convert desired joint values into angular positions of each motor
-                    desiredThetaAxial, desAxialPos = kineSolve.setAxialMotor(desAxialPos) + jointOffsetList[0]
-                    desiredThetaRotary, desRotaryPos = kineSolve.setRotaryMotor(desRotaryPos, rotaryPos) + jointOffsetList[1]
-                    desiredThetaTool, desTooExt = kineSolve.setToolMotor(desTooExt) + jointOffsetList[2]
-                    desiredThetaWrist, desWristAngle = kineSolve.setWristMotor(desWristAngle) + jointOffsetList[3]
-                    desiredThetaGrasp, desGraspPos = kineSolve.setGraspMotor(desGraspPos) + jointOffsetList[4]
+                    intermedAxial, desAxialPos = kineSolve.setAxialMotor(desAxialPos)
+                    intermedRotary, desRotaryPos = kineSolve.setRotaryMotor(desRotaryPos, rotaryPos)
+                    intermedTool, desTooExt = kineSolve.setToolMotor(desTooExt)
+                    intermedWrist, desWristAngle = kineSolve.setWristMotor(desWristAngle)
+                    intermedGrasp, desGraspPos = kineSolve.setGraspMotor(desGraspPos)
                     # print("Motor angles: ", desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, "\n")
                     
+
+                    desiredThetaAxial = intermedAxial + jointOffsetList[0]
+                    desiredThetaRotary = intermedRotary + jointOffsetList[1]
+                    desiredThetaTool = intermedTool + jointOffsetList[2]
+                    desiredThetaWrist = intermedWrist + jointOffsetList[3]
+                    desiredThetaGrasp = intermedGrasp + jointOffsetList[4]
+
 
                     frameRotAngle = dictLabel["rotationSlider"].get()
                     prevThetaPS4 = thetaDesired
@@ -605,13 +612,13 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
             if (omni_connected == False) and (ps4.controller is None):
                 POI_PlaneCoords = None
             # [targetX_mouse, targetY_mouse, flagStop, insideBounds, resetFlag] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_rot, POI_PlaneCoords, XYZPathCoords, targ_conty_glob, ps4.controller)
-                        
-            viewerInputList[0] = desAxialPos + jointOffsetList[0]
-            viewerInputList[1] = desRotaryPos + jointOffsetList[1]
-            viewerInputList[2] = desTooExt + jointOffsetList[2]
-            viewerInputList[3] = desWristAngle + jointOffsetList[3]
-            viewerInputList[4] = desGraspPos + jointOffsetList[4]
-            viewerInputList[5] = 0 + jointOffsetList[5]
+            visualiseOffset = 0
+            viewerInputList[0] = desAxialPos + jointOffsetList[0]*visualiseOffset
+            viewerInputList[1] = desRotaryPos + jointOffsetList[1]*visualiseOffset
+            viewerInputList[2] = desTooExt + jointOffsetList[2]*visualiseOffset
+            viewerInputList[3] = desWristAngle + jointOffsetList[3]*visualiseOffset
+            viewerInputList[4] = desGraspPos + jointOffsetList[4]*visualiseOffset
+            viewerInputList[5] = 0 + jointOffsetList[5]*visualiseOffset
             # print("From tkinter ", viewerInputList)
 
             # Return target cable lengths at target coords and jacobian at current coords
@@ -1032,7 +1039,7 @@ def viewer_process(angleList):
 if __name__ == '__main__':
     rootWindow = Tk()
     rootWindow.title("Lannsair Endoluminal Robotics")
-    rootWindow.geometry("650x400")
+    rootWindow.geometry("800x400")
 
     contentFrame = ttk.Frame(rootWindow)
     winStyle = ttk.Style()
@@ -1052,7 +1059,7 @@ if __name__ == '__main__':
     # Headings
     headingSLabel = Label(contentFrame, text = "Settings", font='bold')
     headingLLabel = Label(contentFrame, text = "Status", font='bold')
-    headingPLabel = Label(contentFrame, text = "Pressures", font='bold')
+    headingPLabel = Label(contentFrame, text = "Offsets", font='bold')
 
 
     # Create buttons
@@ -1258,7 +1265,7 @@ if __name__ == '__main__':
 
     headingSLabel.grid(column = 0, row = 0, pady = yPadding, padx = xPadding)
     headingLLabel.grid(column = 1, row = 0, pady = yPadding, padx = xPadding)
-    # headingPLabel.grid(column = 4, row = 0, columnspan = 2, pady = yPadding, padx = xPadding)
+    headingPLabel.grid(column = 4, row = 0, columnspan = 3, pady = yPadding, padx = xPadding)
     # pressCanvas.grid(column = 3, row = 2, rowspan = 6, columnspan = 4, pady = yPadding, padx = xPadding)
 
     # Place buttons
@@ -1305,9 +1312,11 @@ if __name__ == '__main__':
 
     # Offset buttons
     # Dynamically create 6 joint controls
+    jointLabelList = ["Axial", "Rotary", "Tool Ext", "Wrist", "Grasper", "Extra"]
     joints = []
     for i in range(1, 7):
         joint_row = jointOffsets.JointControl(contentFrame, joint_id=i, rowNo=i, colNo=3)
+        joint_row.lbl_name.config(text = jointLabelList[i-1])
         joints.append(joint_row)
 
     settingsClass.jointOffsetButtons = joints
