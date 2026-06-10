@@ -317,8 +317,8 @@ void loop(void)
 
     // Update actual position, expressed in microsteps
     stepCountDriver = stepper.driver.getPosition();
-    int load = stepper.driver.getStallValue();
-    // Serial.println(load);
+    // int load = stepper.driver.getStallValue();
+    // Serial.println(angleDesired);
 
     // Calculate difference between desired position and actual position
     stepError = stepCountDesired - stepCountDriver;

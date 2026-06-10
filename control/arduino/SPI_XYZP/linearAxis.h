@@ -64,7 +64,7 @@ class LinAxis{
     // float deltaAngle = veloStage*PERIOD/LEAD;
     // float deltaAngle = (flow_rate*PERIOD)/(AREA_PISTON*LEAD);
     float MAX_SPEED = 10.0; //mm/s
-    float MAX_ANGLE = 1600.0; // 1600 for L_0 = 54 // 1065 for L_0 = 39 mm
+    float MAX_ANGLE = 1800.0; // 1600 for L_0 = 54 // 1065 for L_0 = 39 mm
     float MIN_ANGLE = -MAX_ANGLE;
     float MAX_ANGLE_P = 3150.0; // 70 mm max motion
     float MIN_ANGLE_P = -MAX_ANGLE_P;

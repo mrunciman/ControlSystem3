@@ -65,12 +65,29 @@ int calibratedBytes = 0;
 // Setup pins for uStepperS peripherals
 int resetPin1 = 8;
 
+
+/*
+
+CS1  - 9
+CS2  - 10
+CS3  - 11
+CS4  - 12
+CS5  - 26
+CS6  - 27
+CS7  - 28
+CS8  - 29
+CS9  - 30
+CS10 - 31
+CS11 - 32
+CS12 - 33
+*/
+
 // X is Left actuator, Y is Right, Z is Top
-int selectPinRot = 10;
-int selectPinTool = 11;
-int selectPinWrist = 12;
-int selectPinAxial = 9;
-int selectPinGrasp = 13;
+int selectPinRot = 10;   // Axial - first value from Pi - CS2
+int selectPinTool = 11;  // Rotary - second value from Pi - CS3
+int selectPinWrist = 12; // Tool - third from Pi - CS4
+int selectPinAxial = 9;  // Wrist - 4th from Pi - CS1
+int selectPinGrasp = 28; // Grasper - 5th value from Pi - CS9
 
 int pressPinX = A4;
 int pressPinY = A3;
@@ -80,16 +97,16 @@ int pressPinAir = A0;
 
 int limitPinRot = 22;
 int limitPinTool = 24;
-int limitPinWrist = 26;
-int limitPinAxial = 30;
-int limitPinGrasp = 32;
+int limitPinWrist = 23;
+int limitPinAxial = 25;
+int limitPinGrasp = 35;
 
 int valvePin = 37;
 int valvePinStruct = 41;
 
 // Pins for grapser open and close functions
-int grasper_RHS_FWD = 31;
-int grasper_RHS_BWD = 33;
+int grasper_RHS_FWD = 37;
+int grasper_RHS_BWD = 39;
 // int grasper_LHS_FWD = 27;
 // int grasper_LHS_BWD = 29;
 
@@ -168,7 +185,7 @@ PressReg pressureRegulator;
 // Multiplexer
 
 // QWIICMUX muxPlex;
-NAU7802 loadCell; //Create pointer to a set of pointers to the sensor class
+// NAU7802 loadCell; //Create pointer to a set of pointers to the sensor class
 #define NUMBER_OF_SENSORS 4
 byte currentPortNumber = 0;
 bool initSuccess = true;
@@ -189,7 +206,7 @@ int PORT_NUM_LOAD_CELLS[NUMBER_OF_SENSORS] = {3,0,1,4};
 // ADC
 
 Adafruit_ADS1115 ads;  /* Use this for the 16-bit version */
-int PORT_NUMBER_ADS = 5;
+// int PORT_NUMBER_ADS = 5;
 
 ////////////////////////////////////////////////////////
 // Setup
@@ -201,17 +218,17 @@ void setup() {
 
   Wire.begin();
   // Wire.setClock(3400000);
-  loadCell.begin();
+  // loadCell.begin();
 
 
   // Initialize all the sensors
-  for (byte i = 0; i < NUMBER_OF_SENSORS; i++){
-    enableMuxPort(PORT_NUM_LOAD_CELLS[i]);
-    loadCell.begin();
-    disableMuxPort(PORT_NUM_LOAD_CELLS[i]);
-  }
+  // for (byte i = 0; i < NUMBER_OF_SENSORS; i++){
+  //   enableMuxPort(PORT_NUM_LOAD_CELLS[i]);
+  //   loadCell.begin();
+  //   disableMuxPort(PORT_NUM_LOAD_CELLS[i]);
+  // }
   // enableMuxPort(PORT_NUMBER_ADS);
-  // ads.begin();
+  ads.begin();
   // disableMuxPort(PORT_NUMBER_ADS);
   // if (initSuccess == false)
   // {
@@ -230,11 +247,11 @@ void setup() {
   analogReference(INTERNAL2V56);
 
   // Initialise pumps 
-  axisList[0].init(selectPinRot, pressPinX, LOOP_PERIOD, limitPinRot);
-  axisList[1].init(selectPinTool, pressPinY, LOOP_PERIOD, limitPinTool);
-  axisList[2].init(selectPinWrist, pressPinZ, LOOP_PERIOD, limitPinWrist);
-  axisList[3].init(selectPinAxial, pressPinP, LOOP_PERIOD, limitPinAxial);
-  axisList[4].init(selectPinGrasp, pressPinP, LOOP_PERIOD, limitPinGrasp);
+  axisList[0].init(selectPinRot, pressPinX, LOOP_PERIOD, limitPinRot);     // Axial
+  axisList[1].init(selectPinTool, pressPinY, LOOP_PERIOD, limitPinTool);   // Rotary
+  axisList[2].init(selectPinWrist, pressPinZ, LOOP_PERIOD, limitPinWrist); // Wrist
+  axisList[3].init(selectPinAxial, pressPinP, LOOP_PERIOD, limitPinAxial); // Tool
+  axisList[4].init(selectPinGrasp, pressPinP, LOOP_PERIOD, limitPinGrasp); // Grasper
 
   //Initialise pressure regulator
   pressureRegulator.init(selectPinGrasp, pressPinAir, valvePin, valvePinStruct);
@@ -246,6 +263,10 @@ void setup() {
   digitalWrite(grasper_RHS_FWD, HIGH);
   digitalWrite(grasper_RHS_BWD, HIGH);
 
+  // Reset uSteppers
+  delay(1000);
+  resetMotors();
+  delay(1000);
   
   // Setup the SPI pins:
   pinMode(SS, OUTPUT);
@@ -259,10 +280,7 @@ void setup() {
   // Set uStepperS reset pin
   pinMode(resetPin1, OUTPUT);
 
-  // Reset uSteppers
-  // delay(2000);
-  resetMotors();
-  // delay(1000);
+
 
 }
 
@@ -282,7 +300,7 @@ void updateEncoderData(){
   // Read encoder value from each motor. 
   int i = 0;
   for(auto &item : axisList){
-    angles[i] = item.angleIn;
+    angles[i] = atof(positionInputs[i]);
     i++;
   }
 }
@@ -357,7 +375,7 @@ void checkAnglesToMotors(){
 
   int i = 0;
   for (auto &item : axisList){
-    if (i < 3){
+    if (i < number_pumps){
       // For hydraulic pumps, limit to between angle of approx max volume and almost zero
       if (item.desiredAngle > item.MAX_ANGLE){
         item.desiredAngle = item.MAX_ANGLE;
@@ -494,7 +512,7 @@ void writeData(){
   dtostrf(convLoads[2], FLOAT_LEN, FLOAT_PREC, loadZStr);
   dtostrf(convLoads[3], FLOAT_LEN, FLOAT_PREC, loadPStr);
 
-  dtostrf(pressureRegulator.pressureRead, FLOAT_LEN, FLOAT_PREC, pressRegStr);
+  dtostrf(angles[4], FLOAT_LEN, FLOAT_PREC, pressRegStr);
   
 
   writeTime = millis();
@@ -835,19 +853,19 @@ void calibrationProtocol(){
 }
 
 
-void readLoadCells(){
-  for(int i = 0; i < NUMBER_OF_SENSORS; i++){
-    enableMuxPort(PORT_NUM_LOAD_CELLS[i]);
-    loadArray[i] = loadCell.getReading();
-    convLoads[i] = (loadArray[i] - loadIntercepts[i])/loadGradients[i];
-    // Serial.println(i);
-    disableMuxPort(PORT_NUM_LOAD_CELLS[i]);
-  }
-}
+// void readLoadCells(){
+//   for(int i = 0; i < NUMBER_OF_SENSORS; i++){
+//     enableMuxPort(PORT_NUM_LOAD_CELLS[i]);
+//     loadArray[i] = loadCell.getReading();
+//     convLoads[i] = (loadArray[i] - loadIntercepts[i])/loadGradients[i];
+//     // Serial.println(i);
+//     disableMuxPort(PORT_NUM_LOAD_CELLS[i]);
+//   }
+// }
 
 
 void readADC(){
-  enableMuxPort(PORT_NUMBER_ADS);
+  // enableMuxPort(PORT_NUMBER_ADS);
   int16_t adc0, adc1, adc2, adc3;
   float volts0, volts1, volts2, volts3;
 
@@ -868,7 +886,7 @@ void readADC(){
   // Serial.print("AIN3: "); Serial.print(adc3); Serial.print("  "); Serial.print(volts3); Serial.println("V");
 
 
-  disableMuxPort(PORT_NUMBER_ADS);
+  // disableMuxPort(PORT_NUMBER_ADS);
 }
 
 
