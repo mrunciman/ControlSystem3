@@ -48,7 +48,7 @@ class kineSolver:
         self.FACT_ANG = 1
         self.MAX_VOL = self.FACT_V*((mt.pi/2*self.FACT_ANG) - \
             mt.cos((mt.pi/2*self.FACT_ANG))*mt.sin((mt.pi/2*self.FACT_ANG)))/((mt.pi/2*self.FACT_ANG)**2)
-        print("Max volume of actuator: ", self.MAX_VOL)
+        # print("Max volume of actuator: ", self.MAX_VOL)
         self.DEAD_VOL = self.CAL_FACTOR*self.MAX_VOL
         self.MAX_VOL_RATE = 1000 # mm^3/s
         
