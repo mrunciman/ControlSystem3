@@ -21,6 +21,7 @@ class posLogger():
         self.logTime = time.strftime("%Y-%m-%d %H-%M-%S")
         self.relative = "logs/positions/desired " + self.logTime + ".csv"
         self.fileName = os.path.join(self.parent, self.relative)
+        # self.fileName = 'desiredLog.csv' # For test purposes
         with open(self.fileName, mode ='w', newline='') as posLog1: 
             logger1 = csv.writer(posLog1)
             logger1.writerow(['X', 'Y', 'Z', 'inclination', 'azimuth', 'Timestamp', time.time()])

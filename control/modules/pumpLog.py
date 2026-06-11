@@ -35,7 +35,7 @@ class ardLogger():
         self.logTime = time.strftime("%Y-%m-%d %H-%M-%S")
         self.relative = "logs/pumps/arduinoLogs " + self.logTime + ".csv"
         self.fileName = os.path.join(self.parent, self.relative) # USE THIS IN REAL TESTS
-        # fileName = 'ardLogFile.csv' # For test purposes
+        # self.fileName = 'ardLogFile.csv' # For test purposes
         with open(self.fileName, mode ='w', newline='') as arduinoLog1: 
             ardLog1 = csv.writer(arduinoLog1)
             ardLog1.writerow(['S_LHS', 'Lc_LHS', 'A_LHS', 'M_LHS', 'P_LHS', 'P_LMed', 'F_LHS', 'T_LHS',\

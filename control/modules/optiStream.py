@@ -31,6 +31,7 @@ class optiTracker:
         self.logTime = time.strftime("%Y-%m-%d %H-%M-%S")
         relative = "logs/opti/optiTrack " + self.logTime + ".csv"
         self.fileName = os.path.join(self.parent, relative)
+        # self.fileName = 'optiTrackLog.csv'
         with open(self.fileName, mode ='w', newline='') as optiLog0: 
             optiLog1 = csv.writer(optiLog0)
             optiLog1.writerow(['time stamp', 'cumulative time', 'ID', 'X', 'Y', 'Z', 'Y angle', 'Z angle', 'X angle', 'w', 'i', 'j', 'k',\

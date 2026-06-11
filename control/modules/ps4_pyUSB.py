@@ -18,7 +18,10 @@ PRODUCT_ID = 0x9cc #0x5c4 = 1476 in decimal #0x9cc = 2508 in decimal
 BACKEND = usb.backend.libusb1.get_backend() 
 #"C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 
+# Fol old asus laptop:
 # BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\InflatableRobotControl\\ControlSystemThree\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+# For new asus laptop:
+# BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 
 INTERFACE_DS4 = 3 # 0 # HID interface number in cfg list
 SETTING_DS4 = 0
@@ -43,7 +46,7 @@ class ps4USB(threading.Thread):
 
 		self.controller = None
 
-		self.dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID)#, backend=BACKEND)
+		self.dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID)#, backend=BACKEND) # Uncomment for testing with laptops
 		#self.dev.set_configuration()
 		# print(self.dev)
 		if self.dev is not None:

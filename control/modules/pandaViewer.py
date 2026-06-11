@@ -37,6 +37,9 @@ class RobotViewer(ShowBase):
         self.UpToWrist = NodePath("UpToWrist")
         self.upToWrist = self.make_cylinder(self.shaftRadius, self.shaftLength)
         self.upToWrist.reparentTo(self.UpToWrist)
+        self.axes_local = self.make_axes(length=10)
+        self.axes_local.setLightOff(1)
+        self.axes_local.reparentTo(self.UpToWrist)
         self.UpToWrist.reparentTo(self.render)
 
         self.RobotWrist = NodePath("RobotWrist")
@@ -54,8 +57,14 @@ class RobotViewer(ShowBase):
 
         # Camera setup
         self.setBackgroundColor(0.0, 0.0, 0.0, 1)
-        self.cam.setPos(0, 0, 300)
-        self.cam.lookAt(0,0,0)
+        self.cam.setPos(0, 50, -300)
+        # self.cam.lookAt(0,0,0)
+        # The camera looks down its Y axis
+        # Heading, pitch, roll control the local rotations around Z, X, and Y axes.
+        # Starting from same as global axes, rotate camera axes about the X axis so the
+        # camera's Y axis is aligned with Global Z axis.
+        self.cam.setHpr(self.axes_global, 0, 90, 0)
+
 
         # Add a light to the scene
         # plight = PointLight('plight')
@@ -159,7 +168,7 @@ class RobotViewer(ShowBase):
 
     def update_robot_gantry(self, jointSpace):
         """Update robot joint positions based on angles and prismatic extension."""
-
+        # DH algorithm applies theta then alpha
         alpha0 = 0
         dist0 = 0
         theta0 = 0
@@ -177,17 +186,17 @@ class RobotViewer(ShowBase):
 
         alpha3 = 0
         dist3 = 0
-        theta3 = mt.radians(jointSpace[3]) +  mt.pi/2  # Wrist angle
+        theta3 = mt.radians(jointSpace[3]) +  0*mt.pi/2  # Wrist angle
         prism3 = 0
 
-        alpha4 = 0
+        alpha4 = mt.pi/2
         dist4 = 0
-        theta4 = mt.pi/2    # Intermediate 2
+        theta4 = 0     # Intermediate 2
         prism4 = 0
 
-        alpha5 = mt.pi/2
+        alpha5 = 0
         dist5 = 0
-        theta5 = 0
+        theta5 = mt.pi/2
         prism5 = 0
 
         alpha6 = 0
@@ -199,18 +208,22 @@ class RobotViewer(ShowBase):
 
         # # --- Compute all intermediate steps natively on the GPU/C++ layer ---
         # # Pass any custom, changing variables right into the function arguments
-        T_0_1 = self.make_dh_matrix(theta0, alpha0, dist0, prism0)
-        T_1_2 = self.make_dh_matrix(theta1, alpha1, dist1, prism1)
-        T_2_3 = self.make_dh_matrix(theta2, alpha2, dist2, prism2)
-        T_3_4 = self.make_dh_matrix(theta3, alpha3, dist3, prism3)
-        T_4_5 = self.make_dh_matrix(theta4, alpha4, dist4, prism4)
-        T_5_6 = self.make_dh_matrix(theta5, alpha5, dist5, prism5)
-        T_6_7 = self.make_dh_matrix(theta6, alpha6, dist6, prism6)
+        T_0_1 = self.make_dh_matrix(theta0, alpha0, dist0, prism0) # axial motion
+        T_1_2 = self.make_dh_matrix(theta1, alpha1, dist1, prism1) # rotary motion
+        T_2_3 = self.make_dh_matrix(theta2, alpha2, dist2, prism2) # intermediate
+        T_3_4 = self.make_dh_matrix(theta3, alpha3, dist3, prism3) # wrist angle
+        T_4_5 = self.make_dh_matrix(theta4, alpha4, dist4, prism4) # intermediate 2
+        T_5_6 = self.make_dh_matrix(theta5, alpha5, dist5, prism5) # intermediate 3
+        T_6_7 = self.make_dh_matrix(theta6, alpha6, dist6, prism6) # tool extension
 
         # # Pure C++ matrix multiplications (Incredibly fast)
-        T_0_2 = T_1_2 * T_0_1
-        T_0_6 = T_5_6 * T_4_5 * T_3_4 * T_2_3 * T_0_2
-        T_0_7 = T_6_7 * T_0_6 
+        T_0_2 = T_1_2 * T_0_1 # axial and rotary motions
+        T_0_3 = T_2_3 * T_0_2 # intermediate
+        T_0_4 = T_3_4 * T_0_3 # apply wrist angle
+        T_0_5 = T_4_5 * T_0_4 # intermed 2
+        # T_0_6 = T_5_6 * T_4_5 * T_3_4 * T_2_3 * T_0_2
+        T_0_6 = T_5_6 * T_0_5 # intermed 3
+        T_0_7 = T_6_7 * T_0_6 # tool extension
 
        
         # Apply transform to assembly (position + rotations)
@@ -355,4 +368,4 @@ def run_viewer(inputList):
 if __name__ == "__main__":
     # Test with dummy values
     # Axial, rotary, extension, wrist, grasper
-    run_viewer([50, 50, 20, 20, 0, 0])
+    run_viewer([50, 0, 20, 0, 0, 0])

@@ -249,7 +249,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
     LcRealP = tStepP/kineSolve.STEPS_PER_MM_PRI
     [LStep, RStep, TStep, PStep] = kineSolve.freqScale(fStepL, fStepR, fStepT, fStepP)
 
-    desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos = 20, 0, 0, 0, 0
+    desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos = 0.5, 0, 0, 0, 0
     axialPos, rotaryPos, toolExt, wristAngle, graspPos = 0, 0, 0, 0, 0
     LStep, RStep, TStep, PStep = 0, 0, 0, 0
 
@@ -478,6 +478,12 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
 
         while(flagStop == False):
 
+            # Get offsest values from GUI
+            jointOffsetIndex = 0
+            for joint in jointOffsetButtons:
+                jointOffsetList[jointOffsetIndex] = joint.offset.get()
+                jointOffsetIndex = jointOffsetIndex + 1
+
             useOmni = classSettings.useOmni
             if useOmni == 1:
                 if omni_connected:
@@ -523,12 +529,6 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
                     # This gives desired joint values 
                     [desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos] = ps4.incrementCylCoords(axialPos, rotaryPos, toolExt, wristAngle, graspPos)
                     
-                    # Get offsest values from GUI
-                    jointOffsetIndex = 0
-                    for joint in jointOffsetButtons:
-                        jointOffsetList[jointOffsetIndex] = joint.offset.get()
-                        jointOffsetIndex = jointOffsetIndex + 1
-
                     # Convert desired joint values into angular positions of each motor
                     intermedAxial, desAxialPos = kineSolve.setAxialMotor(desAxialPos)
                     intermedRotary, desRotaryPos = kineSolve.setRotaryMotor(desRotaryPos, rotaryPos)
