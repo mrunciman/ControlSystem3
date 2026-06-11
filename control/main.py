@@ -612,7 +612,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
             if (omni_connected == False) and (ps4.controller is None):
                 POI_PlaneCoords = None
             # [targetX_mouse, targetY_mouse, flagStop, insideBounds, resetFlag] = mouseTrack.iterateTracker(loadList, kineSolve.attach_points_rot, POI_PlaneCoords, XYZPathCoords, targ_conty_glob, ps4.controller)
-            visualiseOffset = 0
+            visualiseOffset = 1
             viewerInputList[0] = desAxialPos + jointOffsetList[0]*visualiseOffset
             viewerInputList[1] = desRotaryPos + jointOffsetList[1]*visualiseOffset
             viewerInputList[2] = desTooExt + jointOffsetList[2]*visualiseOffset
