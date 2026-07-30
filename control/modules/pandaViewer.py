@@ -147,7 +147,7 @@ class RobotViewer(ShowBase):
 
         alpha1 = 0
         dist1 = 0
-        theta1 = mt.radians(jointSpace[1]) # Rotary angle
+        theta1 = mt.radians(jointSpace[1]) + mt.pi # Rotary angle
         prism1 = 0 
 
         alpha2 = -mt.pi/2
