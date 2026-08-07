@@ -220,11 +220,11 @@ class kineSolver:
         self.MAX_ROTARY =  400.0   # degrees
         self.targDirRot = 1
         self.prevDirRot = 1
-        self.antiHystDegRot = 360/15
+        self.antiHystDegRot = 360/360
 
         # Limits on wrist angle
         self.MIN_WRIST_ANGLE = 0   # degrees 
-        self.MAX_WRIST_ANGLE = 90  # degrees 
+        self.MAX_WRIST_ANGLE = 130  # degrees 
         # Geometry of wrist motor
         self.HYPOT_TIP = 5.62      # mm
         self.TIP_CUTAWAY_WIDTH = 2.34 # mm

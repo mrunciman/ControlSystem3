@@ -99,7 +99,7 @@ def moveRobot(dictButtons, dictLabel, dictPress, classSettings, pumpController, 
     # Count number of reps 
     halfCycles = 0
     noCycles = 10
-    antiHystSteps = 50
+    antiHystSteps = 10
     cDir, targDir = 0, 0
     insideBounds = False
 
