@@ -15,32 +15,49 @@ class CircleVisualiser:
         # --------------------------------------------------------------
         # Control limits
         # --------------------------------------------------------------
-        # self.min_arc_length = 0.001
-        # Fixed limits for the arc-length controls
         self.min_s_l = 0.001
         self.max_s_l = 20.0
 
         self.min_s_r = 0.001
         self.max_s_r = 20.0
 
-        self.min_circumference_1 = self.min_s_l + self.min_s_r
-        self.max_circumference_1 = self.max_s_l + self.max_s_r
+        # Circle 1 circumference limits are derived from the arc limits.
+        self.min_circumference_1 = (
+            self.min_s_l + self.min_s_r
+        )
+        self.max_circumference_1 = (
+            self.max_s_l + self.max_s_r
+        )
 
         self.max_circumference_2 = 40.0
 
-        self.min_radius_1 = self.min_circumference_1 / (2.0 * np.pi)
-        self.max_radius_1 = self.max_circumference_1 / (2.0 * np.pi)
-        self.max_radius_2 = self.max_circumference_2 / (2.0 * np.pi)
+        # Radius limits derived from the circumference limits.
+        self.min_radius_1 = (
+            self.min_circumference_1 / (2.0 * np.pi)
+        )
+        self.max_radius_1 = (
+            self.max_circumference_1 / (2.0 * np.pi)
+        )
+        self.max_radius_2 = (
+            self.max_circumference_2 / (2.0 * np.pi)
+        )
 
-        # Avoid y = 0 when directly controlling P because
-        # r = (x^2 + y^2) / (2y) is undefined there.
+        # y must remain positive because:
+        #
+        #     r = (x^2 + y^2) / (2y)
+        #
+        # is undefined when y = 0.
         self.min_point_y = 0.001
+
+        # Floating-point comparison tolerance.
+        self.tolerance = 1.0e-9
 
         # --------------------------------------------------------------
         # Initial values
         # --------------------------------------------------------------
         initial_s_l = 5.0
         initial_s_r = 5.0
+
         initial_c_1 = initial_s_l + initial_s_r
         initial_r_1 = initial_c_1 / (2.0 * np.pi)
 
@@ -49,7 +66,9 @@ class CircleVisualiser:
             - np.pi / 2.0
         )
 
-        initial_p_x = initial_r_1 * np.cos(initial_theta)
+        initial_p_x = (
+            initial_r_1 * np.cos(initial_theta)
+        )
         initial_p_y = (
             initial_r_1
             + initial_r_1 * np.sin(initial_theta)
@@ -70,8 +89,19 @@ class CircleVisualiser:
         self.lock_circumference = tk.BooleanVar(value=False)
         self.locked_circumference = None
 
-        # Prevent callbacks from recursively triggering each other.
+        # Prevent callbacks from recursively triggering one another.
         self.updating_controls = False
+
+        # Store the last fully valid state. If a point-slider movement
+        # violates a limit, all circle-1 controls are restored to this
+        # state.
+        self.last_valid_state = {
+            "s_l": initial_s_l,
+            "s_r": initial_s_r,
+            "c_1": initial_c_1,
+            "p_x": initial_p_x,
+            "p_y": initial_p_y
+        }
 
         # --------------------------------------------------------------
         # Main layout
@@ -138,8 +168,8 @@ class CircleVisualiser:
             controls,
             label="Circle 1 circumference, C",
             variable=self.c_1,
-            minimum=self.min_s_l + self.min_s_r,
-            maximum=self.max_s_l + self.max_s_r,
+            minimum=self.min_circumference_1,
+            maximum=self.max_circumference_1,
             row=2,
             callback=self.on_c_1_changed
         )
@@ -338,11 +368,63 @@ class CircleVisualiser:
 
         value_label.configure(text=f"{variable.get():.4f}")
 
+        return slider
+
+    # ------------------------------------------------------------------
+    # State-management helpers
+    # ------------------------------------------------------------------
+    def remember_current_state(self):
+        """
+        Store the current circle-1 controls as the last valid state.
+        """
+        self.last_valid_state = {
+            "s_l": self.s_l.get(),
+            "s_r": self.s_r.get(),
+            "c_1": self.c_1.get(),
+            "p_x": self.p_x.get(),
+            "p_y": self.p_y.get()
+        }
+
+    def restore_last_valid_state(self):
+        """
+        Restore all circle-1 controls to the last valid state.
+
+        This is called while self.updating_controls is True, so the
+        programmatic changes do not trigger additional calculations.
+        """
+        self.s_l.set(self.last_valid_state["s_l"])
+        self.s_r.set(self.last_valid_state["s_r"])
+        self.c_1.set(self.last_valid_state["c_1"])
+        self.p_x.set(self.last_valid_state["p_x"])
+        self.p_y.set(self.last_valid_state["p_y"])
+
+        if self.lock_circumference.get():
+            self.locked_circumference = (
+                self.last_valid_state["c_1"]
+            )
+
+    def apply_point_state(self, state):
+        """
+        Apply a valid point-derived state to all circle-1 controls.
+        """
+        self.s_l.set(state["s_l"])
+        self.s_r.set(state["s_r"])
+        self.c_1.set(state["circumference"])
+        self.p_x.set(state["p_x"])
+        self.p_y.set(state["p_y"])
+
+        if self.lock_circumference.get():
+            self.locked_circumference = state["circumference"]
+
+        self.remember_current_state()
+
     # ------------------------------------------------------------------
     # Conversion helpers
     # ------------------------------------------------------------------
     def calculate_point_from_arc_lengths(self):
-        """Calculate P from the current s_l and s_r values."""
+        """
+        Calculate circle 1 and point P from the current s_l and s_r.
+        """
         s_l = self.s_l.get()
         s_r = self.s_r.get()
 
@@ -369,8 +451,12 @@ class CircleVisualiser:
 
         self.c_1.set(circumference)
         self.p_x.set(p_x)
-        self.p_y.set(max(p_y, self.min_point_y))
 
+        # Do not clamp p_y here. Clamping p_y independently would make
+        # the point controls inconsistent with s_l and s_r.
+        self.p_y.set(p_y)
+
+        self.remember_current_state()
 
     def synchronise_from_circumference(self, new_circumference):
         """
@@ -391,23 +477,17 @@ class CircleVisualiser:
 
         ratio_l = np.clip(ratio_l, 0.0, 1.0)
 
-        # Ensure that the requested circumference can be represented by
-        # valid values of both s_l and s_r.
-        new_circumference = np.clip(
+        new_circumference = float(np.clip(
             new_circumference,
             self.min_circumference_1,
             self.max_circumference_1
-        )
+        ))
 
-        # Desired value based on preserving the current ratio.
+        # Desired value based on retaining the current ratio.
         desired_s_l = ratio_l * new_circumference
 
-        # Because s_r = C - s_l, s_l must satisfy:
-        #
-        #   min_s_l <= s_l <= max_s_l
-        #   min_s_r <= C - s_l <= max_s_r
-        #
-        # Combining these gives the following feasible interval.
+        # s_l must remain inside its own limits and leave a valid
+        # value for s_r = C - s_l.
         minimum_allowed_s_l = max(
             self.min_s_l,
             new_circumference - self.max_s_r
@@ -418,11 +498,11 @@ class CircleVisualiser:
             new_circumference - self.min_s_r
         )
 
-        new_s_l = np.clip(
+        new_s_l = float(np.clip(
             desired_s_l,
             minimum_allowed_s_l,
             maximum_allowed_s_l
-        )
+        ))
 
         new_s_r = new_circumference - new_s_l
 
@@ -432,58 +512,77 @@ class CircleVisualiser:
 
         self.synchronise_from_arc_lengths()
 
-
     def synchronise_from_point(self, requested_x, requested_y):
         """
-        Calculate C, r, s_l and s_r from a directly selected point P.
+        Attempt to calculate C, r, s_l, and s_r from a requested P.
 
-        The first circle must:
-            1. Be centred at (0, r)
-            2. Pass through the origin
-            3. Pass through P
+        The movement is accepted only if all resulting values remain
+        within their configured limits. If any limit is violated, the
+        entire movement is rejected and all controls are returned to
+        their last valid values.
 
-        This gives:
-            r = (x^2 + y^2) / (2y)
+        Returns
+        -------
+        bool
+            True if the requested point was accepted.
+            False if the requested movement was rejected.
         """
-        max_radius = self.max_radius_1
+        tolerance = self.tolerance
 
-        # Ensure y remains in the valid range.
-        y = np.clip(
-            requested_y,
-            self.min_point_y,
-            2.0 * max_radius
-        )
+        x = float(requested_x)
+        y = float(requested_y)
 
-        # For the chosen y, constrain x so that the required radius
-        # does not exceed max_radius.
-        #
-        # x^2 + y^2 <= 2 * max_radius * y
-        maximum_x_squared = max(
-            0.0,
-            2.0 * max_radius * y - y**2
-        )
-        maximum_abs_x = np.sqrt(maximum_x_squared)
+        # --------------------------------------------------------------
+        # Validate the requested coordinates without clipping
+        # --------------------------------------------------------------
+        if not np.isfinite(x) or not np.isfinite(y):
+            self.restore_last_valid_state()
+            return False
 
-        x = np.clip(
-            requested_x,
-            -maximum_abs_x,
-            maximum_abs_x
-        )
+        if y < self.min_point_y - tolerance:
+            self.restore_last_valid_state()
+            return False
 
+        # --------------------------------------------------------------
+        # Calculate the circle implied by the requested point
+        # --------------------------------------------------------------
         radius = (x**2 + y**2) / (2.0 * y)
-        radius = np.clip(radius, self.min_radius_1, self.max_radius_1)
+
+        if not np.isfinite(radius):
+            self.restore_last_valid_state()
+            return False
+
+        if (
+            radius < self.min_radius_1 - tolerance
+            or radius > self.max_radius_1 + tolerance
+        ):
+            self.restore_last_valid_state()
+            return False
 
         circumference = 2.0 * np.pi * radius
 
-        # Angle relative to the circle centre.
+        if (
+            circumference
+            < self.min_circumference_1 - tolerance
+            or circumference
+            > self.max_circumference_1 + tolerance
+        ):
+            self.restore_last_valid_state()
+            return False
+
+        # --------------------------------------------------------------
+        # Calculate the arc lengths implied by the requested point
+        # --------------------------------------------------------------
         theta = np.arctan2(
             y - radius,
             x
         )
 
-        # Convert the angle into the fraction represented by s_r.
+        # From:
         #
         # theta = 2*pi*(s_r/C) - pi/2
+        #
+        # obtain the fraction of the circumference represented by s_r.
         angular_fraction = (
             (theta + np.pi / 2.0) % (2.0 * np.pi)
         ) / (2.0 * np.pi)
@@ -491,72 +590,68 @@ class CircleVisualiser:
         s_r = circumference * angular_fraction
         s_l = circumference - s_r
 
-        # Constrain s_l while keeping s_l + s_r equal to the calculated
-        # circumference.
-        minimum_allowed_s_l = max(
+        # Remove tiny floating-point errors exactly at a limit.
+        if abs(s_l - self.min_s_l) <= tolerance:
+            s_l = self.min_s_l
+
+        if abs(s_l - self.max_s_l) <= tolerance:
+            s_l = self.max_s_l
+
+        if abs(s_r - self.min_s_r) <= tolerance:
+            s_r = self.min_s_r
+
+        if abs(s_r - self.max_s_r) <= tolerance:
+            s_r = self.max_s_r
+
+        # --------------------------------------------------------------
+        # Reject the complete movement if either arc is invalid
+        # --------------------------------------------------------------
+        if (
+            s_l < self.min_s_l - tolerance
+            or s_l > self.max_s_l + tolerance
+            or s_r < self.min_s_r - tolerance
+            or s_r > self.max_s_r + tolerance
+        ):
+            self.restore_last_valid_state()
+            return False
+
+        # Apply only tiny numerical corrections after validation.
+        s_l = float(np.clip(
+            s_l,
             self.min_s_l,
-            circumference - self.max_s_r
+            self.max_s_l
+        ))
+
+        s_r = float(np.clip(
+            s_r,
+            self.min_s_r,
+            self.max_s_r
+        ))
+
+        # Recalculate every related quantity from the accepted arc
+        # lengths. This keeps the plot and all sliders consistent.
+        circumference = s_l + s_r
+        radius = circumference / (2.0 * np.pi)
+
+        theta = (
+            2.0 * np.pi * s_r / circumference
+            - np.pi / 2.0
         )
 
-        maximum_allowed_s_l = min(
-            self.max_s_l,
-            circumference - self.min_s_r
-        )
+        accepted_x = radius * np.cos(theta)
+        accepted_y = radius + radius * np.sin(theta)
 
-        if minimum_allowed_s_l <= maximum_allowed_s_l:
-            s_l = np.clip(
-                s_l,
-                minimum_allowed_s_l,
-                maximum_allowed_s_l
-            )
+        proposed_state = {
+            "s_l": s_l,
+            "s_r": s_r,
+            "circumference": circumference,
+            "p_x": accepted_x,
+            "p_y": accepted_y
+        }
 
-            s_r = circumference - s_l
+        self.apply_point_state(proposed_state)
 
-        else:
-            # The circumference calculated from the requested point cannot
-            # be represented using the configured arc-length limits.
-            circumference = np.clip(
-                circumference,
-                self.min_circumference_1,
-                self.max_circumference_1
-            )
-
-            s_l = np.clip(
-                s_l,
-                self.min_s_l,
-                self.max_s_l
-            )
-
-            s_r = np.clip(
-                circumference - s_l,
-                self.min_s_r,
-                self.max_s_r
-            )
-
-            # Recalculate the circumference and point from the constrained
-            # arc lengths to keep all variables consistent.
-            circumference = s_l + s_r
-            radius = circumference / (2.0 * np.pi)
-
-            theta = (
-                2.0 * np.pi * s_r / circumference
-                - np.pi / 2.0
-            )
-
-            x = radius * np.cos(theta)
-            y = radius + radius * np.sin(theta)
-
-        self.p_x.set(x)
-        self.p_y.set(y)
-        self.c_1.set(circumference)
-        self.s_l.set(s_l)
-        self.s_r.set(s_r)
-
-        # A direct point change changes the circumference. If the lock
-        # is enabled, update its stored value to the new circumference.
-        if self.lock_circumference.get():
-            self.locked_circumference = circumference
-
+        return True
 
     # ------------------------------------------------------------------
     # Slider callbacks
@@ -574,11 +669,11 @@ class CircleVisualiser:
         self.updating_controls = True
 
         try:
-            adjusted_s_l = np.clip(
+            adjusted_s_l = float(np.clip(
                 self.s_l.get(),
                 self.min_s_l,
                 self.max_s_l
-            )
+            ))
 
             if (
                 self.lock_circumference.get()
@@ -586,8 +681,8 @@ class CircleVisualiser:
             ):
                 circumference = self.locked_circumference
 
-                # Constrain s_l so that the resulting value of
-                # s_r = C - s_l also lies within its limits.
+                # s_l must remain inside its limits and leave a valid
+                # value for s_r = C - s_l.
                 minimum_allowed_s_l = max(
                     self.min_s_l,
                     circumference - self.max_s_r
@@ -599,37 +694,24 @@ class CircleVisualiser:
                 )
 
                 if minimum_allowed_s_l <= maximum_allowed_s_l:
-                    adjusted_s_l = np.clip(
+                    adjusted_s_l = float(np.clip(
                         adjusted_s_l,
                         minimum_allowed_s_l,
                         maximum_allowed_s_l
-                    )
+                    ))
 
-                    adjusted_s_r = circumference - adjusted_s_l
+                    adjusted_s_r = (
+                        circumference - adjusted_s_l
+                    )
 
                     self.s_l.set(adjusted_s_l)
                     self.s_r.set(adjusted_s_r)
+
                 else:
-                    # This should only occur if the stored circumference
-                    # is incompatible with the configured limits.
-                    adjusted_s_l = np.clip(
-                        adjusted_s_l,
-                        self.min_s_l,
-                        self.max_s_l
-                    )
-
-                    adjusted_s_r = np.clip(
-                        circumference - adjusted_s_l,
-                        self.min_s_r,
-                        self.max_s_r
-                    )
-
-                    self.s_l.set(adjusted_s_l)
-                    self.s_r.set(adjusted_s_r)
-
-                    self.locked_circumference = (
-                        adjusted_s_l + adjusted_s_r
-                    )
+                    # Restore the last valid state if the locked
+                    # circumference cannot satisfy the arc limits.
+                    self.restore_last_valid_state()
+                    return
 
             else:
                 self.s_l.set(adjusted_s_l)
@@ -640,8 +722,6 @@ class CircleVisualiser:
             self.updating_controls = False
 
         self.update_plot()
-
-
 
     def on_s_r_changed(self, _value=None):
         """
@@ -656,11 +736,11 @@ class CircleVisualiser:
         self.updating_controls = True
 
         try:
-            adjusted_s_r = np.clip(
+            adjusted_s_r = float(np.clip(
                 self.s_r.get(),
                 self.min_s_r,
                 self.max_s_r
-            )
+            ))
 
             if (
                 self.lock_circumference.get()
@@ -668,8 +748,8 @@ class CircleVisualiser:
             ):
                 circumference = self.locked_circumference
 
-                # Constrain s_r so that the resulting value of
-                # s_l = C - s_r also lies within its limits.
+                # s_r must remain inside its limits and leave a valid
+                # value for s_l = C - s_r.
                 minimum_allowed_s_r = max(
                     self.min_s_r,
                     circumference - self.max_s_l
@@ -681,35 +761,24 @@ class CircleVisualiser:
                 )
 
                 if minimum_allowed_s_r <= maximum_allowed_s_r:
-                    adjusted_s_r = np.clip(
+                    adjusted_s_r = float(np.clip(
                         adjusted_s_r,
                         minimum_allowed_s_r,
                         maximum_allowed_s_r
-                    )
+                    ))
 
-                    adjusted_s_l = circumference - adjusted_s_r
+                    adjusted_s_l = (
+                        circumference - adjusted_s_r
+                    )
 
                     self.s_r.set(adjusted_s_r)
                     self.s_l.set(adjusted_s_l)
+
                 else:
-                    adjusted_s_r = np.clip(
-                        adjusted_s_r,
-                        self.min_s_r,
-                        self.max_s_r
-                    )
-
-                    adjusted_s_l = np.clip(
-                        circumference - adjusted_s_r,
-                        self.min_s_l,
-                        self.max_s_l
-                    )
-
-                    self.s_r.set(adjusted_s_r)
-                    self.s_l.set(adjusted_s_l)
-
-                    self.locked_circumference = (
-                        adjusted_s_l + adjusted_s_r
-                    )
+                    # Restore the last valid state if the locked
+                    # circumference cannot satisfy the arc limits.
+                    self.restore_last_valid_state()
+                    return
 
             else:
                 self.s_r.set(adjusted_s_r)
@@ -723,7 +792,8 @@ class CircleVisualiser:
 
     def on_c_1_changed(self, _value=None):
         """
-        Change circle 1's circumference while preserving s_l:s_r.
+        Change circle 1's circumference while preserving the current
+        s_l:s_r ratio as closely as possible.
         """
         if self.updating_controls:
             return
@@ -731,11 +801,11 @@ class CircleVisualiser:
         self.updating_controls = True
 
         try:
-            new_circumference = np.clip(
+            new_circumference = float(np.clip(
                 self.c_1.get(),
                 self.min_circumference_1,
                 self.max_circumference_1
-            )
+            ))
 
             self.synchronise_from_circumference(
                 new_circumference
@@ -752,22 +822,13 @@ class CircleVisualiser:
         self.update_plot()
 
     def on_p_x_changed(self, _value=None):
-        if self.updating_controls:
-            return
+        """
+        Attempt to change P_x while retaining the last valid P_y.
 
-        self.updating_controls = True
-
-        try:
-            self.synchronise_from_point(
-                requested_x=self.p_x.get(),
-                requested_y=self.p_y.get()
-            )
-        finally:
-            self.updating_controls = False
-
-        self.update_plot()
-
-    def on_p_y_changed(self, _value=None):
+        If the movement causes any arc or circle limit to be exceeded,
+        the P_x slider and all related controls return to the previous
+        valid state.
+        """
         if self.updating_controls:
             return
 
@@ -775,40 +836,37 @@ class CircleVisualiser:
 
         try:
             requested_x = self.p_x.get()
-            requested_y = np.clip(
-                self.p_y.get(),
-                self.min_point_y,
-                2.0 * self.max_radius_1
-            )
-
-            # For the requested x, determine the valid y interval for
-            # circles whose radius is no greater than max_radius_1.
-            x = np.clip(
-                requested_x,
-                -self.max_radius_1,
-                self.max_radius_1
-            )
-
-            root_term = np.sqrt(
-                max(0.0, self.max_radius_1**2 - x**2)
-            )
-
-            minimum_valid_y = max(
-                self.min_point_y,
-                self.max_radius_1 - root_term
-            )
-            maximum_valid_y = (
-                self.max_radius_1 + root_term
-            )
-
-            requested_y = np.clip(
-                requested_y,
-                minimum_valid_y,
-                maximum_valid_y
-            )
+            current_y = self.last_valid_state["p_y"]
 
             self.synchronise_from_point(
-                requested_x=x,
+                requested_x=requested_x,
+                requested_y=current_y
+            )
+
+        finally:
+            self.updating_controls = False
+
+        self.update_plot()
+
+    def on_p_y_changed(self, _value=None):
+        """
+        Attempt to change P_y while retaining the last valid P_x.
+
+        If the movement causes any arc or circle limit to be exceeded,
+        the P_y slider and all related controls return to the previous
+        valid state.
+        """
+        if self.updating_controls:
+            return
+
+        self.updating_controls = True
+
+        try:
+            current_x = self.last_valid_state["p_x"]
+            requested_y = self.p_y.get()
+
+            self.synchronise_from_point(
+                requested_x=current_x,
                 requested_y=requested_y
             )
 
@@ -818,10 +876,12 @@ class CircleVisualiser:
         self.update_plot()
 
     def on_c_2_changed(self, _value=None):
+        """Redraw circle 2 after its circumference changes."""
         if not self.updating_controls:
             self.update_plot()
 
     def on_lock_changed(self):
+        """Enable or disable circle-1 circumference locking."""
         if self.lock_circumference.get():
             self.locked_circumference = (
                 self.s_l.get() + self.s_r.get()
@@ -829,20 +889,34 @@ class CircleVisualiser:
         else:
             self.locked_circumference = None
 
+        self.remember_current_state()
         self.update_plot()
 
     # ------------------------------------------------------------------
     # Reset
     # ------------------------------------------------------------------
     def reset_values(self):
+        """Restore the initial values and disable circumference lock."""
         self.updating_controls = True
 
         try:
             self.lock_circumference.set(False)
             self.locked_circumference = None
 
-            self.s_l.set(5.0)
-            self.s_r.set(5.0)
+            default_s_l = float(np.clip(
+                5.0,
+                self.min_s_l,
+                self.max_s_l
+            ))
+
+            default_s_r = float(np.clip(
+                5.0,
+                self.min_s_r,
+                self.max_s_r
+            ))
+
+            self.s_l.set(default_s_l)
+            self.s_r.set(default_s_r)
             self.c_2.set(8.0)
 
             self.synchronise_from_arc_lengths()
@@ -856,8 +930,10 @@ class CircleVisualiser:
     # Plotting
     # ------------------------------------------------------------------
     def update_plot(self):
+        """Redraw both circles, the coloured arcs, and point P."""
         s_l = self.s_l.get()
         s_r = self.s_r.get()
+
         circumference = s_l + s_r
         c_2 = self.c_2.get()
 
@@ -872,16 +948,16 @@ class CircleVisualiser:
         p_x = radius * np.cos(theta)
         p_y = radius + radius * np.sin(theta)
 
-        phi = np.linspace(0.0, 2.0 * np.pi, 600)
+        phi = np.linspace(
+            0.0,
+            2.0 * np.pi,
+            600
+        )
 
-        # The origin is at angle -pi/2 around circle 1.
+        # The origin is at -pi/2 around circle 1.
         origin_angle = -np.pi / 2.0
 
-        # Left arc:
-        # Travel anticlockwise from P to the origin.
-        #
-        # theta is in the interval [-pi/2, 3*pi/2), so the equivalent
-        # origin angle reached anticlockwise is 3*pi/2.
+        # Anticlockwise arc from P to the origin. Its length is s_l.
         left_arc_angles = np.linspace(
             theta,
             origin_angle + 2.0 * np.pi,
@@ -889,10 +965,11 @@ class CircleVisualiser:
         )
 
         left_arc_x = radius * np.cos(left_arc_angles)
-        left_arc_y = radius + radius * np.sin(left_arc_angles)
+        left_arc_y = (
+            radius + radius * np.sin(left_arc_angles)
+        )
 
-        # Right arc:
-        # Travel clockwise from P back to the origin.
+        # Clockwise arc from P to the origin. Its length is s_r.
         right_arc_angles = np.linspace(
             theta,
             origin_angle,
@@ -900,15 +977,19 @@ class CircleVisualiser:
         )
 
         right_arc_x = radius * np.cos(right_arc_angles)
-        right_arc_y = radius + radius * np.sin(right_arc_angles)
+        right_arc_y = (
+            radius + radius * np.sin(right_arc_angles)
+        )
 
+        # Complete second circle.
         circle_2_x = radius_2 * np.cos(phi)
         circle_2_y = radius_2 + radius_2 * np.sin(phi)
 
         self.ax.clear()
 
-        # Anticlockwise arc from P to the origin.
-        # Its length is s_l.
+        # --------------------------------------------------------------
+        # Circle 1 coloured arcs
+        # --------------------------------------------------------------
         self.ax.plot(
             left_arc_x,
             left_arc_y,
@@ -917,8 +998,6 @@ class CircleVisualiser:
             label=f"Left arc: s_l = {s_l:.3f}"
         )
 
-        # Clockwise arc from P to the origin.
-        # Its length is s_r.
         self.ax.plot(
             right_arc_x,
             right_arc_y,
@@ -927,6 +1006,9 @@ class CircleVisualiser:
             label=f"Right arc: s_r = {s_r:.3f}"
         )
 
+        # --------------------------------------------------------------
+        # Circle 2
+        # --------------------------------------------------------------
         self.ax.plot(
             circle_2_x,
             circle_2_y,
@@ -939,7 +1021,9 @@ class CircleVisualiser:
             )
         )
 
+        # --------------------------------------------------------------
         # Circle centres
+        # --------------------------------------------------------------
         self.ax.scatter(
             [0.0],
             [radius],
@@ -960,7 +1044,9 @@ class CircleVisualiser:
             zorder=5
         )
 
+        # --------------------------------------------------------------
         # Point P
+        # --------------------------------------------------------------
         self.ax.scatter(
             [p_x],
             [p_y],
@@ -972,14 +1058,6 @@ class CircleVisualiser:
             label=f"P = ({p_x:.3f}, {p_y:.3f})"
         )
 
-        # self.ax.plot(
-        #     [0.0, p_x],
-        #     [radius, p_y],
-        #     color="crimson",
-        #     linewidth=1.5,
-        #     alpha=0.75
-        # )
-
         self.ax.annotate(
             "P",
             xy=(p_x, p_y),
@@ -990,7 +1068,9 @@ class CircleVisualiser:
             fontweight="bold"
         )
 
-        # Origin
+        # --------------------------------------------------------------
+        # Origin and axes
+        # --------------------------------------------------------------
         self.ax.scatter(
             [0.0],
             [0.0],
@@ -1004,23 +1084,28 @@ class CircleVisualiser:
             color="0.75",
             linewidth=0.8
         )
+
         self.ax.axvline(
             0.0,
             color="0.75",
             linewidth=0.8
         )
 
-        # Fixed plot limits based on maximum permitted circle sizes.
+        # --------------------------------------------------------------
+        # Fixed plot limits
+        # --------------------------------------------------------------
         maximum_radius = max(
             self.max_radius_1,
             self.max_radius_2
         )
+
         margin = 0.5
 
         self.ax.set_xlim(
             -maximum_radius - margin,
             maximum_radius + margin
         )
+
         self.ax.set_ylim(
             -margin,
             2.0 * maximum_radius + margin
@@ -1038,7 +1123,9 @@ class CircleVisualiser:
         self.figure.tight_layout()
         self.canvas.draw_idle()
 
-        # Numerical consistency check
+        # --------------------------------------------------------------
+        # Information labels
+        # --------------------------------------------------------------
         point_distance_from_centre = np.hypot(
             p_x,
             p_y - radius
