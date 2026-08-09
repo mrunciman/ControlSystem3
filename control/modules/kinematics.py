@@ -202,7 +202,7 @@ class kineSolver:
         # Set limits on shaft extension
         # self.minShaftExt = self.SHAFT_LENGTH + 1
         self.MIN_EXTEND = 0.5 # mm
-        self.MAX_EXTEND = 55 # mm
+        self.MAX_EXTEND = 100 # mm
         self.initialPrismLength = 0
         # Set limit when curvature of continuum joint is assumed zero
         self.MIN_CONT_RAD = 0.1 # mm
@@ -224,7 +224,7 @@ class kineSolver:
 
         # Limits on wrist angle
         self.MIN_WRIST_ANGLE = 0   # degrees 
-        self.MAX_WRIST_ANGLE = 130  # degrees 
+        self.MAX_WRIST_ANGLE = 135  # degrees 
         # Geometry of wrist motor
         self.HYPOT_TIP = 5.62      # mm
         self.TIP_CUTAWAY_WIDTH = 2.34 # mm
@@ -236,7 +236,7 @@ class kineSolver:
 
         # Limits on how far instrument can be extended
         self.MIN_TOOL_EXT = 5      # mm
-        self.MAX_TOOL_EXT = 159    # mm
+        self.MAX_TOOL_EXT = 1000    # mm
         # Geometry of tool extensionm motor 
         self.TOOL_EXT_ROLLER_RADIUS = 5 #mm
 

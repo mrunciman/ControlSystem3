@@ -116,18 +116,18 @@ class ps4USB(threading.Thread):
 		###################################################################
 		#Limits on axial extension
 		self.MIN_EXTEND = 0.5 # mm
-		self.MAX_EXTEND = 55 # mm
+		self.MAX_EXTEND = 100 # mm
 		
 		# Limits on angle change of torque coil / rotary axis
 		self.MIN_ROTARY = -400.0   # degrees 
 		self.MAX_ROTARY =  400.0   # degrees 
 		self.targDirRot = 1
 		self.prevDirRot = 1
-		self.antiHystDegRot = 360/12
+		self.antiHystDegRot = 360/360
 
 		# Limits on wrist angle
 		self.MIN_WRIST_ANGLE = 0   # degrees 
-		self.MAX_WRIST_ANGLE = 90  # degrees 
+		self.MAX_WRIST_ANGLE = 135  # degrees 
 		# Geometry of wrist motor
 		# self.HYPOT_TIP = 5         # mm
 		# self.TIP_CUTAWAY_WIDTH = 5 # mm
@@ -137,7 +137,7 @@ class ps4USB(threading.Thread):
 
 		# Limits on how far instrument can be extended
 		self.MIN_TOOL_EXT = 5      # mm
-		self.MAX_TOOL_EXT = 159    # mm
+		self.MAX_TOOL_EXT = 1000    # mm
 		# Geometry of tool extensionm motor 
 		# self.TOOL_EXT_ROLLER_RADIUS = 5 #mm
 
