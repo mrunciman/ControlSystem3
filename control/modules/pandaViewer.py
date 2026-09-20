@@ -205,6 +205,8 @@ class RobotViewer(ShowBase):
         T_0_6 = T_5_6 * T_0_5 # intermed 3
         T_0_7 = T_6_7 * T_0_6 # tool extension
 
+        T_0_7 = self.base_to_tip(theta1, phi, prism0, prism6)
+
        
         # Apply transform to assembly (position + rotations)
         self.RobotWrist.set_mat(T_0_6)
@@ -270,8 +272,33 @@ class RobotViewer(ShowBase):
             px,            py,           0.0,  1.0
         )
 
+    def base_to_tip(self, theta1, phi, prism0, prism6):
+        ct1 = mt.cos(theta1)
+        st1 = mt.sin(theta1)
+        cphi = mt.cos(phi)
+        sphi = mt.sin(phi)
+
+        Lw = self.length_wrist
+
+        # Constant-curvature translation
+        if abs(phi) < 1e-8:
+            A = Lw
+            B = 0.0
+        else:
+            A = Lw * sphi / phi
+            B = Lw * (1.0 - cphi) / phi
+
+        # Constructed directly in transposed configuration
+        T_0_7 = LMatrix4f(
+            ct1,                            st1,                            0.0,                            0.0,
+            -st1 * cphi,                    ct1 * cphi,                     -sphi,                          0.0,
+            -st1 * sphi,                    ct1 * sphi,                     cphi,                           0.0,
+            -st1 * (B + prism6 * sphi),     ct1 * (B + prism6 * sphi),      prism0 + A + prism6 * cphi,     1.0
+        )
+        return T_0_7
 
 
+    
 
 def run_viewer(inputList):
     app = RobotViewer(inputList)
@@ -282,4 +309,4 @@ def run_viewer(inputList):
 if __name__ == "__main__":
     # Test with dummy values
     # Axial, rotary, extension, wrist, grasper
-    run_viewer([10, 30, 20, 15, 0, 0])
+    run_viewer([10, 30, 20, 10, 0, 0])
