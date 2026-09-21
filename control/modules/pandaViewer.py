@@ -1,5 +1,6 @@
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import LineSegs, NodePath, WindowProperties, LMatrix4f, PointLight, Texture, Material, TextureStage, DirectionalLight, AmbientLight
+from panda3d.core import Geom, GeomNode, GeomTriangles, GeomVertexData, GeomVertexFormat, GeomVertexWriter
 from direct.gui.OnscreenImage import OnscreenImage
 import math as mt
 import numpy as np
@@ -39,9 +40,9 @@ class RobotViewer(ShowBase):
 
         # Make tip of robot
         self.RobotAssembly = NodePath("RobotAssembly")
-        self.axes_local = self.make_axes(length=10)
-        self.axes_local.setLightOff(1)
-        self.axes_local.reparentTo(self.RobotAssembly)
+        self.axes_local_ass = self.make_axes(length=10)
+        self.axes_local_ass.setLightOff(1)
+        self.axes_local_ass.reparentTo(self.RobotAssembly)
         self.RobotAssembly.reparentTo(self.render)
 
         # Make wrist of robot
@@ -49,10 +50,25 @@ class RobotViewer(ShowBase):
         self.length_wrist = 25
         self.toolExtCyl = self.make_cylinder()
         self.toolExtCyl.reparentTo(self.RobotWrist)
-        self.axes_local = self.make_axes(length=10)
-        self.axes_local.setLightOff(1)
-        self.axes_local.reparentTo(self.RobotWrist)
+        # self.axes_local_rw = self.make_axes(length=10)
+        # self.axes_local_rw.setLightOff(1)
+        # self.axes_local_rw.reparentTo(self.RobotWrist)
         self.RobotWrist.reparentTo(self.render)
+
+        self.RobotWristBase = NodePath("RobotWristBase")
+        # self.axes_local_rwb = self.make_axes(length=10)
+        # self.axes_local_rwb.setLightOff(1)
+        # self.axes_local_rwb.reparentTo(self.RobotWristBase)
+        self.RobotWristBase.reparentTo(self.render)
+        self.wristCurve = self.create_constant_curvature_tube(
+            parent=self.RobotWristBase,
+            phi=0.0,
+            Lw=self.length_wrist,
+            radius=1.5,
+            arc_segments=30,
+            radial_segments=12
+        )
+        self.wristCurve.setColor(0.7, 0.7, 0.7, 1.0)
 
         # Global axes
         self.axes_global = self.make_axes(length=10)
@@ -61,14 +77,15 @@ class RobotViewer(ShowBase):
         self.axialCyl.reparentTo(self.render)
         self.workingCyl = self.make_cylinder()
         self.workingCyl.reparentTo(self.render)
-        self.workingCyl.setScale(1, 1, -20)
+        self.workingCyl.setScale(1, 1, 5)
+        self.workingCyl.set_pos(self.workingCyl, 0, 0, -self.cylModelLength)
         self.axes_global.reparentTo(self.render)
 
         self.tranMatrix = self.RobotAssembly.get_mat(self.axes_global)
 
         # Camera setup
         self.setBackgroundColor(0.0, 0.0, 0.0, 1)
-        self.cam.setPos(10, 50, -250)
+        self.cam.setPos(0, 40, -190)
         # self.cam.lookAt(0,0,0)
         # The camera looks down its Y axis
         # Heading, pitch, roll control the local rotations around Z, X, and Y axes.
@@ -207,7 +224,7 @@ class RobotViewer(ShowBase):
 
         T_0_7 = self.base_to_tip(theta1, phi, prism0, prism6)
 
-       
+        self.RobotWristBase.set_mat(T_0_3)
         # Apply transform to assembly (position + rotations)
         self.RobotWrist.set_mat(T_0_6)
         
@@ -224,6 +241,19 @@ class RobotViewer(ShowBase):
         self.toolExtCyl.setScale(1, 1, scale_z_tool)
         # self.robotShaft.setPos(self.robotShaft, 0, 0, -prism6)
 
+        # if self.wristCurve is not None:
+        if self.lastJointSpace[3] != jointSpace[3]:
+            self.wristCurve.removeNode()
+
+            self.wristCurve = self.create_constant_curvature_tube(
+                self.RobotWristBase,
+                phi,
+                Lw,
+                1.5,
+                30,
+                12
+            )
+
 
 
 
@@ -232,6 +262,7 @@ class RobotViewer(ShowBase):
         try:
             localJointSpace = self.inputList
             self.update_robot_gantry(localJointSpace)
+            self.lastJointSpace = localJointSpace
         except Exception as e:
             print("Error:", e)
 
@@ -298,6 +329,105 @@ class RobotViewer(ShowBase):
         return T_0_7
 
 
+
+
+    def create_constant_curvature_tube(self,
+            parent,
+            phi,
+            Lw,
+            radius,
+            arc_segments=24,
+            radial_segments=12,
+            name="continuum_wrist"
+        ):
+
+        vertex_format = GeomVertexFormat.getV3n3()
+        vertex_data = GeomVertexData(
+            name,
+            vertex_format,
+            Geom.UHStatic
+        )
+
+        vertex_writer = GeomVertexWriter(vertex_data, "vertex")
+        normal_writer = GeomVertexWriter(vertex_data, "normal")
+
+        # Generate rings along the constant-curvature centreline
+        for i in range(arc_segments + 1):
+
+            u = i / arc_segments
+            angle = phi * u
+
+            if abs(phi) < 1e-8:
+                centre_x = Lw * u
+                centre_y = 0.0
+            else:
+                centre_x = Lw * mt.sin(angle) / phi
+                centre_y = Lw * (1.0 - mt.cos(angle)) / phi
+
+            centre_z = 0.0
+
+            # Normal to the centreline within the bending plane
+            normal_x = -mt.sin(angle)
+            normal_y = mt.cos(angle)
+
+            for j in range(radial_segments):
+
+                beta = 2.0 * mt.pi * j / radial_segments
+
+                cos_beta = mt.cos(beta)
+                sin_beta = mt.sin(beta)
+
+                # Circular cross-section around the centreline
+                offset_x = radius * cos_beta * normal_x
+                offset_y = radius * cos_beta * normal_y
+                offset_z = radius * sin_beta
+
+                vertex_writer.addData3(
+                    centre_x + offset_x,
+                    centre_y + offset_y,
+                    centre_z + offset_z
+                )
+
+                normal_writer.addData3(
+                    cos_beta * normal_x,
+                    cos_beta * normal_y,
+                    sin_beta
+                )
+
+        triangles = GeomTriangles(Geom.UHStatic)
+
+        # Connect adjacent circular rings
+        for i in range(arc_segments):
+
+            current_ring = i * radial_segments
+            next_ring = (i + 1) * radial_segments
+
+            for j in range(radial_segments):
+
+                next_j = (j + 1) % radial_segments
+
+                v0 = current_ring + j
+                v1 = current_ring + next_j
+                v2 = next_ring + j
+                v3 = next_ring + next_j
+
+                triangles.addVertices(v0, v1, v2)
+                triangles.addVertices(v1, v3, v2)
+
+        triangles.closePrimitive()
+
+        geometry = Geom(vertex_data)
+        geometry.addPrimitive(triangles)
+
+        geometry_node = GeomNode(name)
+        geometry_node.addGeom(geometry)
+
+        wrist_node = parent.attachNewNode(geometry_node)
+        wrist_node.setTwoSided(True)
+
+        return wrist_node
+
+
     
 
 def run_viewer(inputList):
@@ -309,4 +439,10 @@ def run_viewer(inputList):
 if __name__ == "__main__":
     # Test with dummy values
     # Axial, rotary, extension, wrist, grasper
-    run_viewer([10, 30, 20, 10, 0, 0])
+    axial_ext = 0
+    rotary_angle = 0
+    tool_ext = 0
+    wrist_angle = 0
+    grasper = 0
+    spare = 0
+    run_viewer([axial_ext, rotary_angle, tool_ext, wrist_angle, grasper, spare])
