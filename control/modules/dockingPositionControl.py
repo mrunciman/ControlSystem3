@@ -16,10 +16,10 @@ class CircleVisualiser:
         # Control limits
         # --------------------------------------------------------------
         self.min_s_l = 0.001
-        self.max_s_l = 20.0
+        self.max_s_l = np.pi*100.0/2
 
         self.min_s_r = 0.001
-        self.max_s_r = 20.0
+        self.max_s_r = np.pi*100.0/2
 
         # Circle 1 circumference limits are derived from the arc limits.
         self.min_circumference_1 = (
@@ -55,11 +55,13 @@ class CircleVisualiser:
         # --------------------------------------------------------------
         # Initial values
         # --------------------------------------------------------------
-        initial_s_l = 5.0
-        initial_s_r = 5.0
+        initial_s_l = 20.0
+        initial_s_r = 20.0
 
         initial_c_1 = initial_s_l + initial_s_r
         initial_r_1 = initial_c_1 / (2.0 * np.pi)
+
+        initial_c_2 = np.pi*11.2
 
         initial_theta = (
             2.0 * np.pi * initial_s_r / initial_c_1
@@ -81,7 +83,7 @@ class CircleVisualiser:
         self.s_r = tk.DoubleVar(value=initial_s_r)
 
         self.c_1 = tk.DoubleVar(value=initial_c_1)
-        self.c_2 = tk.DoubleVar(value=8.0)
+        self.c_2 = tk.DoubleVar(value=initial_c_2)
 
         self.p_x = tk.DoubleVar(value=initial_p_x)
         self.p_y = tk.DoubleVar(value=initial_p_y)
@@ -1024,25 +1026,25 @@ class CircleVisualiser:
         # --------------------------------------------------------------
         # Circle centres
         # --------------------------------------------------------------
-        self.ax.scatter(
-            [0.0],
-            [radius],
-            color="tab:blue",
-            marker="x",
-            s=80,
-            linewidths=2,
-            zorder=5
-        )
+        # self.ax.scatter(
+        #     [0.0],
+        #     [radius],
+        #     color="tab:blue",
+        #     marker="x",
+        #     s=80,
+        #     linewidths=2,
+        #     zorder=5
+        # )
 
-        self.ax.scatter(
-            [0.0],
-            [radius_2],
-            color="tab:orange",
-            marker="x",
-            s=80,
-            linewidths=2,
-            zorder=5
-        )
+        # self.ax.scatter(
+        #     [0.0],
+        #     [radius_2],
+        #     color="tab:orange",
+        #     marker="x",
+        #     s=80,
+        #     linewidths=2,
+        #     zorder=5
+        # )
 
         # --------------------------------------------------------------
         # Point P
@@ -1150,13 +1152,13 @@ class CircleVisualiser:
             )
         )
 
-        self.second_circle_info.configure(
-            text=(
-                "Second circle\n"
-                f"C_2 = {c_2:.4f}\n"
-                f"r_2 = {radius_2:.4f}"
-            )
-        )
+        # self.second_circle_info.configure(
+        #     text=(
+        #         "Second circle\n"
+        #         f"C_2 = {c_2:.4f}\n"
+        #         f"r_2 = {radius_2:.4f}"
+        #     )
+        # )
 
 
 if __name__ == "__main__":

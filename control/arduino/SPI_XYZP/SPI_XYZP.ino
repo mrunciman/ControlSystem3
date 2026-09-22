@@ -1,13 +1,5 @@
 /*
 
-Turn on
-Reset motors
-Calibrate and wait
-
-
-
-
-S_B  664.8231,  664.8231,  664.8231,  450.0000,    0.0000
 */
 
 
@@ -19,13 +11,13 @@ S_B  664.8231,  664.8231,  664.8231,  450.0000,    0.0000
 #include <Wire.h>
 
 // #include <SparkFun_I2C_Mux_Arduino_Library.h> //Click here to get the library: http://librarymanager/All#SparkFun_I2C_Mux
-#include "SparkFun_Qwiic_Scale_NAU7802_Arduino_Library.h"
-#include <Adafruit_ADS1X15.h>
+// #include "SparkFun_Qwiic_Scale_NAU7802_Arduino_Library.h"
+// #include <Adafruit_ADS1X15.h>
 
 
 unsigned long LOOP_FREQ = 100; // Hz
 unsigned long LOOP_PERIOD_MICRO = round(1000000/LOOP_FREQ);
-float LOOP_PERIOD = 1/float(LOOP_FREQ);
+float LOOP_PERIOD = 1.0f/float(LOOP_FREQ);
 
 const int number_pumps = 5;
 const int number_pressure_regs = 0;
@@ -101,7 +93,7 @@ int limitPinWrist = 23;
 int limitPinAxial = 25;
 int limitPinGrasp = 35;
 
-int valvePin = 37;
+int valvePin = 27;
 int valvePinStruct = 41;
 
 // Pins for grapser open and close functions
@@ -179,7 +171,7 @@ bool correctNumPositions = false;
 /////////////////////////////////////////////////////////
 // Pressure regulator
 
-PressReg pressureRegulator;
+// PressReg pressureRegulator;
 
 /////////////////////////////////////////////////////////
 // Multiplexer
@@ -205,7 +197,7 @@ int PORT_NUM_LOAD_CELLS[NUMBER_OF_SENSORS] = {3,0,1,4};
 ////////////////////////////////////////////////////////
 // ADC
 
-Adafruit_ADS1115 ads;  /* Use this for the 16-bit version */
+// Adafruit_ADS1115 ads;  /* Use this for the 16-bit version */
 // int PORT_NUMBER_ADS = 5;
 
 ////////////////////////////////////////////////////////
@@ -228,7 +220,7 @@ void setup() {
   //   disableMuxPort(PORT_NUM_LOAD_CELLS[i]);
   // }
   // enableMuxPort(PORT_NUMBER_ADS);
-  ads.begin();
+  // ads.begin();
   // disableMuxPort(PORT_NUMBER_ADS);
   // if (initSuccess == false)
   // {
@@ -254,7 +246,7 @@ void setup() {
   axisList[4].init(selectPinGrasp, pressPinP, LOOP_PERIOD, limitPinGrasp); // Grasper
 
   //Initialise pressure regulator
-  pressureRegulator.init(selectPinGrasp, pressPinAir, valvePin, valvePinStruct);
+  // pressureRegulator.init(selectPinGrasp, pressPinAir, valvePin, valvePinStruct);
 
   // Grasper control from haptic
   pinMode(grasper_RHS_FWD, OUTPUT);
@@ -263,10 +255,9 @@ void setup() {
   digitalWrite(grasper_RHS_FWD, HIGH);
   digitalWrite(grasper_RHS_BWD, HIGH);
 
-  // Reset uSteppers
-  delay(1000);
-  resetMotors();
-  delay(1000);
+  // Set uStepperS reset pin
+  pinMode(resetPin1, OUTPUT);
+
   
   // Setup the SPI pins:
   pinMode(SS, OUTPUT);
@@ -276,9 +267,11 @@ void setup() {
   SPI.begin();
 
 
+  // Reset uSteppers
+  delay(1000);
+  resetMotors();
+  delay(1000);
 
-  // Set uStepperS reset pin
-  pinMode(resetPin1, OUTPUT);
 
 
 
@@ -300,8 +293,10 @@ void updateEncoderData(){
   // Read encoder value from each motor. 
   int i = 0;
   for(auto &item : axisList){
-    angles[i] = atof(positionInputs[i]);
-    i++;
+    if (positionInputs[i] != nullptr) {
+      angles[i] = atof(positionInputs[i]);
+      i++;
+    }
   }
 }
 
@@ -330,72 +325,72 @@ void updateEncoderData(){
 
 
 
-void readActuatorPressures(){
-  // Update pressure data for each syringe pump
-  int i = 0;
-  for(auto &item : axisList){ 
-    // pressures[i] = item.readPressure();
-    pressuresF[i] = item.readPressure();
-    i++;
-  }
-}
+// void readActuatorPressures(){
+//   // Update pressure data for each syringe pump
+//   int i = 0;
+//   for(auto &item : axisList){ 
+//     // pressures[i] = item.readPressure();
+//     pressuresF[i] = item.readPressure();
+//     i++;
+//   }
+// }
 
-void readPressStructure(){
-  // Read pressure sensor of pneumatic structure
-  if (number_pressure_regs == 1){
-    pressuresF[number_pumps] = pressureRegulator.readStructPressure();
-  }
-}
-
-
-void updateAllPressures(){
-  readActuatorPressures();
-  readPressStructure();
-}
+// void readPressStructure(){
+//   // Read pressure sensor of pneumatic structure
+//   if (number_pressure_regs == 1){
+//     pressuresF[number_pumps] = pressureRegulator.readStructPressure();
+//   }
+// }
 
 
-int checkPressures(){
-  int i = 0;
-  int checkPress = 0;
-  for(auto &item : axisList){ 
-    if (pressuresF[i]> item.MAX_PRESS_KPA){
-      checkPress += 1;
-    }
-    i++; 
-  }
-  return checkPress;
-}
+// void updateAllPressures(){
+//   //readActuatorPressures();
+//   // readPressStructure();
+// }
+
+
+// int checkPressures(){
+//   int i = 0;
+//   int checkPress = 0;
+//   for(auto &item : axisList){ 
+//     if (pressuresF[i]> item.MAX_PRESS_KPA){
+//       checkPress += 1;
+//     }
+//     i++; 
+//   }
+//   return checkPress;
+// }
 
 
 
-void checkAnglesToMotors(){
+// void checkAnglesToMotors(){
   // Changes desiredAngle.
   // Limit the range of the motors to their respective maxima and minima
   // for hydraulic and prismatic stages
 
-  int i = 0;
-  for (auto &item : axisList){
-    if (i < number_pumps){
-      // For hydraulic pumps, limit to between angle of approx max volume and almost zero
-      if (item.desiredAngle > item.MAX_ANGLE){
-        item.desiredAngle = item.MAX_ANGLE;
-      }
-      else if (item.desiredAngle < item.MIN_ANGLE){
-        item.desiredAngle = item.MIN_ANGLE;
-      }
-    }
-    else{
-      // For prismatic stage, limit between max extension and zero
-      if (item.desiredAngle > item.MAX_ANGLE_P){
-        item.desiredAngle = item.MAX_ANGLE_P;
-      }
-      else if (item.desiredAngle < item.MIN_ANGLE_P){
-        item.desiredAngle = item.MIN_ANGLE_P;
-      }
-    }
-    i++;
-  }
-}
+  // int i = 0;
+  // for (auto &item : axisList){
+  //   if (i < number_pumps){
+  //     // For hydraulic pumps, limit to between angle of approx max volume and almost zero
+  //     if (item.desiredAngle > item.MAX_ANGLE){
+  //       item.desiredAngle = item.MAX_ANGLE;
+  //     }
+  //     else if (item.desiredAngle < item.MIN_ANGLE){
+  //       item.desiredAngle = item.MIN_ANGLE;
+  //     }
+  //   }
+  //   else{
+  //     // For prismatic stage, limit between max extension and zero
+  //     if (item.desiredAngle > item.MAX_ANGLE_P){
+  //       item.desiredAngle = item.MAX_ANGLE_P;
+  //     }
+  //     else if (item.desiredAngle < item.MIN_ANGLE_P){
+  //       item.desiredAngle = item.MIN_ANGLE_P;
+  //     }
+  //   }
+  //   i++;
+  // }
+// }
 
 
 void setMotorAngleChanges(){
@@ -403,16 +398,16 @@ void setMotorAngleChanges(){
   for (auto &item : axisList){
     // desiredAngle is angle received from control computer
     // angleIn is angle received from given stepper motor
-    int checkPress = checkPressures();
+    // int checkPress = checkPressures();
     // Serial.println(checkPress);
-    checkAnglesToMotors();
+    // checkAnglesToMotors();
 
     // If any pressure is too high, prevent change of angle of any motor
-    if (checkPress == 0){
-      item.compDesiredAngle = item.desiredAngle + item.angleAtZeroVol;  // Actual max angle is angle at max vol plus angletZeroVol
-      // Serial.println(item.compDesiredAngle);
-      item.dataOut.fData = item.compDesiredAngle;
-    }
+    // if (checkPress == 0){
+    item.compDesiredAngle = item.desiredAngle + item.angleAtZeroVol;  // Actual max angle is angle at max vol plus angletZeroVol
+    // Serial.println(item.compDesiredAngle);
+    item.dataOut.fData = item.compDesiredAngle;
+    // }
 
     // Serial.print(int(item.deltaAngle)); Serial.print('\t');
     // Serial.print(int(item.compDesiredAngle)); Serial.print('\t');
@@ -597,7 +592,7 @@ int setStates(){
 
     if (firstDigit == 'C'){
       // This condition prevents entering calibration protocol twice in a row, like debouncing
-      if ((systemState == CALIBRATING) & (allCalibrated == number_pumps)){
+      if ((systemState == CALIBRATING) && (allCalibrated == number_pumps)){
         systemState = HOLDING;
         powerState = POWER_ON;
         // Serial.println("Calibration done, holding");
@@ -665,11 +660,11 @@ int setStates(){
 
 void getArray(){
   // Begin by zeroing input arrays
-  memset(inputArray,0, 56);
+  memset(inputArray, 0, sizeof(inputArray));
   inputArray[0] = '\0';
   // Zero all position input arrays
   for (int j = 0; j < number_pumps; j++){
-    *positionInputs[j] = '\0';
+    positionInputs[j] = nullptr;
   }
   // Zero pressure input array
   pressureInput[0] = '\0';
@@ -681,7 +676,7 @@ void getArray(){
   int timeout = 0;
   while(charRead != '\n'){ // Add a timeout function?
     delayMicroseconds(SERIAL_MICRO_DELAY);
-    if (i == 96){
+    if (i == sizeof(inputArray)-1){
       break;
     }
     if (Serial.available() > 0){
@@ -736,7 +731,7 @@ void splitArray(){
   int endIndex = 0;
   bool startPresent = false;
   bool endPresent = false;
-  char truncArray[56];
+  char truncArray[sizeof(inputArray)];
   truncArray[0] = '\0';
 
   for (k = 0; k < sizeof(inputArray); k++){
@@ -864,20 +859,20 @@ void calibrationProtocol(){
 // }
 
 
-void readADC(){
-  // enableMuxPort(PORT_NUMBER_ADS);
-  int16_t adc0, adc1, adc2, adc3;
-  float volts0, volts1, volts2, volts3;
+// void readADC(){
+//   // enableMuxPort(PORT_NUMBER_ADS);
+//   int16_t adc0, adc1, adc2, adc3;
+//   float volts0, volts1, volts2, volts3;
 
-  adc0 = ads.readADC_SingleEnded(0);
-  adc1 = ads.readADC_SingleEnded(1);
-  adc2 = ads.readADC_SingleEnded(2);
-  adc3 = ads.readADC_SingleEnded(3);
+//   adc0 = ads.readADC_SingleEnded(0);
+//   adc1 = ads.readADC_SingleEnded(1);
+//   adc2 = ads.readADC_SingleEnded(2);
+//   adc3 = ads.readADC_SingleEnded(3);
 
-  volts0 = ads.computeVolts(adc0);
-  volts1 = ads.computeVolts(adc1);
-  volts2 = ads.computeVolts(adc2);
-  volts3 = ads.computeVolts(adc3);
+//   volts0 = ads.computeVolts(adc0);
+//   volts1 = ads.computeVolts(adc1);
+//   volts2 = ads.computeVolts(adc2);
+//   volts3 = ads.computeVolts(adc3);
 
   // Serial.println("-----------------------------------------------------------");
   // Serial.print("AIN0: "); Serial.print(adc0); Serial.print("  "); Serial.print(volts0); Serial.println("V");
@@ -887,7 +882,7 @@ void readADC(){
 
 
   // disableMuxPort(PORT_NUMBER_ADS);
-}
+// }
 
 
 
@@ -992,7 +987,7 @@ void loop() {
 
       case CALIBRATING:
       // After moving out of calibration mode, state is determined by control computer
-        calibrationProtocol();
+        // calibrationProtocol();
         break;
 
       case HOLDING:
