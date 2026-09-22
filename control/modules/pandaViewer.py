@@ -46,6 +46,7 @@ class RobotViewer(ShowBase):
 
         # Make wrist of robot
         self.RobotWrist = NodePath("RobotWrist")
+        self.length_wrist = 25
         self.toolExtCyl = self.make_cylinder()
         self.toolExtCyl.reparentTo(self.RobotWrist)
         self.axes_local = self.make_axes(length=10)
@@ -147,22 +148,29 @@ class RobotViewer(ShowBase):
 
         alpha1 = 0
         dist1 = 0
-        theta1 = mt.radians(jointSpace[1]) + mt.pi # Rotary angle
+        theta1 = mt.radians(jointSpace[1]) # Rotary angle
         prism1 = 0 
 
-        alpha2 = -mt.pi/2
+        alpha2 = mt.pi/2
         dist2 = 0
         theta2 = -mt.pi/2   # Intermediate 1
         prism2 = 0
+
+        alpha2_dash = 0
+        dist2_dash = 0
+        theta2_dash = mt.pi/2   # Intermediate 1 repaired
+        prism2_dash = 0
 
         alpha3 = 0
         dist3 = 0
         theta3 = mt.radians(jointSpace[3]) # Wrist angle
         prism3 = 0
+        phi = theta3            # Constant curvature model for wrist at tip
+        Lw = self.length_wrist
 
-        alpha4 = mt.pi/2 # Intermediate 2
+        alpha4 = -mt.pi/2 # Intermediate 2
         dist4 = 0
-        theta4 = 0
+        theta4 = -mt.pi/2
         prism4 = 0
 
         alpha5 = 0
@@ -181,19 +189,23 @@ class RobotViewer(ShowBase):
         # # Pass any custom, changing variables right into the function arguments
         T_0_1 = self.make_dh_matrix(theta0, alpha0, dist0, prism0) # axial motion
         T_1_2 = self.make_dh_matrix(theta1, alpha1, dist1, prism1) # rotary motion
-        T_2_3 = self.make_dh_matrix(theta2, alpha2, dist2, prism2) # intermediate
-        T_3_4 = self.make_dh_matrix(theta3, alpha3, dist3, prism3) # wrist angle
+        T_2_3dash = self.make_dh_matrix(theta2, alpha2, dist2, prism2) # intermediate
+        T_3dash_3 = self.make_dh_matrix(theta2_dash, alpha2_dash, dist2_dash, prism2_dash)
+        T_3_4 = self.make_dh_matrix_ConstCurv(phi, Lw) # wrist angle        
         T_4_5 = self.make_dh_matrix(theta4, alpha4, dist4, prism4) # intermediate 2
         T_5_6 = self.make_dh_matrix(theta5, alpha5, dist5, prism5) # intermediate 3
         T_6_7 = self.make_dh_matrix(theta6, alpha6, dist6, prism6) # tool extension
 
         # # Pure C++ matrix multiplications (Incredibly fast)
         T_0_2 = T_1_2 * T_0_1 # axial and rotary motions
-        T_0_3 = T_2_3 * T_0_2 # intermediate
+        T_0_3dash = T_2_3dash * T_0_2 # intermediate
+        T_0_3 = T_3dash_3 * T_0_3dash
         T_0_4 = T_3_4 * T_0_3 # apply wrist angle
         T_0_5 = T_4_5 * T_0_4 # intermed 2
         T_0_6 = T_5_6 * T_0_5 # intermed 3
         T_0_7 = T_6_7 * T_0_6 # tool extension
+
+        T_0_7 = self.base_to_tip(theta1, phi, prism0, prism6)
 
        
         # Apply transform to assembly (position + rotations)
@@ -241,8 +253,52 @@ class RobotViewer(ShowBase):
             dist*ct, dist*st, prism, 1.0
         )
 
+    def make_dh_matrix_ConstCurv(self, phi, Lw):
+        """Constant curvature model of continuum wrist, no possibility for alpha or dist DH parameters.
+        Generates a Panda3D-native row-vector DH matrix."""
+
+        if abs(phi) < 1e-8:
+            px = Lw
+            py = 0.0
+        else:
+            px = Lw*mt.sin(phi)/phi
+            py = Lw*(1.0 - mt.cos(phi))/phi
+
+        # Constructed directly in transposed configuration
+        return LMatrix4f(
+            mt.cos(phi),   mt.sin(phi),  0.0,  0.0,
+            -mt.sin(phi),  mt.cos(phi),  0.0,  0.0,
+            0.0,           0.0,          1.0,  0.0,
+            px,            py,           0.0,  1.0
+        )
+
+    def base_to_tip(self, theta1, phi, prism0, prism6):
+        ct1 = mt.cos(theta1)
+        st1 = mt.sin(theta1)
+        cphi = mt.cos(phi)
+        sphi = mt.sin(phi)
+
+        Lw = self.length_wrist
+
+        # Constant-curvature translation
+        if abs(phi) < 1e-8:
+            A = Lw
+            B = 0.0
+        else:
+            A = Lw * sphi / phi
+            B = Lw * (1.0 - cphi) / phi
+
+        # Constructed directly in transposed configuration
+        T_0_7 = LMatrix4f(
+            ct1,                            st1,                            0.0,                            0.0,
+            -st1 * cphi,                    ct1 * cphi,                     -sphi,                          0.0,
+            -st1 * sphi,                    ct1 * sphi,                     cphi,                           0.0,
+            -st1 * (B + prism6 * sphi),     ct1 * (B + prism6 * sphi),      prism0 + A + prism6 * cphi,     1.0
+        )
+        return T_0_7
 
 
+    
 
 def run_viewer(inputList):
     app = RobotViewer(inputList)
@@ -253,4 +309,4 @@ def run_viewer(inputList):
 if __name__ == "__main__":
     # Test with dummy values
     # Axial, rotary, extension, wrist, grasper
-    run_viewer([10, -10, 20, -20, 0, 0])
+    run_viewer([10, 30, 20, 10, 0, 0])
