@@ -235,14 +235,14 @@ class kineSolver:
         self.WRIST_D_0 = 2*self.HYPOT_TIP*mt.sin(self.WRIST_THETA_0/2)
 
         # Limits on how far instrument can be extended
-        self.MIN_TOOL_EXT = 5      # mm
+        self.MIN_TOOL_EXT = -1000   # mm
         self.MAX_TOOL_EXT = 1000    # mm
         # Geometry of tool extensionm motor 
-        self.TOOL_EXT_ROLLER_RADIUS = 5 #mm
+        self.TOOL_EXT_ROLLER_RADIUS = 7.5/2 #mm
 
         # Limits on grasper control
         self.MIN_GRASP_POS = 0   # mm 
-        self.MAX_GRASP_POS = 2   # mm
+        self.MAX_GRASP_POS = 2.5   # mm
 
 
     def intersect(self, tDesX, tDesY, tExt):

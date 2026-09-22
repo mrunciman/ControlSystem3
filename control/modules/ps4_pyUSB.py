@@ -102,12 +102,12 @@ class ps4USB(threading.Thread):
 		self.TOOL_CHANGE = 1
 		self.GRASP_CHANGE = 1
 		self.XY_SENSITIVITY = 0.25
-		self.X_SENSITIVITY = 2.25
-		self.Y_SENSITIVITY = 1.25
+		self.X_SENSITIVITY = 1.25
+		self.Y_SENSITIVITY = 0.75
 		self.PHI_SENSITIVITY = 0.5 #0.0087 approx half a degree
 		self.THETA_SENSITIVITY = 0.5/2
 		self.P_SENSITIVITY = 1
-		self.TOOL_SENSITIVITY = 0.4
+		self.TOOL_SENSITIVITY = 0.05
 		self.GRASP_SENSITIVITY = 0.025
 
 
@@ -136,14 +136,14 @@ class ps4USB(threading.Thread):
 		# self.THETA_REST = 2*mt.asin((self.TIP_CUTAWAY_WIDTH/2)/self.HYPOT_TIP)
 
 		# Limits on how far instrument can be extended
-		self.MIN_TOOL_EXT = 5      # mm
+		self.MIN_TOOL_EXT = -1000      # mm
 		self.MAX_TOOL_EXT = 1000    # mm
 		# Geometry of tool extensionm motor 
 		# self.TOOL_EXT_ROLLER_RADIUS = 5 #mm
 
 		# Limits on grasper control
 		self.MIN_GRASP_POS = 0   # mm 
-		self.MAX_GRASP_POS = 2   # mm
+		self.MAX_GRASP_POS = 2.5   # mm
 
 
 
