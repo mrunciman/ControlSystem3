@@ -1024,25 +1024,25 @@ class CircleVisualiser:
         # --------------------------------------------------------------
         # Circle centres
         # --------------------------------------------------------------
-        self.ax.scatter(
-            [0.0],
-            [radius],
-            color="tab:blue",
-            marker="x",
-            s=80,
-            linewidths=2,
-            zorder=5
-        )
+        # self.ax.scatter(
+        #     [0.0],
+        #     [radius],
+        #     color="tab:blue",
+        #     marker="x",
+        #     s=80,
+        #     linewidths=2,
+        #     zorder=5
+        # )
 
-        self.ax.scatter(
-            [0.0],
-            [radius_2],
-            color="tab:orange",
-            marker="x",
-            s=80,
-            linewidths=2,
-            zorder=5
-        )
+        # self.ax.scatter(
+        #     [0.0],
+        #     [radius_2],
+        #     color="tab:orange",
+        #     marker="x",
+        #     s=80,
+        #     linewidths=2,
+        #     zorder=5
+        # )
 
         # --------------------------------------------------------------
         # Point P
