@@ -98,16 +98,16 @@ class ps4USB(threading.Thread):
 		self.TRIGGER_RANGE = 2
 		self.TRIGGER_SHIFT = 1
 		self.XY_DEADTHRESH = 0.05
-		self.PRISM_CHANGE = 0.1
+		self.PRISM_CHANGE = 1
 		self.TOOL_CHANGE = 1
 		self.GRASP_CHANGE = 1
-		self.XY_SENSITIVITY = 0.25
+		self.XY_SENSITIVITY = 0.2
 		self.X_SENSITIVITY = 1.25
 		self.Y_SENSITIVITY = 0.75
 		self.PHI_SENSITIVITY = 0.5 #0.0087 approx half a degree
 		self.THETA_SENSITIVITY = 0.5/2
-		self.P_SENSITIVITY = 1
-		self.TOOL_SENSITIVITY = 0.05
+		self.P_SENSITIVITY = 0.05
+		self.TOOL_SENSITIVITY = 0.15
 		self.GRASP_SENSITIVITY = 0.025
 
 
@@ -127,7 +127,7 @@ class ps4USB(threading.Thread):
 
 		# Limits on wrist angle
 		self.MIN_WRIST_ANGLE = 0   # degrees 
-		self.MAX_WRIST_ANGLE = 135  # degrees 
+		self.MAX_WRIST_ANGLE = 120  # degrees 
 		# Geometry of wrist motor
 		# self.HYPOT_TIP = 5         # mm
 		# self.TIP_CUTAWAY_WIDTH = 5 # mm
@@ -210,7 +210,7 @@ class ps4USB(threading.Thread):
 		# Wrist 
 		if (abs(self.RstickY) > self.XY_DEADTHRESH):
 			self.yChange = self.Y_SENSITIVITY*self.RstickY
-			self.thetaChange = self.THETA_SENSITIVITY*self.RstickY
+			# self.thetaChange = self.THETA_SENSITIVITY*self.RstickY
 			# print("Theta Change: ", self.phiChange)
 
 		else:
