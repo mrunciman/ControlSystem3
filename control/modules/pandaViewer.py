@@ -47,7 +47,7 @@ class RobotViewer(ShowBase):
 
         # Make wrist of robot
         self.RobotWrist = NodePath("RobotWrist")
-        self.length_wrist = 25
+        self.length_wrist = 16
         self.toolExtCyl = self.make_cylinder()
         self.toolExtCyl.reparentTo(self.RobotWrist)
         # self.axes_local_rw = self.make_axes(length=10)
@@ -68,7 +68,7 @@ class RobotViewer(ShowBase):
             arc_segments=30,
             radial_segments=12
         )
-        self.wristCurve.setColor(0.7, 0.7, 0.7, 1.0)
+        self.wristCurve.setColor(1.0, 1.0, 1.0, 1.0)
 
         # Global axes
         self.axes_global = self.make_axes(length=10)
@@ -98,7 +98,7 @@ class RobotViewer(ShowBase):
         dlight = DirectionalLight('dlight')
         dlight.setColor((1, 1, 1, 1))
         dlnp = self.render.attachNewNode(dlight)
-        dlnp.setHpr(0, 180, 0)
+        dlnp.setHpr(0, 95, 0)
         self.render.setLight(dlnp)
 
         alight = AmbientLight('alight')
@@ -242,17 +242,17 @@ class RobotViewer(ShowBase):
         # self.robotShaft.setPos(self.robotShaft, 0, 0, -prism6)
 
         # if self.wristCurve is not None:
-        if self.lastJointSpace[3] != jointSpace[3]:
-            self.wristCurve.removeNode()
+        # if self.lastJointSpace[3] != jointSpace[3]:
+        self.wristCurve.removeNode()
 
-            self.wristCurve = self.create_constant_curvature_tube(
-                self.RobotWristBase,
-                phi,
-                Lw,
-                1.5,
-                30,
-                12
-            )
+        self.wristCurve = self.create_constant_curvature_tube(
+            self.RobotWristBase,
+            phi,
+            Lw,
+            1.5,
+            30,
+            12
+        )
 
 
 

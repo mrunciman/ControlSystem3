@@ -203,6 +203,7 @@ class kineSolver:
         # self.minShaftExt = self.SHAFT_LENGTH + 1
         self.MIN_EXTEND = 0.5 # mm
         self.MAX_EXTEND = 100 # mm
+        self.LENGTH_WRIST = 16
         self.initialPrismLength = 0
         # Set limit when curvature of continuum joint is assumed zero
         self.MIN_CONT_RAD = 0.1 # mm
@@ -224,7 +225,7 @@ class kineSolver:
 
         # Limits on wrist angle
         self.MIN_WRIST_ANGLE = 0   # degrees 
-        self.MAX_WRIST_ANGLE = 135  # degrees 
+        self.MAX_WRIST_ANGLE = 120  # degrees 
         # Geometry of wrist motor
         self.HYPOT_TIP = 5.62      # mm
         self.TIP_CUTAWAY_WIDTH = 2.34 # mm
@@ -891,14 +892,22 @@ class kineSolver:
     # self.STEPS_PER_MM_PRI = (self.STEPS_PER_REV*self.MICROSTEPS_PRI)/(self.LEAD) # steps per mm
 
 
-    def setAxialMotor(self, desAxialPos):
+    def setAxialMotor(self, desAxialPos, desWristAngle):
+        phi = mt.radians(desWristAngle)
+        if abs(phi) < 1e-8:
+            axialAdjustForWrist = 0
+        else:
+            axialAdjustForWrist = self.LENGTH_WRIST*(1 - mt.sin(phi)/phi)
+        
         # Impose contraction range
         if (desAxialPos < self.MIN_EXTEND):
             desAxialPos = self.MIN_EXTEND
         elif (desAxialPos > self.MAX_EXTEND):
             desAxialPos = self.MAX_EXTEND
 
-        axialMotorAngle = 360.0*desAxialPos/self.LEAD
+        desAxialPosAdjusted = desAxialPos + axialAdjustForWrist
+
+        axialMotorAngle = 360.0*desAxialPosAdjusted/self.LEAD
         axialMotorAngle = round(axialMotorAngle,2)
             
         return axialMotorAngle, desAxialPos
