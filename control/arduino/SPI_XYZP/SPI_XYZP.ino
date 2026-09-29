@@ -8,7 +8,7 @@
 #include "linearAxis.h"
 #include "pressRegPRE1-U08.h"
 
-#include <Wire.h>
+// #include <Wire.h>
 
 // #include <SparkFun_I2C_Mux_Arduino_Library.h> //Click here to get the library: http://librarymanager/All#SparkFun_I2C_Mux
 // #include "SparkFun_Qwiic_Scale_NAU7802_Arduino_Library.h"
@@ -208,7 +208,7 @@ void setup() {
   Serial.begin(115200);
   // Serial.println("Start LRTP Stage");
 
-  Wire.begin();
+  // Wire.begin();
   // Wire.setClock(3400000);
   // loadCell.begin();
 
@@ -243,7 +243,7 @@ void setup() {
   axisList[1].init(selectPinTool, pressPinY, LOOP_PERIOD, limitPinTool);   // Rotary
   axisList[2].init(selectPinWrist, pressPinZ, LOOP_PERIOD, limitPinWrist); // Wrist
   axisList[3].init(selectPinAxial, pressPinP, LOOP_PERIOD, limitPinAxial); // Tool
-  axisList[4].init(selectPinGrasp, pressPinP, LOOP_PERIOD, limitPinGrasp); // Grasper
+  axisList[4].init(selectPinGrasp, pressPinAir, LOOP_PERIOD, limitPinGrasp); // Grasper
 
   //Initialise pressure regulator
   // pressureRegulator.init(selectPinGrasp, pressPinAir, valvePin, valvePinStruct);
@@ -258,21 +258,19 @@ void setup() {
   // Set uStepperS reset pin
   pinMode(resetPin1, OUTPUT);
 
-  
-  // Setup the SPI pins:
-  pinMode(SS, OUTPUT);
-  pinMode(MOSI, OUTPUT);
-  pinMode(MISO, INPUT);
-  // initialize SPI:
-  SPI.begin();
-
-
   // Reset uSteppers
   delay(1000);
   resetMotors();
   delay(1000);
 
 
+
+  // Setup the SPI pins:
+  pinMode(SS, OUTPUT);
+  pinMode(MOSI, OUTPUT);
+  pinMode(MISO, INPUT);
+  // initialize SPI:
+  SPI.begin();
 
 
 }
