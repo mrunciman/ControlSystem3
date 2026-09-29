@@ -7,41 +7,56 @@ import time
 import threading
 import numpy as np
 import math as mt
+import platform
 
 # See https://www.psdevwiki.com/ps4/DS4-USB for details on data indices
 
-# DS4 controller ids (might be different on your side)
+
 # For generic controller in xbox input mode: Device: device.idVendor=1118, device.idProduct=654
 # VENDOR_ID = 0x045e
 # PRODUCT_ID = 0x028e
-VENDOR_ID = 0x057e
-PRODUCT_ID = 0x2009
+VENDOR_ID_GULI = 0x057e
+PRODUCT_ID_GULI = 0x2009
 
-# VENDOR_ID = 0x54c # = 1356 in decimal
-# PRODUCT_ID = 0x9cc #0x5c4 = 1476 in decimal #0x9cc = 2508 in decimal
-
-# Don't forget to change the path to libusb-1.0.dll
-# BACKEND = usb.backend.libusb1.get_backend() 
-#"C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
-
-# Fol old asus laptop:
-# BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\InflatableRobotControl\\ControlSystemThree\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
-# For new asus laptop:
-BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
-
-INTERFACE_DS4 = 3 # 0 # HID interface number in cfg list
-SETTING_DS4 = 0
-
-ENDPOINT_DS4_OUT = 0 # Input endpoint
-
-INTERFACE_DS4 = 0
-SETTING_DS4 = 0
-ENDPOINT_DS4_OUT = 0
+# DS4 controller IDs
+VENDOR_ID_PS4 = 0x54c # = 1356 in decimal
+PRODUCT_ID_PS4 = 0x9cc #0x5c4 = 1476 in decimal #0x9cc = 2508 in decimal
 
 
-# devices = usb.core.find(find_all=True, backend=usb.backend.libusb1.get_backend())
-# for device in devices:
-# 	print(f"Device: {device.idVendor=}, {device.idProduct=}")
+if platform.system() == "Windows":
+	# Fol old asus laptop:
+	# BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\InflatableRobotControl\\ControlSystemThree\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+	# For new asus laptop:
+	BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+	#"C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+else:
+	# Don't forget to change the path to libusb-1.0.dll
+	BACKEND = usb.backend.libusb1.get_backend() 
+
+
+
+
+
+
+
+devices = usb.core.find(find_all=True, backend=usb.backend.libusb1.get_backend())
+for device in devices:
+	# print(f"Device: {device.idVendor=}, {device.idProduct=}")
+	if VENDOR_ID_GULI == device.idVendor:
+		print("Gulikit controller detected")
+		VENDOR_ID = VENDOR_ID_GULI
+		PRODUCT_ID = PRODUCT_ID_GULI
+		INTERFACE_DS4 = 0
+		SETTING_DS4 = 0
+		ENDPOINT_DS4_OUT = 0
+
+	elif VENDOR_ID_PS4 == device.idVendor:
+		print("PS4 controller detected")
+		VENDOR_ID = VENDOR_ID_PS4
+		PRODUCT_ID = PRODUCT_ID_PS4
+		INTERFACE_DS4 = 3 # 0 # HID interface number in cfg list
+		SETTING_DS4 = 0
+		ENDPOINT_DS4_OUT = 0 # Input endpoint
 
 
 
@@ -56,7 +71,7 @@ class ps4USB(threading.Thread):
 
 		self.controller = None
 
-		self.dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID, backend=BACKEND) # Uncomment for testing with laptops
+		self.dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID, backend=BACKEND)
 		if VENDOR_ID == 0x54c:
 			self.using_PS4 = True
 		else:
@@ -78,6 +93,8 @@ class ps4USB(threading.Thread):
 
 			if self.using_PS4:
 				self.controller = True
+				print("PS4 controller connected:", self.controller)
+
 			else: # Using Gulikit in Switch mode, so need to initialise
 				self.endpoint_out = usb.util.find_descriptor(
 					self.interface,
@@ -93,12 +110,18 @@ class ps4USB(threading.Thread):
 					print("Guli connected:", self.controller)
 				else:
 					self.send_command(0x03)
+					self.send_command(0x02)
 					self.send_command(0x04)
 					self.data = self.endpoint.read(64, timeout=1000)
 					if self.data[0] == 0x30:
 						self.controller = True
 						print("Guli connected:", self.controller)
-				
+
+			if platform.system() == "Linux":
+				if self.dev.is_kernel_driver_active(0):
+					self.dev.detach_kernel_driver(0)
+
+				usb.util.claim_interface(self.dev, 0)	
 			# try:
 			# 	for i in range(interfaceNo+1):
 			# 		# print(i)
@@ -201,41 +224,26 @@ class ps4USB(threading.Thread):
 			if self.stopped():
 				return
 			if self.controller is not None:
-				if self.using_PS4:
-					try:
-						self.data = self.endpoint.read(0x40)
-						# print(self.data)
-
-						self.RstickX = (self.data[3] - 2**7)/2**7
-						self.RstickY = (self.data[4] - 2**7)/2**7
-						# print("Stick axes: ", self.RstickX,  self.RstickY)
-
-						self.SquButton = self.data[5] & 2**4  !=0
-						self.CroButton = self.data[5] & 2**5  !=0
-						self.CirButton = self.data[5] & 2**6  !=0
-						self.TriButton = self.data[5] & 2**7  !=0
-
-						self.R1 = self.data[6] & 2**1  != 0
-						self.R2 = self.data[9]/2**8
-						self.getChanges()
-					except Exception as e:
-						print(f"Error with PS4 controller: {e}")
-						self.controller = None
-				
-				else:
-					try:
-						self.data = self.endpoint.read(64)
+				try:
+					self.data = self.endpoint.read(0x40)
+					if self.using_PS4:
+						if self.decodePS4(self.data):
+							self.getChanges()
+					
+					else:
 						if self.decodeGulikit(self.data):
 							self.getChanges()
-					except Exception as e:
-						print(f"Error with PS4 controller: {e}")
-						self.controller = None
+
+				except Exception as e:
+					print(f"Error with PS4 controller: {e}")
+					self.controller = None
 				
 				
 				
 			else:
 				# Ps4 controller not connected 
 				# try to reconnect
+				print("Trying reconnect")
 				try:
 					self.dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID, backend=BACKEND)
 					if self.dev is not None:
@@ -256,16 +264,17 @@ class ps4USB(threading.Thread):
 								usb.util.endpoint_direction(e.bEndpointAddress)
 								== usb.util.ENDPOINT_OUT
 								)
-							
+
+							#Initialise Gulikit controller
 							self.send_command(0x01)
 							self.send_command(0x02)
-							self.data = self.endpoint.read(64, timeout=1000)
-							if self.data[0] == 0x30:
+							self.send_command(0x03)
+							self.send_command(0x02)
+							response = self.send_command(0x04)
+							print(response[0])
+							if response[0] == 0x30:
 								self.controller = True
 
-						# self.interface = self.cfg[(INTERFACE_DS4, SETTING_DS4)]
-						# self.endpoint = self.interface[ENDPOINT_DS4_OUT]
-						# self.controller = self.endpoint.read(0x40)[0] # equals 1 on success
 				except Exception as e:
 					# print(f"Error with PS4 controller: {e}")
 					self.controller = None
@@ -551,6 +560,7 @@ class ps4USB(threading.Thread):
 
 
 	def stop_ps4(self):
+		self.disconnectController()
 		self._connection_made.set()
 		try:
 			self.join(timeout = 1)
@@ -565,28 +575,37 @@ class ps4USB(threading.Thread):
 		packet = bytearray(64)
 		packet[0] = 0x80
 		packet[1] = command
-
-		print(f"\nSEND: 80 {command:02X}")
-
+		# print(f"\nSEND: 80 {command:02X}")
 		self.endpoint_out.write(packet, timeout=1000)
 
 		try:
 			response = self.endpoint.read(64, timeout=1000)
-
-			print(
-				"RECV:",
-				" ".join(f"{x:02X}" for x in response)
-			)
-
+			# print("RECV:"," ".join(f"{x:02X}" for x in response))
 			return response
 
 		except usb.core.USBTimeoutError:
 			print("No response")
 			return None
+		
+
+	def decodePS4(self, data):
+		# print(self.data)
+		self.RstickX = (data[3] - 2**7)/2**7
+		self.RstickY = (data[4] - 2**7)/2**7
+		# print("Stick axes: ", self.RstickX,  self.RstickY)
+
+		self.SquButton = data[5] & 2**4  !=0
+		self.CroButton = data[5] & 2**5  !=0
+		self.CirButton = data[5] & 2**6  !=0
+		self.TriButton = data[5] & 2**7  !=0
+
+		self.R1 = data[6] & 2**1  != 0
+		self.R2 = data[9]/2**8
+
+		return True
 
 
 	def decodeGulikit(self, data):
-		# TODO This isn't quite right - wrist angle wrong polarity and coupling between rotary and wrist angle
 		if data[0] != 0x30:
 			return False
 
@@ -598,24 +617,36 @@ class ps4USB(threading.Thread):
 		ry = (data[10] >> 4) | (data[11] << 4)
 
 		self.RstickX = (rx - 2048) / 2048
-		self.RstickY = (ry - 2048) / 2048
+		self.RstickY = -((ry - 2048) / 2048)
+		# print(self.RstickX, self.RstickY)
 
 		# -------------------------
 		# Buttons
 		# -------------------------
-
 		buttons = data[3]
 
-		self.CroButton = (buttons & 0x08) != 0
-		self.CirButton = (buttons & 0x04) != 0
-		self.SquButton = (buttons & 0x02) != 0
-		self.TriButton = (buttons & 0x01) != 0
+		self.CroButton = (buttons & 0x04) != 0
+		self.CirButton = (buttons & 0x08) != 0
+		self.SquButton = (buttons & 0x01) != 0
+		self.TriButton = (buttons & 0x02) != 0
 
 		self.R1 = (buttons & 0x40) != 0
 		self.R2 = 1.0 if (buttons & 0x80) else 0.0
 
 		return True
 		
+
+	def disconnectController(self):
+		if self.dev is not None:
+			try:
+				usb.util.release_interface(self.dev, 0)
+				if platform.system() == "Linux":
+					self.dev.attach_kernel_driver(0)
+			except usb.core.USBError:
+				pass
+
+
+
 
 if __name__ == "__main__":
 	ps4 = ps4USB()
@@ -624,8 +655,9 @@ if __name__ == "__main__":
 		ps4.start()
 
 	cX, cY, cZ = 0, 0, 0
-	num = 50
-	rotateDegrees = 90
+	num = 500
+	rotateDegrees = 0
+
 	axialPos, rotaryPos, toolExt, wristAngle, graspPos = 0,0,0,0,0
 	[desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos] = ps4.incrementCylCoords(axialPos, rotaryPos, toolExt, wristAngle, graspPos)
 
@@ -634,8 +666,8 @@ if __name__ == "__main__":
 		ps4Buttons = ps4.getPSButtonData()
 		controllerButtons = ps4Buttons
 		# print(controllerButtons)    
-		[xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(cX, cY, cZ, rotateDegrees)
-		cX, cY, cZ = xPS4, yPS4, zPS4
+		# [xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(cX, cY, cZ, rotateDegrees)
+		# cX, cY, cZ = xPS4, yPS4, zPS4
 
 
 		[desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos] = ps4.incrementCylCoords(axialPos, rotaryPos, toolExt, wristAngle, graspPos)
@@ -651,49 +683,3 @@ if __name__ == "__main__":
 
 
 
-# trigger = 0
-
-# while trigger != 255: 
-	
-# 	os.system('cls')
-
-# 	# Axes
-# 	print('Readout L stick  X:', format(endpoint.read(0x40)[1],'#04X'), format(endpoint.read(0x40)[1],'08b'), endpoint.read(0x40)[1])
-# 	print('Readout L stick  Y:', format(endpoint.read(0x40)[2],'#04X'), format(endpoint.read(0x40)[2],'08b'), endpoint.read(0x40)[2])
-# 	print('Readout R stick  X:', format(endpoint.read(0x40)[3],'#04X'), format(endpoint.read(0x40)[3],'08b'), endpoint.read(0x40)[3])
-# 	print('Readout R stick  Y:', format(endpoint.read(0x40)[4],'#04X'), format(endpoint.read(0x40)[4],'08b'), endpoint.read(0x40)[4])
-# 	print('Readout L2 trigger:', format(endpoint.read(0x40)[8],'#04X'), format(endpoint.read(0x40)[8],'08b'), endpoint.read(0x40)[8])
-# 	print('Readout R2 trigger:', format(endpoint.read(0x40)[9],'#04X'), format(endpoint.read(0x40)[9],'08b'), endpoint.read(0x40)[9],'\n')
-
-# 	# Accelerometers (2 bytes to signed integer)
-# 	data = endpoint.read(0x40)
-# 	print('Accelerometer X:', format(256*data[18]+data[19],'016b'), 256*data[18]+data[19]-(65536 if data[18] > 127 else 0))
-# 	print('Accelerometer Y:', format(256*data[16]+data[17],'016b'), 256*data[16]+data[17]-(65536 if data[16] > 127 else 0))
-# 	print('Accelerometer Z:', format(256*data[14]+data[15],'016b'), 256*data[14]+data[15]-(65536 if data[14] > 127 else 0),'\n')
-
-# 	# Gyroscopes  (2 bytes to signed integer)
-# 	data = endpoint.read(0x40)
-# 	print('Gyroscope X (Roll) :', format(256*data[20]+data[21],'016b'), 256*data[20]+data[21]-(65536 if data[20] > 127 else 0))
-# 	print('Gyroscope Y (Yaw)  :', format(256*data[22]+data[23],'016b'), 256*data[22]+data[23]-(65536 if data[22] > 127 else 0))
-# 	print('Gyroscope Z (Pitch):', format(256*data[24]+data[25],'016b'), 256*data[24]+data[25]-(65536 if data[24] > 127 else 0),'\n')
-
-# 	# Touch PAD (for more details please refer to the listed references)
-# 	print('Touch PAD:', format(endpoint.read(0x40)[40],'#04X'), format(endpoint.read(0x40)[40],'08b'), endpoint.read(0x40)[40],'\n')
-
-# 	# Hats
-# 	print("Hats:", endpoint.read(0x40)[5]&15,'\n') #0,1,2,3,4,5,6,7,8
-
-# 	# Buttons
-# 	print("Square:", endpoint.read(0x40)[5]&16!=0)
-# 	print("Cross:", endpoint.read(0x40)[5]&32!=0)
-# 	print("Circle:", endpoint.read(0x40)[5]&64!=0)
-# 	print("Triangle:", endpoint.read(0x40)[5]&128!=0,'\n')
-
-# 	# Timestamp
-# 	print('Timestamp:', endpoint.read(0x40)[7]>>2)
-
-# 	# Battery status
-# 	print('Battery:', endpoint.read(0x40)[30]%16) # 11 means it's Max and charging
-# 	time.sleep(0.1)
-	
-# 	trigger = endpoint.read(0x40)[8] # press L2 fully to break
