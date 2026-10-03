@@ -12,14 +12,14 @@ import math as mt
 
 class kineSolver:
     # SIDE_LENGTH0 = SIDE_LENGTH
-    def __init__(self, triangleSide):
+    def __init__(self):
 
         ##############################################################
         # Structure and actuators
         ##############################################################
         # Define parameters of system:
         # Side length of equilateral triangle in mm
-        self.SIDE_LENGTH = triangleSide
+        self.SIDE_LENGTH = 35
         self.OFFSET_X = self.SIDE_LENGTH/2
         self.OFFSET_Y = self.SIDE_LENGTH/2 * mt.tan(mt.pi/6)
 
