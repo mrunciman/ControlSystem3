@@ -1,6 +1,6 @@
-from direct.showbase.ShowBase import ShowBase
 from panda3d.core import LineSegs, NodePath, WindowProperties, LMatrix4f, PointLight, Texture, Material, TextureStage, DirectionalLight, AmbientLight
 from panda3d.core import Geom, GeomNode, GeomTriangles, GeomVertexData, GeomVertexFormat, GeomVertexWriter
+from direct.showbase.ShowBase import ShowBase
 from direct.gui.OnscreenImage import OnscreenImage
 import math as mt
 import numpy as np
@@ -17,16 +17,16 @@ class RobotViewer(ShowBase):
         # Note: If you want the image to stretch and completely fill the window, use render2dp.
         # If you want to preserve the aspect ratio, use base.aspect2dp instead.
         if __name__ == "__main__":
-            self.background = OnscreenImage(image="ColonMockup.png", parent=base.render2dp)
+            self.background = OnscreenImage(image="ColonMockup.png", parent=self.render2dp)
         else:
-            self.background = OnscreenImage(image="control/assets/ColonMockup.png", parent=base.render2dp)
+            self.background = OnscreenImage(image="control/assets/ColonMockup.png", parent=self.render2dp)
         # Change the sort order of the background layer so it draws BEFORE the 3D scene
         # Default 3D scene sort is 0, so setting this to -20 ensures it draws first.
-        base.cam2dp.node().getDisplayRegion(0).setSort(-20)
+        self.cam2dp.node().getDisplayRegion(0).setSort(-20)
         # CRITICAL: Stop the main 3D camera from clearing the color buffer.
         # If left True, the 3D camera will paint a solid gray/black background 
         # color right over your image when it starts rendering the robot
-        base.cam.node().getDisplayRegion(0).setClearColorActive(False)
+        self.cam.node().getDisplayRegion(0).setClearColorActive(False)
 
         # Store input reference (list from Tkinter/shared memory)
         self.inputList = inputList
@@ -48,6 +48,7 @@ class RobotViewer(ShowBase):
         # Make wrist of robot
         self.RobotWrist = NodePath("RobotWrist")
         self.length_wrist = 16
+        self.INST_RADIUS = 1.5
         self.toolExtCyl = self.make_cylinder()
         self.toolExtCyl.reparentTo(self.RobotWrist)
         # self.axes_local_rw = self.make_axes(length=10)
@@ -60,13 +61,16 @@ class RobotViewer(ShowBase):
         # self.axes_local_rwb.setLightOff(1)
         # self.axes_local_rwb.reparentTo(self.RobotWristBase)
         self.RobotWristBase.reparentTo(self.render)
+        self.ARC_SEGMENTS = 30
+        self.RADIAL_SEGMENTS = 12
+        self.phi_initial = 0.0
         self.wristCurve = self.create_constant_curvature_tube(
-            parent=self.RobotWristBase,
-            phi=0.0,
-            Lw=self.length_wrist,
-            radius=1.5,
-            arc_segments=30,
-            radial_segments=12
+            self.RobotWristBase,
+            self.phi_initial,
+            self.length_wrist,
+            self.INST_RADIUS,
+            self.ARC_SEGMENTS,
+            self.RADIAL_SEGMENTS
         )
         self.wristCurve.setColor(1.0, 1.0, 1.0, 1.0)
 
@@ -231,15 +235,20 @@ class RobotViewer(ShowBase):
         # Apply transform to assembly (position + rotations)
         self.RobotAssembly.set_mat(T_0_7)
 
-        # Scale cylinder along Z up to the wrist
-        scale_z_axial =  prism0/self.cylModelLength
-        self.axialCyl.setScale(1, 1, scale_z_axial)
-        # self.upToWrist.setPos(self.upToWrist, 0, 0, -prism0)
+        if abs(prism0) > 1e-6:
+            self.axialCyl.show()
+            # Scale cylinder along Z up to the wrist
+            self.axialCyl.setScale(1, 1, prism0 / self.cylModelLength)
+        else:
+            self.axialCyl.hide()
 
-        # Scale cylinder along Z for the tool extension
-        scale_z_tool = prism6/self.cylModelLength
-        self.toolExtCyl.setScale(1, 1, scale_z_tool)
-        # self.robotShaft.setPos(self.robotShaft, 0, 0, -prism6)
+        if abs(prism6) > 1e-6:
+            self.toolExtCyl.show()
+            # Scale cylinder along Z for the tool extension
+            self.toolExtCyl.setScale(1, 1, prism6 / self.cylModelLength)
+        else:
+            self.toolExtCyl.hide()
+
 
         # if self.wristCurve is not None:
         # if self.lastJointSpace[3] != jointSpace[3]:
@@ -249,9 +258,9 @@ class RobotViewer(ShowBase):
             self.RobotWristBase,
             phi,
             Lw,
-            1.5,
-            30,
-            12
+            self.INST_RADIUS,
+            self.ARC_SEGMENTS,
+            self.RADIAL_SEGMENTS
         )
 
 
