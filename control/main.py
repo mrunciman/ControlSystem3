@@ -34,12 +34,21 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
     print("Motion control started.")
 
     deactivateButtons(dictButtons)
+
+    jointOffsetButtons = classSettings.jointOffsetButtons
+    pandaProcess = classSettings.pandaViewerProcess
+    startWithCalibration = classSettings.startWithCalibration
+    useOmni = classSettings.useOmni
+    socketOmni = classSettings.socketOmni
+    useOptitrack = classSettings.useOptitrack
+    useFibrebot = classSettings.useFibrebot
+    moveRobotRunning = classSettings.moveRobotRunning
+    usePathFile = classSettings.usePathFile
+    goHome = classSettings.goToHome
+    flagStop = classSettings.stopFlag
+    socketFalcon = classSettings.socketFalcon
+    destroyWindow = classSettings.destroyWindow
     
-    [jointOffsetButtons, visionFeedFlag, startWithCalibration,\
-        useOmni, socketOmni, useOptitrack, \
-        useFibrebot, moveRobotRunning, usePathFile, \
-        goHome, flagStop, socketFalcon, destroyWindow]\
-                = list(vars(classSettings).values())
 
     classSettings.moveRobotRunning = True
     # print("Settings: ", vars(classSettings))
@@ -102,6 +111,8 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 xPath.append(float(row[0]))
                 yPath.append(float(row[1]))
                 zPath.append(float(row[2]))
+            if not xPath:
+                raise ValueError("Path file contains no coordinates")
             xMap, yMap, zMap = xPath[0], yPath[0], zPath[0]
 
     # Button setting from controller for grasper control
@@ -119,7 +130,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
     targetZ = XYZPathCoords[2]
 
 
-    desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos = 0, 0, 0, 0, 0
+    desAxialPos, desRotaryPos, desToolExt, desWristAngle, desGraspPos = 0, 0, 0, 0, 0
     axialPos, rotaryPos, toolExt, wristAngle, graspPos = 0, 0, 0, 0, 0
 
     desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp = 0, 0, 0, 0, 0
@@ -127,6 +138,9 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
     # Set initial pressure and calibration variables
     timeL = 0
     prevTimeL = 0
+    stepList = [0, 0, 0, 0]
+    pressList = [0, 0, 0, 0, 0]
+    loadList = [0, 0, 0, 0]
 
     # Current position
     initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp = 0, 0, 0, 0, 0
@@ -166,22 +180,23 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
         if pumpsConnected:
             time.sleep(1.5)
             if not messagebox.askokcancel("Structure deployed?", "Has the structure been deployed?"):
-                raise
+                raise UserCancelled
             pumpController.sendStep(initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp, 
                                     HOLD_MODE, SET_PRESS_MODE, controllerButtons
                                     )
 
         else:
-            print("PUMP CONTROLLER NOT CONNECTED. RUNNING WITHOUT PUMPS.")
+            print("MOTOR CONTROLLER NOT CONNECTED. RUNNING WITHOUT MOTOR.")
 
 
         if not messagebox.askokcancel("Proceed?", "Start the robot? MANUAL CALIBRATION COMPLETE?"):
-            raise
+            raise UserCancelled
 
         ################################################################
         # Begin main loop
-
-        while(flagStop == False):
+        next_iteration = time.perf_counter()
+        while(not flagStop):
+            next_iteration += kineSolve.TIMESTEP
 
             # Get offsest values from GUI
             jointOffsetIndex = 0
@@ -195,12 +210,12 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 controllerButtons = ps4Buttons
 
                 # This gives desired joint values 
-                [desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos] = ps4.incrementCylCoords(axialPos, rotaryPos, toolExt, wristAngle, graspPos)
+                [desAxialPos, desRotaryPos, desToolExt, desWristAngle, desGraspPos] = ps4.incrementCylCoords(axialPos, rotaryPos, toolExt, wristAngle, graspPos)
                 
                 # Convert desired joint values into angular positions of each motor
                 intermedAxial, desAxialPos = kineSolve.setAxialMotor(desAxialPos, desWristAngle)
                 intermedRotary, desRotaryPos = kineSolve.setRotaryMotor(desRotaryPos, rotaryPos)
-                intermedTool, desTooExt = kineSolve.setToolMotor(desTooExt)
+                intermedTool, desToolExt = kineSolve.setToolMotor(desToolExt)
                 intermedWrist, desWristAngle = kineSolve.setWristMotor(desWristAngle)
                 intermedGrasp, desGraspPos = kineSolve.setGraspMotor(desGraspPos)
                 # print("Motor angles: ", desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, "\n")
@@ -235,7 +250,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
             visualiseOffset = 1
             viewerInputList[0] = desAxialPos + jointOffsetList[0]*visualiseOffset
             viewerInputList[1] = desRotaryPos + jointOffsetList[1]*visualiseOffset
-            viewerInputList[2] = desTooExt + jointOffsetList[2]*visualiseOffset
+            viewerInputList[2] = desToolExt + jointOffsetList[2]*visualiseOffset
             viewerInputList[3] = desWristAngle + jointOffsetList[3]*visualiseOffset
             viewerInputList[4] = desGraspPos + jointOffsetList[4]*visualiseOffset
             viewerInputList[5] = 0 + jointOffsetList[5]*visualiseOffset
@@ -282,12 +297,13 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
             # Check if new data has been received from pump controller 
             if (timeL - prevTimeL > 0):
                 pumpDataUpdated = True
-                # kineSolve.TIMESTEP = (timeL - prevTimeL)/1000
-                kineSolve.TIMESTEP = 0.01
-                if (kineSolve.TIMESTEP < 0.01): kineSolve.TIMESTEP = 0.01
+                kineSolve.TIMESTEP = (timeL - prevTimeL)/1000
+                # kineSolve.TIMESTEP = 0.01
+                if (kineSolve.TIMESTEP < 0.01):
+                    kineSolve.TIMESTEP = 0.01
                 # print((timeL - prevTimeL)/1000)
             else:
-                # pumpDataUpdated = True
+                pumpDataUpdated = False
                 kineSolve.TIMESTEP = 0.01
 
             # Update current position, cable lengths, and volumes as previous targets
@@ -295,12 +311,18 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
             prevPathCounter = pathCounter
             pathCounter += 1
             # if pumpDataUpdated: pathCounter += 1
-            axialPos, rotaryPos, toolExt, wristAngle, graspPos = desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos
+            axialPos, rotaryPos, toolExt, wristAngle, graspPos = desAxialPos, desRotaryPos, desToolExt, desWristAngle, desGraspPos
 
             # Stop operation if Stop button hit
             flagStop = classSettings.stopFlag
 
+            remaining = next_iteration - time.perf_counter()
+            if remaining > 0:
+                time.sleep(remaining)
 
+    except UserCancelled:
+        print("Operation cancelled by user.")
+    
     except TypeError as exTE:
         tb_linesTE = traceback.format_exception(exTE.__class__, exTE, exTE.__traceback__)
         tb_textTE = ''.join(tb_linesTE)
@@ -388,7 +410,8 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
 class controlSettings:
     def __init__(self):
         self.jointOffsetButtons = None
-        self.pandaViewerProcess = False
+        self.pandaViewerProcess = None
+        self.robotThread = None
         self.startWithCalibration = False
         self.useOmni = False
         self.socketOmni = None
@@ -401,7 +424,8 @@ class controlSettings:
         self.socketFalcon = None
         self.destroyWindow = False
 
-
+class UserCancelled(Exception):
+    pass
 
 def toggleButton(classSettings, attrib, button):
     vars(classSettings)[attrib] = not vars(classSettings)[attrib]
@@ -447,7 +471,7 @@ def resetFunction(classSettings, button, startButton):
     startButton.config(state = 'normal')
 
 
-def onClosing(classSettings, dictButtons, viewerProcess):
+def onClosing(classSettings, dictButtons, viewerProcess, pumpController):
     # Exit control loop properly
     classSettings.stopFlag = True
     dictButtons['stopButton'].config(bg = 'red')
@@ -460,8 +484,10 @@ def onClosing(classSettings, dictButtons, viewerProcess):
                    pumpController.t.stop()
                    pumpController.closeSerial()
                 else:
-                    exitCode = thread.join()
-                    print(exitCode, thread.is_alive())
+                    thread._connection_made.set()
+                    thread.join(timeout = 2.0)
+                    if thread.is_alive():
+                       print(f"Thread did not stop: {thread.name}")
 
         classSettings.destroyWindow = True
         if viewerProcess.is_alive():
@@ -476,14 +502,11 @@ def activateButtons(dictButtons, stopFlag):
         dictButtons['moveButton'].config(state = 'disabled')
     dictButtons['moveButton'].config(bg = '#1c1c1c')
 
+
 def deactivateButtons(dictButtons):
     for b in dictButtons:
         if b not in ["stopButton", "homeButton", "omniButton"]:
             dictButtons[b].config(state = 'disabled')
-
-
-def mapRange(x, in_min, in_max, out_min, out_max):
-    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
 
 def viewer_process(angleList):
@@ -688,7 +711,7 @@ if __name__ == '__main__':
 
 
     # Set what to do when window is closed
-    rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass, buttonDict, pandaViewerProcess))
+    rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass, buttonDict, pandaViewerProcess, pumpController))
 
     # This is where the magic happens
     sv_ttk.set_theme("dark")

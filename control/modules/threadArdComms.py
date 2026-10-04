@@ -233,7 +233,8 @@ class LocalReaderThread(threading.Thread):
         self.alive = False
         if hasattr(self.serial, 'cancel_read'):
             self.serial.cancel_read()
-        self.join(2)
+        self._connection_made.set()
+        self.join(timeout = 2.0)
 
     # Overriding Thread's run method in this subclass
     def run(self):
