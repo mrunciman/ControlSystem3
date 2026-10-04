@@ -4,6 +4,7 @@ import time
 import sys
 import numpy as np
 from numpy import linalg as la
+import platform
 try: 
     from modules import NatNetClient
     from modules import DataDescriptions
@@ -27,7 +28,11 @@ except:
 class optiTracker:
 
     def __init__(self):
-        self.parent = "/home/lannsair/Documents/DataLogs/DT Prime/"
+        if platform.system() == "Windows":
+            self.parent = "C:/Users/msrun/Documents/Inflatable Robot Control/ControlSystem3/control/"
+        else:
+            self.parent = "/home/lannsair/Documents/DataLogs/DT Prime/"
+    
         self.logTime = time.strftime("%Y-%m-%d %H-%M-%S")
         relative = "logs/opti/optiTrack " + self.logTime + ".csv"
         self.fileName = os.path.join(self.parent, relative)

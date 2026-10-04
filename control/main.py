@@ -35,8 +35,11 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
 
     deactivateButtons(dictButtons)
     
-    [jointOffsetButtons, visionFeedFlag, startWithCalibration, useOmni, socketOmni, useOptitrack, useFibrebot, moveRobotRunning, usePathFile, goHome, flagStop, socketFalcon, destroyWindow]\
-        = list(vars(classSettings).values())
+    [jointOffsetButtons, visionFeedFlag, startWithCalibration,\
+        useOmni, socketOmni, useOptitrack, \
+        useFibrebot, moveRobotRunning, usePathFile, \
+        goHome, flagStop, socketFalcon, destroyWindow]\
+                = list(vars(classSettings).values())
 
     classSettings.moveRobotRunning = True
     # print("Settings: ", vars(classSettings))
@@ -75,6 +78,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
     xPath = []
     yPath = []
     zPath = []
+    xMap, yMap, zMap = 0, 0, 0
 
     ps4 = ps4_pyUSB.ps4USB() # Create an object from controller
     if ps4.controller is not None:
@@ -115,7 +119,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
     targetZ = XYZPathCoords[2]
 
 
-    desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos = 0.5, 0, 0, 0, 0
+    desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos = 0, 0, 0, 0, 0
     axialPos, rotaryPos, toolExt, wristAngle, graspPos = 0, 0, 0, 0, 0
 
     desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp = 0, 0, 0, 0, 0
@@ -149,19 +153,23 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
     dictLabel["pumpLabel"].config(fg = "green") if pumpsConnected else dictLabel["pumpLabel"].config(fg = "red")
 
     if pumpsConnected:
-        pumpController.sendStep(initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp, HOLD_MODE, ISOLATE_P_SUPPLY, controllerButtons)
+        pumpController.sendStep(initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp, 
+                                HOLD_MODE, ISOLATE_P_SUPPLY, controllerButtons
+                                )
 
 
 
     ###############################################################################################
-    # The most important try statement
+    # Try statement of the main loop
     try:
 
         if pumpsConnected:
             time.sleep(1.5)
             if not messagebox.askokcancel("Structure deployed?", "Has the structure been deployed?"):
                 raise
-            pumpController.sendStep(initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp, HOLD_MODE, SET_PRESS_MODE, controllerButtons)
+            pumpController.sendStep(initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp, 
+                                    HOLD_MODE, SET_PRESS_MODE, controllerButtons
+                                    )
 
         else:
             print("PUMP CONTROLLER NOT CONNECTED. RUNNING WITHOUT PUMPS.")
@@ -237,7 +245,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
             # desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp
             # Log desired positions
             if pumpDataUpdated:
-                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, ang_around_shaft)
+                posLogging.posLog(desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp)
 
             if pumpsConnected:
 
@@ -250,23 +258,26 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                     initThetaWrist = (desiredThetaWrist*(firstMoveDelay/firstMoveDivider))
                     initThetaGrasp = (desiredThetaGrasp*(firstMoveDelay/firstMoveDivider))
                     # Send scaled step number to arduinos:
-                    pumpController.sendStep(initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp, ACTIVE_MODE, SET_PRESS_MODE, controllerButtons)
+                    pumpController.sendStep(
+                        initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp,
+                         ACTIVE_MODE, SET_PRESS_MODE, controllerButtons
+                         )
                 else:
                     # Send step number to arduinos:
-                    pumpController.sendStep(desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, ACTIVE_MODE, SET_PRESS_MODE, controllerButtons)
+                    pumpController.sendStep(
+                        desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp,
+                         ACTIVE_MODE, SET_PRESS_MODE, controllerButtons
+                         )
 
                 # Log values from arduinos
                 if pumpDataUpdated:
-                    # ardLogging.ardLog(realStepL, LcRealL, targetL, desiredThetaL, pressL, pressLMed, loadL, timeL) 
-                    # ardLogging.ardLog(realStepR, LcRealR, targetR, desiredThetaR, pressR, pressRMed, loadR, timeR)
-                    # ardLogging.ardLog(realStepT, LcRealT, targetT, desiredThetaT, pressT, pressTMed, loadT, timeT)
-                    # ardLogging.ardLog(realStepP, LcRealP, targetP, desiredThetaP, pressP, pressPMed, loadP, timeP)
-                    # # ardLogging.ardLog(realStepA, LcRealA, angleA, StepNoA, pressA, pressAMed, timeA)
-                    ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)#TODO Rewrite as one logging function
+                    ardLogging.ardLogCollide(stepList, pressList, timeL, loadList)
 
                 # Get current pump position, pressure and times from arduinos
-                [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
-
+                stepList, pressList, timeL, loadList = pumpController.getData()
+                [realStepL, realStepR, realStepT, realStepP] = stepList
+                [pressL, pressR, pressT, pressP, regulatorSensor] = pressList
+                [loadL, loadR, loadT, loadP] = loadList
 
             # Check if new data has been received from pump controller 
             if (timeL - prevTimeL > 0):
@@ -315,25 +326,33 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
 
             if pumpsConnected:
                 # Save values gathered from arduinos
-                ardLogging.ardLogCollide(conLHS, conRHS, conTOP, collisionAngle)
+                ardLogging.ardLogCollide(stepList, pressList, timeL, loadList)
                 # Save joint information
                 ardLogging.ardSave()
                 # Ensure same number of rows in position log file
-                posLogging.posLog(XYZPathCoords[0], XYZPathCoords[1], XYZPathCoords[2], inclin, ang_around_shaft)
+                posLogging.posLog(desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp)
                 #Save position data
                 posLogging.posSave()
 
                 # if calibrated:
                 controllerButtons = 0
-                pumpController.sendStep(desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, HOLD_MODE, DEFLATION_MODE, controllerButtons)
+                pumpController.sendStep(
+                    desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, 
+                    HOLD_MODE, DEFLATION_MODE, controllerButtons
+                    )
                 time.sleep(0.2)
                 n = 20
                 for x in range(n):
-                    pumpController.sendStep(desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, HOLD_MODE, DEFLATION_MODE, controllerButtons)
+                    pumpController.sendStep(desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, 
+                                            HOLD_MODE, DEFLATION_MODE, controllerButtons
+                                            )
                     time.sleep(0.2)
                     # print(x)
                 time.sleep(0.2)
-                [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
+                stepList, pressList, timeL, loadList = pumpController.getData()
+                [realStepL, realStepR, realStepT, realStepP] = stepList
+                [pressL, pressR, pressT, pressP, regulatorSensor] = pressList
+                [loadL, loadR, loadT, loadP] = loadList
 
 
             # #Save optitrack data
@@ -502,12 +521,13 @@ if __name__ == '__main__':
     # Create buttons
 
     buttonDict = {}
-    calibrateButton = Button(contentFrame, text = "Calibrate robot at start")
-    attrStr = 'startWithCalibration'
-    buttonObj = calibrateButton
-    buttonDict.update({"calibrateButton" : buttonObj})
-    calibrateButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
-    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+
+    # calibrateButton = Button(contentFrame, text = "Calibrate robot at start")
+    # attrStr = 'startWithCalibration'
+    # buttonObj = calibrateButton
+    # buttonDict.update({"calibrateButton" : buttonObj})
+    # calibrateButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
+    # buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
     # optiButton = Button(contentFrame, text = "Use OptiTrack")
     # attrStr = 'useOptitrack'
@@ -517,13 +537,12 @@ if __name__ == '__main__':
     # buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
 
-
-    omniButton = Button(contentFrame, text = "Use haptic device")
-    attrStr = 'useOmni'
-    buttonObj = omniButton
-    buttonDict.update({"omniButton" : buttonObj})
-    omniButton.config(command = partial(toggleInputButton, settingsClass, attrStr, buttonObj))
-    buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
+    # omniButton = Button(contentFrame, text = "Use haptic device")
+    # attrStr = 'useOmni'
+    # buttonObj = omniButton
+    # buttonDict.update({"omniButton" : buttonObj})
+    # omniButton.config(command = partial(toggleInputButton, settingsClass, attrStr, buttonObj))
+    # buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
 
     # pathButton = Button(rootWindow, text = "Follow preprogrammed path")
@@ -564,17 +583,18 @@ if __name__ == '__main__':
 
     # Status labels
     labelDict = {}
+
     pumpLabel = Label(contentFrame, text = "Pump controller connection")
     labelObj = pumpLabel
     labelDict.update({"pumpLabel" : labelObj})
 
-    omniLabel = Label(contentFrame, text = "Haptic connected")
+    omniLabel = Label(contentFrame, text = "Controller connected")
     labelObj = omniLabel
     labelDict.update({"omniLabel" : omniLabel})
 
-    calibrationLabel = Label(contentFrame, text = "Calibration")
-    labelObj = calibrationLabel
-    labelDict.update({"calibrationLabel" : labelObj})
+    # calibrationLabel = Label(contentFrame, text = "Calibration")
+    # labelObj = calibrationLabel
+    # labelDict.update({"calibrationLabel" : labelObj})
 
     grasperLabel = Label(contentFrame, text = "Grasper")
     labelObj = grasperLabel
@@ -601,7 +621,9 @@ if __name__ == '__main__':
     if pumpsConnected:
         n = 1
         for x in range(n):
-            pumpController.sendStep(zeroAngle, zeroAngle, zeroAngle, zeroAngle, zeroPress, HOLD_MODE, ISOLATE_P_SUPPLY, buttonValue)
+            pumpController.sendStep(zeroAngle, zeroAngle, zeroAngle, zeroAngle, zeroPress, 
+                                    HOLD_MODE, ISOLATE_P_SUPPLY, buttonValue
+                                    )
             time.sleep(0.2)
             print(x)
 
@@ -678,15 +700,15 @@ if __name__ == '__main__':
         rootWindow.update()
         if pumpsConnected:
             if (settingsClass.moveRobotRunning == False):
-                [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL, [loadL, loadR, loadT, loadP] = pumpController.getData()
+                stepList, pressList, timeL, loadList = pumpController.getData()
+                [realStepL, realStepR, realStepT, realStepP] = stepList
+                [pressL, pressR, pressT, pressP, regulatorSensor] = pressList
+                [loadL, loadR, loadT, loadP] = loadList
 
 
     rootWindow.destroy()
     pumpController.closeSerial()
-    #TODO close threads and disconnect properly if window closed
-    # make a dict of buttons, not a list
-    # add status labels e.g. to show if arduinos connected
-    # add bars that change colour/height depending on pressure (normalse to MAX_PRESS)
+
 
 
 

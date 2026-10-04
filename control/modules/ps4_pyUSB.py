@@ -12,9 +12,8 @@ import platform
 # See https://www.psdevwiki.com/ps4/DS4-USB for details on data indices
 
 
-# For generic controller in xbox input mode: Device: device.idVendor=1118, device.idProduct=654
-# VENDOR_ID = 0x045e
-# PRODUCT_ID = 0x028e
+# For Gulikit controller in Switch input mode: 
+# Device: device.idVendor = 0x057e (1406 in decimal), device.idProduct = 0x2009 (8201 in decimal)
 VENDOR_ID_GULI = 0x057e
 PRODUCT_ID_GULI = 0x2009
 
@@ -25,17 +24,13 @@ PRODUCT_ID_PS4 = 0x9cc #0x5c4 = 1476 in decimal #0x9cc = 2508 in decimal
 
 if platform.system() == "Windows":
 	# Fol old asus laptop:
-	# BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\InflatableRobotControl\\ControlSystemThree\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+	# BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\InflatableRobotControl\\ControlSystemThree\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 	# For new asus laptop:
-	BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+	BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 	#"C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 else:
 	# Don't forget to change the path to libusb-1.0.dll
 	BACKEND = usb.backend.libusb1.get_backend() 
-
-
-
-
 
 
 
@@ -58,6 +53,10 @@ for device in devices:
 		SETTING_DS4 = 0
 		ENDPOINT_DS4_OUT = 0 # Input endpoint
 
+	else:
+		VENDOR_ID = None
+		PRODUCT_ID = None
+
 
 
 class ps4USB(threading.Thread):
@@ -72,7 +71,7 @@ class ps4USB(threading.Thread):
 		self.controller = None
 
 		self.dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID, backend=BACKEND)
-		if VENDOR_ID == 0x54c:
+		if VENDOR_ID == VENDOR_ID_PS4:
 			self.using_PS4 = True
 		else:
 			self.using_PS4 = False
@@ -656,7 +655,7 @@ if __name__ == "__main__":
 		ps4.start()
 
 	cX, cY, cZ = 0, 0, 0
-	num = 500
+	num = 50
 	rotateDegrees = 0
 
 	axialPos, rotaryPos, toolExt, wristAngle, graspPos = 0,0,0,0,0
