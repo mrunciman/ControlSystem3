@@ -8,7 +8,6 @@ import numpy as np
 from numpy import linalg as la
 import math as mt
 
-# SIDE_LENGTH = 18.911
 
 class kineSolver:
     # SIDE_LENGTH0 = SIDE_LENGTH
@@ -38,16 +37,11 @@ class kineSolver:
         ###################################################################
         # Set limits on shaft extension
         # self.minShaftExt = self.SHAFT_LENGTH + 1
-        self.MIN_EXTEND = 0.5 # mm
+        self.MIN_EXTEND = 0.0 # mm
         self.MAX_EXTEND = 100 # mm
         self.LENGTH_WRIST = 16
-        self.initialPrismLength = 0
         # Set limit when curvature of continuum joint is assumed zero
         self.MIN_CONT_RAD = 0.1 # mm
-        # Max angle that hydraulic motors can have is:
-        # print(self.volToAngle(self.MAX_VOL))
-
-
 
 
         ###################################################################
@@ -75,7 +69,7 @@ class kineSolver:
         # Limits on how far instrument can be extended
         self.MIN_TOOL_EXT = -1000   # mm
         self.MAX_TOOL_EXT = 1000    # mm
-        # Geometry of tool extensionm motor 
+        # Geometry of tool extension motor 
         self.TOOL_EXT_ROLLER_RADIUS = 7.5/2 #mm
 
         # Limits on grasper control

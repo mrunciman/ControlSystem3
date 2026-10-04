@@ -33,149 +33,136 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
     
     print("Motion control started.")
 
-    deactivateButtons(dictButtons)
+    # Try statement of the main loop
+    try:
+        deactivateButtons(dictButtons)
 
-    jointOffsetButtons = classSettings.jointOffsetButtons
-    pandaProcess = classSettings.pandaViewerProcess
-    startWithCalibration = classSettings.startWithCalibration
-    useOmni = classSettings.useOmni
-    socketOmni = classSettings.socketOmni
-    useOptitrack = classSettings.useOptitrack
-    useFibrebot = classSettings.useFibrebot
-    moveRobotRunning = classSettings.moveRobotRunning
-    usePathFile = classSettings.usePathFile
-    goHome = classSettings.goToHome
-    flagStop = classSettings.stopFlag
-    socketFalcon = classSettings.socketFalcon
-    destroyWindow = classSettings.destroyWindow
-    
+        jointOffsetButtons = classSettings.jointOffsetButtons
+        useOptitrack = classSettings.useOptitrack
+        usePathFile = classSettings.usePathFile
+        flagStop = classSettings.stopFlag
 
-    classSettings.moveRobotRunning = True
-    # print("Settings: ", vars(classSettings))
-    classSettings.pandaViewerProcess.start()
+        
+        ############################################################
+        # Instantiate classes:
 
-    ############################################################
-    # Instantiate classes:
+        kineSolve = kinematics.kineSolver()
+        ardLogging = pumpLog.ardLogger()
+        posLogging = positionInput.posLogger()
+        opTrack = optiStream.optiTracker()
 
-    kineSolve = kinematics.kineSolver()
-    ardLogging = pumpLog.ardLogger()
-    posLogging = positionInput.posLogger()
-    opTrack = optiStream.optiTracker()
+        SAMP_FREQ = 1/kineSolve.TIMESTEP
+        CALIBRATION_MODE = 0
+        HOLD_MODE = 1
+        ACTIVE_MODE = 2
+        ISOLATE_P_SUPPLY = 0
+        DEFLATION_MODE = 1
+        SET_PRESS_MODE = 3
 
-    SAMP_FREQ = 1/kineSolve.TIMESTEP
-    CALIBRATION_MODE = 0
-    HOLD_MODE = 1
-    ACTIVE_MODE = 2
-    ISOLATE_P_SUPPLY = 0
-    DEFLATION_MODE = 1
-    SET_PRESS_MODE = 3
-
-    HOMING_POSITION = [0, 0, 0]
+        HOMING_POSITION = [0, 0, 0]
 
 
-    pumpDataUpdated = False
-    firstMoveDelay = 0
-    firstMoveDivider = 400
+        pumpDataUpdated = False
+        firstMoveDelay = 0
+        firstMoveDivider = 400
 
 
-    ############################################################################
-    # Initialise variables 
+        ############################################################################
+        # Initialise variables 
 
-    flagStop = False
+        flagStop = False
 
-    # Use different methods for different paths
-    xPath = []
-    yPath = []
-    zPath = []
-    xMap, yMap, zMap = 0, 0, 0
+        # Use different methods for different paths
+        xPath = []
+        yPath = []
+        zPath = []
+        xMap, yMap, zMap = 0, 0, 0
 
-    ps4 = ps4_pyUSB.ps4USB() # Create an object from controller
-    if ps4.controller is not None:
-        ps4.start() #start and listen to events
-        ps4Buttons = 0
-        dictLabel["omniLabel"].config(fg = "green")
-    else:
-        dictLabel["omniLabel"].config(fg = "red")
+        ps4 = ps4_pyUSB.ps4USB() # Create an object from controller
+        if ps4.controller is not None:
+            ps4.start() #start and listen to events
+            ps4Buttons = 0
+            dictLabel["omniLabel"].config(fg = "green")
+        else:
+            dictLabel["omniLabel"].config(fg = "red")
 
-    print("Single-hand controller connected? ", ps4.controller is not None)
-    
-    if ps4.controller is not None:
-        xMap, yMap, zMap = HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]
+        print("Single-hand controller connected? ", ps4.controller is not None)
+        
+        if ps4.controller is not None:
+            xMap, yMap, zMap = HOMING_POSITION[0], HOMING_POSITION[1], HOMING_POSITION[2]
 
-    ############################################################
-    pathCounter = 0
-    if usePathFile:
-        with open('C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime/paths/gridPath 2023-03-03 16-29-08 centre 15-8.66025 30x15.0grid 0.048x1.5spacing.csv', newline = '') as csvPath:
-            coordReader = csv.reader(csvPath)
-            for row in coordReader:
-                xPath.append(float(row[0]))
-                yPath.append(float(row[1]))
-                zPath.append(float(row[2]))
-            if not xPath:
-                raise ValueError("Path file contains no coordinates")
-            xMap, yMap, zMap = xPath[0], yPath[0], zPath[0]
+        ############################################################
+        pathCounter = 0
+        if usePathFile:
+            with open('C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime/paths/gridPath 2023-03-03 16-29-08 centre 15-8.66025 30x15.0grid 0.048x1.5spacing.csv', newline = '') as csvPath:
+                coordReader = csv.reader(csvPath)
+                for row in coordReader:
+                    xPath.append(float(row[0]))
+                    yPath.append(float(row[1]))
+                    zPath.append(float(row[2]))
+                if not xPath:
+                    raise ValueError("Path file contains no coordinates")
+                xMap, yMap, zMap = xPath[0], yPath[0], zPath[0]
 
-    # Button setting from controller for grasper control
-    controllerButtons = 0
+        # Button setting from controller for grasper control
+        controllerButtons = 0
 
-    XYZPathCoords = [xMap, yMap, zMap]
+        XYZPathCoords = [xMap, yMap, zMap]
 
-    # Target must be cast as immutable type (float, in this case) so that 
-    # the current position doesn't update at same time as target
-    currentX = XYZPathCoords[0]
-    currentY = XYZPathCoords[1]
-    currentZ = XYZPathCoords[2]
-    targetX = XYZPathCoords[0]
-    targetY = XYZPathCoords[1]
-    targetZ = XYZPathCoords[2]
+        # Target must be cast as immutable type (float, in this case) so that 
+        # the current position doesn't update at same time as target
+        currentX = XYZPathCoords[0]
+        currentY = XYZPathCoords[1]
+        currentZ = XYZPathCoords[2]
+        targetX = XYZPathCoords[0]
+        targetY = XYZPathCoords[1]
+        targetZ = XYZPathCoords[2]
 
 
-    desAxialPos, desRotaryPos, desToolExt, desWristAngle, desGraspPos = 0, 0, 0, 0, 0
-    axialPos, rotaryPos, toolExt, wristAngle, graspPos = 0, 0, 0, 0, 0
+        desAxialPos, desRotaryPos, desToolExt, desWristAngle, desGraspPos = 0, 0, 0, 0, 0
+        axialPos, rotaryPos, toolExt, wristAngle, graspPos = 0, 0, 0, 0, 0
 
-    desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp = 0, 0, 0, 0, 0
+        desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp = 0, 0, 0, 0, 0
 
-    # Set initial pressure and calibration variables
-    timeL = 0
-    prevTimeL = 0
-    stepList = [0, 0, 0, 0]
-    pressList = [0, 0, 0, 0, 0]
-    loadList = [0, 0, 0, 0]
+        # Set initial pressure and calibration variables
+        timeL = 0
+        prevTimeL = 0
+        stepList = [0, 0, 0, 0]
+        pressList = [0, 0, 0, 0, 0]
+        loadList = [0, 0, 0, 0]
 
-    # Current position
-    initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp = 0, 0, 0, 0, 0
+        # Current position
+        initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp = 0, 0, 0, 0, 0
 
-    jointOffsetList = [0, 0, 0, 0, 0, 0]
+        jointOffsetList = [0, 0, 0, 0, 0, 0]
 
-    ############################################################################
-    # Visual servoing variables
+        ############################################################################
+        # Visual servoing variables
 
-    ############################################################################
-    # Optitrack connection
-    useRigidBodies = True
-    optiTrackConnected = False
-    if useOptitrack:
-        optiTrackConnected = opTrack.optiConnect()
+        ############################################################################
+        # Optitrack connection
+        useRigidBodies = True
+        optiTrackConnected = False
+        if useOptitrack:
+            optiTrackConnected = opTrack.optiConnect()
 
-    ###############################################################
-    # Connect to Peripherals
+        ###############################################################
+        # Connect to Peripherals
 
-    # startThreader opens the serial connection and starts the communication thread
-    pumpsConnected = pumpController.connected
-    print("Connected to Control Unit? ", pumpsConnected)
-    
-    dictLabel["pumpLabel"].config(fg = "green") if pumpsConnected else dictLabel["pumpLabel"].config(fg = "red")
+        # startThreader opens the serial connection and starts the communication thread
+        pumpsConnected = pumpController.connected
+        print("Connected to Control Unit? ", pumpsConnected)
+        
+        dictLabel["pumpLabel"].config(fg = "green") if pumpsConnected else dictLabel["pumpLabel"].config(fg = "red")
 
-    if pumpsConnected:
-        pumpController.sendStep(initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp, 
-                                HOLD_MODE, ISOLATE_P_SUPPLY, controllerButtons
-                                )
+        if pumpsConnected:
+            pumpController.sendStep(initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp, 
+                                    HOLD_MODE, ISOLATE_P_SUPPLY, controllerButtons
+                                    )
 
 
 
     ###############################################################################################
-    # Try statement of the main loop
-    try:
 
         if pumpsConnected:
             time.sleep(1.5)
@@ -290,9 +277,9 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
 
                 # Get current pump position, pressure and times from arduinos
                 stepList, pressList, timeL, loadList = pumpController.getData()
-                [realStepL, realStepR, realStepT, realStepP] = stepList
-                [pressL, pressR, pressT, pressP, regulatorSensor] = pressList
-                [loadL, loadR, loadT, loadP] = loadList
+                # [realStepL, realStepR, realStepT, realStepP] = stepList
+                # [pressL, pressR, pressT, pressP, regulatorSensor] = pressList
+                # [loadL, loadR, loadT, loadP] = loadList
 
             # Check if new data has been received from pump controller 
             if (timeL - prevTimeL > 0):
@@ -319,6 +306,8 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
             remaining = next_iteration - time.perf_counter()
             if remaining > 0:
                 time.sleep(remaining)
+            else:
+                next_iteration = time.perf_counter()
 
     except UserCancelled:
         print("Operation cancelled by user.")
@@ -336,9 +325,6 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
 
     finally:
         # Control loop is over
-        # Reactivate selection buttons 
-        activateButtons(dictButtons, flagStop)
-
         print("Ending loop...")
 
         ###########################################################################
@@ -372,9 +358,9 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                     # print(x)
                 time.sleep(0.2)
                 stepList, pressList, timeL, loadList = pumpController.getData()
-                [realStepL, realStepR, realStepT, realStepP] = stepList
-                [pressL, pressR, pressT, pressP, regulatorSensor] = pressList
-                [loadL, loadR, loadT, loadP] = loadList
+                # [realStepL, realStepR, realStepT, realStepP] = stepList
+                # [pressL, pressR, pressT, pressP, regulatorSensor] = pressList
+                # [loadL, loadR, loadT, loadP] = loadList
 
 
             # #Save optitrack data
@@ -398,6 +384,8 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 
         print("Move Robot complete.")
         classSettings.moveRobotRunning = False
+        # Reactivate selection buttons 
+        activateButtons(dictButtons, flagStop)
 
 
 
@@ -427,6 +415,49 @@ class controlSettings:
 class UserCancelled(Exception):
     pass
 
+def startFunction(
+    classSettings,
+    dictButtons,
+    dictLabels,
+    pumpController,
+    viewerInput 
+    ):  
+
+    # Prevent two control loops from running simultaneously
+    if classSettings.moveRobotRunning:
+        print("Robot is already running.")
+        return
+
+    # A multiprocessing.Process cannot be restarted, so create a new one
+    viewerProcess = multiprocessing.Process(
+        target=viewer_process,
+        args=(viewerInput,)
+    )
+    viewerProcess.daemon = True
+
+    classSettings.pandaViewerProcess = viewerProcess
+    classSettings.stopFlag = False
+    classSettings.moveRobotRunning = True
+
+    viewerProcess.start()
+
+    robotThread = threading.Thread(
+        target=moveRobot,
+        args=(
+            dictButtons,
+            dictLabels,
+            classSettings,
+            pumpController,
+            viewerInput
+        ),
+        name="robotControlThread",
+        daemon=True
+    )
+
+    classSettings.robotThread = robotThread
+    robotThread.start()
+
+
 def toggleButton(classSettings, attrib, button):
     vars(classSettings)[attrib] = not vars(classSettings)[attrib]
     # print(attrib, vars(classSettings)[attrib])
@@ -454,44 +485,76 @@ def toggleInputButton(classSettings, attrib, button):
         button.config(text = "Falcon", bg = 'blue')
 
 
-def stopFunction(classSettings, stopButton, startButton, viewerProcess):
+def stopFunction(classSettings, stopButton, startButton):
+    if not classSettings.moveRobotRunning:
+        print("Robot is not currently running.")
+        return
+
+    # Signal the robot-control thread to finish
     classSettings.stopFlag = True
-    stopButton.config(bg = 'red')
-    startButton.config(state = 'disabled')
+    stopButton.config(bg="red")
+    startButton.config(state="disabled")
 
-    if viewerProcess.is_alive():
-        viewerProcess.kill()
-    classSettings.pandaViewerProcess = multiprocessing.Process(target=viewer_process, args=(viewerInput,))
-    classSettings.pandaViewerProcess.daemon = True
+    # Stop the viewer that belongs to the current experiment
+    viewerProcess = classSettings.pandaViewerProcess
+
+    if viewerProcess is not None:
+        if viewerProcess.is_alive():
+            viewerProcess.terminate()
+            viewerProcess.join(timeout=2.0)
+
+        if viewerProcess.is_alive():
+            print("Viewer process did not terminate cleanly; killing it.")
+            viewerProcess.kill()
+            viewerProcess.join(timeout=2.0)
+
+    classSettings.pandaViewerProcess = None
 
 
-def resetFunction(classSettings, button, startButton):
+def resetFunction(classSettings, stopButton, startButton):
+    robotThread = classSettings.robotThread
+    if (classSettings.moveRobotRunning or 
+        (robotThread is not None and robotThread.is_alive())):
+            print("Cannot reset while the robot is still stopping.")
+            return
+
+    classSettings.robotThread = None
+    classSettings.pandaViewerProcess = None
     classSettings.stopFlag = False
-    button.config(bg = '#1c1c1c')
+    stopButton.config(bg = '#1c1c1c')
     startButton.config(state = 'normal')
 
 
-def onClosing(classSettings, dictButtons, viewerProcess, pumpController):
+def onClosing(classSettings, dictButtons, pumpController):
     # Exit control loop properly
+    if not messagebox.askokcancel("Quit", "Do you want to quit?"):
+        return
     classSettings.stopFlag = True
+    classSettings.destroyWindow = True
     dictButtons['stopButton'].config(bg = 'red')
     dictButtons['moveButton'].config(state = 'disabled')
-    if messagebox.askokcancel("Quit", "Do you want to quit?"):
-        for thread in threading.enumerate():
-            if thread.name != "MainThread":
-                if thread.name == "ardThread":
-                   pumpController.stopThreader()
-                   pumpController.t.stop()
-                   pumpController.closeSerial()
-                else:
-                    thread._connection_made.set()
-                    thread.join(timeout = 2.0)
-                    if thread.is_alive():
-                       print(f"Thread did not stop: {thread.name}")
+    viewerProcess = classSettings.pandaViewerProcess
+    if viewerProcess is not None and viewerProcess.is_alive():
+        viewerProcess.terminate()
+        viewerProcess.join(timeout = 10.0)
 
-        classSettings.destroyWindow = True
         if viewerProcess.is_alive():
             viewerProcess.kill()
+            viewerProcess.join(timeout = 2.0)
+
+    classSettings.pandaViewerProcess = None            
+
+    for thread in threading.enumerate():
+        if thread.name != "MainThread":
+            if thread.name == "ardThread":
+                pumpController.stopThreader()
+                pumpController.t.stop()
+                pumpController.closeSerial()
+            else:
+                thread._connection_made.set()
+                thread.join(timeout = 2.0)
+                if thread.is_alive():
+                    print(f"Thread did not stop: {thread.name}")        
 
 
 def activateButtons(dictButtons, stopFlag):
@@ -528,12 +591,8 @@ if __name__ == '__main__':
 
     manager = multiprocessing.Manager()
 
-    initialAngle1, initialAngle2, prismShaft = 0, 0, 0
-    shaftStartX, shaftStartY, shaftStartZ = 0, 0, 0,
-    viewerInput = manager.list([initialAngle1, initialAngle2, prismShaft, shaftStartX, shaftStartY, shaftStartZ])
-    pandaViewerProcess = multiprocessing.Process(target=viewer_process, args=(viewerInput,))
-    pandaViewerProcess.daemon = True
-    settingsClass.pandaViewerProcess = pandaViewerProcess
+    initThetaAxial, initThetaRotary, initThetaTool, initThetaWrist, initThetaGrasp, initSpare = 0, 0, 0, 0, 0, 0
+    viewerInput = manager.list([initThetaAxial, initThetaRotary, initThetaTool, initThetaWrist, initThetaGrasp, initSpare])
 
     # Headings
     headingSLabel = Label(contentFrame, text = "Settings", font='bold')
@@ -559,14 +618,12 @@ if __name__ == '__main__':
     # optiButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
     # buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
-
     # omniButton = Button(contentFrame, text = "Use haptic device")
     # attrStr = 'useOmni'
     # buttonObj = omniButton
     # buttonDict.update({"omniButton" : buttonObj})
     # omniButton.config(command = partial(toggleInputButton, settingsClass, attrStr, buttonObj))
     # buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
-
 
     # pathButton = Button(rootWindow, text = "Follow preprogrammed path")
     # attrStr = 'usePathFile'
@@ -575,15 +632,12 @@ if __name__ == '__main__':
     # pathButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
     # buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
 
-
     homeButton = Button(contentFrame, text = "Home Position")
     attrStr = 'goToHome'
     buttonObj = homeButton
     buttonDict.update({"homeButton" : buttonObj})
     homeButton.config(command = partial(toggleButton, settingsClass, attrStr, buttonObj))
     buttonObj.config(bg = 'green') if vars(settingsClass)[attrStr] else buttonObj.config(bg = 'red')
-
-
 
     #Start and stop buttons
     moveButton = Button(contentFrame, text = "Start robot")
@@ -593,15 +647,11 @@ if __name__ == '__main__':
     stopButton = Button(contentFrame, text = "Stop")
     buttonObj = stopButton
     buttonDict.update({"stopButton" : buttonObj})
-    stopButton.config(command = partial(stopFunction, settingsClass, buttonObj, moveButton, pandaViewerProcess))
 
     resetButton = Button(contentFrame, text = "Reset")
     buttonObj = stopButton
-    resetButton.config(command = partial(resetFunction, settingsClass, buttonObj, moveButton))
     buttonObj = resetButton
     buttonDict.update({"resetButton" : buttonObj})
-
-
 
 
     # Status labels
@@ -622,8 +672,6 @@ if __name__ == '__main__':
     grasperLabel = Label(contentFrame, text = "Grasper")
     labelObj = grasperLabel
     labelDict.update({"grasperLabel" : labelObj})
-
-
 
     
     # Creates slider to rotate input device coordinates.
@@ -654,8 +702,35 @@ if __name__ == '__main__':
     labelDict["pumpLabel"].config(fg = "green") if pumpsConnected else labelDict["pumpLabel"].config(fg = "red")
 
     # Set command for move Robot button, taking in label dictionary
-    moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, settingsClass, pumpController, viewerInput]).start())
+    # moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, settingsClass, pumpController, viewerInput]).start())
+    moveButton.config(
+        command=partial(
+            startFunction,
+            settingsClass,
+            buttonDict,
+            labelDict,
+            pumpController,
+            viewerInput
+        )
+    )
 
+    stopButton.config(
+        command=partial(
+            stopFunction,
+            settingsClass,
+            stopButton,
+            moveButton
+        )
+    )
+
+    resetButton.config(
+        command=partial(
+            resetFunction,
+            settingsClass,
+            stopButton,
+            moveButton
+        )
+    )
 
 
     #################################################################
@@ -709,9 +784,8 @@ if __name__ == '__main__':
     settingsClass.jointOffsetButtons = joints
 
 
-
     # Set what to do when window is closed
-    rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass, buttonDict, pandaViewerProcess, pumpController))
+    rootWindow.protocol("WM_DELETE_WINDOW", partial(onClosing, settingsClass, buttonDict, pumpController))
 
     # This is where the magic happens
     sv_ttk.set_theme("dark")
@@ -724,25 +798,7 @@ if __name__ == '__main__':
         if pumpsConnected:
             if (settingsClass.moveRobotRunning == False):
                 stepList, pressList, timeL, loadList = pumpController.getData()
-                [realStepL, realStepR, realStepT, realStepP] = stepList
-                [pressL, pressR, pressT, pressP, regulatorSensor] = pressList
-                [loadL, loadR, loadT, loadP] = loadList
 
 
     rootWindow.destroy()
     pumpController.closeSerial()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

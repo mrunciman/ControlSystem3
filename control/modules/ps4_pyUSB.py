@@ -19,7 +19,8 @@ PRODUCT_ID_GULI = 0x2009
 
 # DS4 controller IDs
 VENDOR_ID_PS4 = 0x54c # = 1356 in decimal
-PRODUCT_ID_PS4 = 0x9cc #0x5c4 = 1476 in decimal #0x9cc = 2508 in decimal
+PRODUCT_ID_PS4 = 0x9cc # 0x9cc = 2508 in decimal
+PRODUCT_ID_PS4_OLD = 0x5c4 # = 1476 in decimal
 
 
 if platform.system() == "Windows":
@@ -38,7 +39,7 @@ devices = usb.core.find(find_all=True, backend=usb.backend.libusb1.get_backend()
 for device in devices:
 	# print(f"Device: {device.idVendor=}, {device.idProduct=}")
 	if VENDOR_ID_GULI == device.idVendor:
-		print("Gulikit controller detected")
+		# print("Gulikit controller detected")
 		VENDOR_ID = VENDOR_ID_GULI
 		PRODUCT_ID = PRODUCT_ID_GULI
 		INTERFACE_DS4 = 0
@@ -48,8 +49,11 @@ for device in devices:
 	elif VENDOR_ID_PS4 == device.idVendor:
 		print("PS4 controller detected")
 		VENDOR_ID = VENDOR_ID_PS4
-		PRODUCT_ID = PRODUCT_ID_PS4
-		INTERFACE_DS4 = 3 # 0 # HID interface number in cfg list
+		PRODUCT_ID = device.idProduct #PRODUCT_ID_PS4
+		if PRODUCT_ID == PRODUCT_ID_PS4:
+			INTERFACE_DS4 = 3 # 0 # HID interface number in cfg list
+		elif PRODUCT_ID == PRODUCT_ID_PS4_OLD:
+			INTERFACE_DS4 = 0
 		SETTING_DS4 = 0
 		ENDPOINT_DS4_OUT = 0 # Input endpoint
 
@@ -180,7 +184,7 @@ class ps4USB(threading.Thread):
 		# Gantry robot geometry and limits
 		###################################################################
 		#Limits on axial extension
-		self.MIN_EXTEND = 0.5 # mm
+		self.MIN_EXTEND = 0.0 # mm
 		self.MAX_EXTEND = 100 # mm
 		
 		# Limits on angle change of torque coil / rotary axis
@@ -253,6 +257,7 @@ class ps4USB(threading.Thread):
 							usb.util.claim_interface(self.dev, INTERFACE_DS4)
 						self.cfg = self.dev.get_active_configuration()
 						self.interface = self.cfg[(INTERFACE_DS4, SETTING_DS4)]
+						
 						self.endpoint = usb.util.find_descriptor(
 							self.interface,
 							custom_match=lambda e:
