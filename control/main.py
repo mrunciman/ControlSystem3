@@ -226,12 +226,15 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 dictLabel["grasperLabel"].config(text = "Grasper open", fg = "green")
             elif controllerButtons == 2:
                 dictLabel["grasperLabel"].config(text = "Grasper close", fg = "red")
-            elif controllerButtons == 3:
-                dictLabel["grasperLabel"].config(text = "Grasper retract", fg = "orange")
-            elif controllerButtons == 4:
-                dictLabel["grasperLabel"].config(text = "Grasper extend", fg = "cyan")
             else:
                 dictLabel["grasperLabel"].config(text = "Grasper", fg = "white")
+            
+            if desToolExt < toolExt:
+                dictLabel["extendLabel"].config(text = "Tool retract", fg = "orange")
+            elif desToolExt > toolExt:
+                dictLabel["extendLabel"].config(text = "Tool extend", fg = "cyan")
+            else:
+                dictLabel["extendLabel"].config(text = "Tool", fg = "white")
 
 
             visualiseOffset = 1
@@ -663,7 +666,7 @@ if __name__ == '__main__':
 
     omniLabel = Label(contentFrame, text = "Controller connected")
     labelObj = omniLabel
-    labelDict.update({"omniLabel" : omniLabel})
+    labelDict.update({"omniLabel" : labelObj})
 
     # calibrationLabel = Label(contentFrame, text = "Calibration")
     # labelObj = calibrationLabel
@@ -673,14 +676,16 @@ if __name__ == '__main__':
     labelObj = grasperLabel
     labelDict.update({"grasperLabel" : labelObj})
 
+    extendLabel = Label(contentFrame, text = "Tool")
+    labelObj = extendLabel
+    labelDict.update({"extendLabel" : labelObj})
+
     
     # Creates slider to rotate input device coordinates.
     # To be placed below the pressure bars, so it is the same width as the pressure bar canvas
     rotationSlider = Scale(contentFrame, from_=180, to=-180, length = 400, tickinterval=60, orient = HORIZONTAL)
     labelDict.update({"rotationSlider" : rotationSlider})
 
-    zeroAngle = 0
-    zeroPress = 0
     buttonValue = 0
     pumpController = threadArdComms.ardThreader()
     # startThreader opens the serial connection and starts the communication thread
@@ -692,7 +697,7 @@ if __name__ == '__main__':
     if pumpsConnected:
         n = 1
         for x in range(n):
-            pumpController.sendStep(zeroAngle, zeroAngle, zeroAngle, zeroAngle, zeroPress, 
+            pumpController.sendStep(initThetaAxial, initThetaRotary, initThetaTool, initThetaWrist, initThetaGrasp, 
                                     HOLD_MODE, ISOLATE_P_SUPPLY, buttonValue
                                     )
             time.sleep(0.2)
@@ -754,7 +759,7 @@ if __name__ == '__main__':
             buttonDict[b].grid(column = columnNo, row = rowZerothColumn, pady = yPadding, padx = xPadding)
             rowZerothColumn = rowZerothColumn + 1
         else:
-            buttonDict[b].grid(column = columnNo, row = rowZerothColumn + 2, pady = yPadding, padx = xPadding)
+            buttonDict[b].grid(column = columnNo, row = rowZerothColumn + 3, pady = yPadding, padx = xPadding)
             columnNo = columnNo + 1
     # columnNo = 0
     # homeButton.grid(column = columnNo, row = rowZerothColumn + 2, pady = yPadding, padx = xPadding)

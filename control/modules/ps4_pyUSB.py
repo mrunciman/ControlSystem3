@@ -24,9 +24,7 @@ PRODUCT_ID_PS4_OLD = 0x5c4 # = 1476 in decimal
 
 
 if platform.system() == "Windows":
-	# Fol old asus laptop:
-	# BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\InflatableRobotControl\\ControlSystemThree\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
-	# For new asus laptop:
+	# For asus laptops:
 	BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 	#"C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
 else:
@@ -47,7 +45,7 @@ for device in devices:
 		ENDPOINT_DS4_OUT = 0
 
 	elif VENDOR_ID_PS4 == device.idVendor:
-		print("PS4 controller detected")
+		# print("PS4 controller detected")
 		VENDOR_ID = VENDOR_ID_PS4
 		PRODUCT_ID = device.idProduct #PRODUCT_ID_PS4
 		if PRODUCT_ID == PRODUCT_ID_PS4:
@@ -125,13 +123,6 @@ class ps4USB(threading.Thread):
 						self.controller = True
 						print("Guli connected:", self.controller)
 	
-			# try:
-			# 	for i in range(interfaceNo+1):
-			# 		# print(i)
-			# 		if self.dev.is_kernel_driver_active(i):
-			# 			self.dev.detach_kernel_driver(i)
-			# except usb.core.USBError as e:
-			# 	print(f"Could not detach kernel driver: {e}")
 
 		else:
 			self.controller = None
@@ -179,40 +170,6 @@ class ps4USB(threading.Thread):
 		self.TOOL_SENSITIVITY = 0.15
 		self.GRASP_SENSITIVITY = 0.025
 
-
-		###################################################################
-		# Gantry robot geometry and limits
-		###################################################################
-		#Limits on axial extension
-		self.MIN_EXTEND = 0.0 # mm
-		self.MAX_EXTEND = 100 # mm
-		
-		# Limits on angle change of torque coil / rotary axis
-		self.MIN_ROTARY = -400.0   # degrees 
-		self.MAX_ROTARY =  400.0   # degrees 
-		self.targDirRot = 1
-		self.prevDirRot = 1
-		self.antiHystDegRot = 360/360
-
-		# Limits on wrist angle
-		self.MIN_WRIST_ANGLE = 0   # degrees 
-		self.MAX_WRIST_ANGLE = 120  # degrees 
-		# Geometry of wrist motor
-		# self.HYPOT_TIP = 5         # mm
-		# self.TIP_CUTAWAY_WIDTH = 5 # mm
-		# self.NUM_SUBSECTIONS = 5   # number of cutaways
-		# self.RADIUS_SPOOL = 15     # mm
-		# self.THETA_REST = 2*mt.asin((self.TIP_CUTAWAY_WIDTH/2)/self.HYPOT_TIP)
-
-		# Limits on how far instrument can be extended
-		self.MIN_TOOL_EXT = -1000      # mm
-		self.MAX_TOOL_EXT = 1000    # mm
-		# Geometry of tool extensionm motor 
-		# self.TOOL_EXT_ROLLER_RADIUS = 5 #mm
-
-		# Limits on grasper control
-		self.MIN_GRASP_POS = 0   # mm 
-		self.MAX_GRASP_POS = 2.5   # mm
 
 
 
@@ -355,10 +312,10 @@ class ps4USB(threading.Thread):
 		else:
 			nAxialPos = cAxialPos
 
-		if (nAxialPos < self.MIN_EXTEND):
-			nAxialPos = self.MIN_EXTEND
-		elif (nAxialPos > self.MAX_EXTEND):
-			nAxialPos = self.MAX_EXTEND
+		# if (nAxialPos < self.MIN_EXTEND):
+		# 	nAxialPos = self.MIN_EXTEND
+		# elif (nAxialPos > self.MAX_EXTEND):
+		# 	nAxialPos = self.MAX_EXTEND
 		# print(nAxialPos)
 
 		# Rotary position
@@ -367,10 +324,10 @@ class ps4USB(threading.Thread):
 		else:
 			nRotaryPos = cRotaryPos
 
-		if (nRotaryPos < self.MIN_ROTARY):
-			nRotaryPos = self.MIN_ROTARY
-		elif (nRotaryPos > self.MAX_ROTARY):
-			nRotaryPos = self.MAX_ROTARY
+		# if (nRotaryPos < self.MIN_ROTARY):
+		# 	nRotaryPos = self.MIN_ROTARY
+		# elif (nRotaryPos > self.MAX_ROTARY):
+		# 	nRotaryPos = self.MAX_ROTARY
 
 		# Tool extension
 		if self.toolChange is not None:
@@ -378,10 +335,10 @@ class ps4USB(threading.Thread):
 		else:
 			nToolExt = cToolExt
 
-		if (nToolExt < self.MIN_TOOL_EXT):
-			nToolExt = self.MIN_TOOL_EXT
-		elif (nToolExt > self.MAX_TOOL_EXT):
-			nToolExt = self.MAX_TOOL_EXT
+		# if (nToolExt < self.MIN_TOOL_EXT):
+		# 	nToolExt = self.MIN_TOOL_EXT
+		# elif (nToolExt > self.MAX_TOOL_EXT):
+		# 	nToolExt = self.MAX_TOOL_EXT
 
 		# Wrist position
 		if self.yChange is not None:
@@ -389,10 +346,10 @@ class ps4USB(threading.Thread):
 		else:
 			nWristAngle = cWristAngle
 
-		if (nWristAngle < self.MIN_WRIST_ANGLE):
-			nWristAngle = self.MIN_WRIST_ANGLE
-		elif (nWristAngle > self.MAX_WRIST_ANGLE):
-			nWristAngle = self.MAX_WRIST_ANGLE
+		# if (nWristAngle < self.MIN_WRIST_ANGLE):
+		# 	nWristAngle = self.MIN_WRIST_ANGLE
+		# elif (nWristAngle > self.MAX_WRIST_ANGLE):
+		# 	nWristAngle = self.MAX_WRIST_ANGLE
 
 		# Grasp position
 		if self.graspChange is not None:
@@ -408,145 +365,6 @@ class ps4USB(threading.Thread):
 
 		return nAxialPos, nRotaryPos, nToolExt, nWristAngle, nGrasper
 		
-
-
-	def incrementXYZCoords(self, cX, cY, cZ, degreesToRotate,  LEVER_POINT = None):
-		#TODO If motion limits reached (esp prismatic) do not change inputs - Don't let Z coord get too low or high 
-		#TODO Encoder check on uSteppers blocking operation? - is sleep causing delay in messages to arduino? Observed pause before usteppers reset 
-		#TODO Load cell calibration
-		#TODO Check calibration routine
-		#TODO New flags for ps4 controller initialisation (try to onnect if haptic not used, or if useOmni but connection failed)
-		# print("Input coords: ", cX, cY, cZ)
-		if self.xChange is None:
-			self.xChange = 0
-
-		if self.yChange is None:
-			self.yChange = 0
-
-		# Add rotation of coordinates after mapping
-		changeMatrix = np.array([[self.xChange],\
-								 [self.yChange]])
-        
-		if degreesToRotate is not None:
-			radsToRotate = np.radians(degreesToRotate)
-		else:
-			radsToRotate = 0
-
-		changeRotated = np.array([ [np.cos(radsToRotate), -np.sin(radsToRotate)],\
-								   [np.sin(radsToRotate),  np.cos(radsToRotate)]])
-
-		changeRotated = np.dot(changeRotated, changeMatrix)
-
-		changeX = changeRotated[0]
-		changeY = -changeRotated[1]
-
-		if self.xChange is not None:
-			# method .item() converts numpy to native python type
-			nX = cX + changeX.item()
-		else:
-			nX = cX
-
-		if self.yChange is not None:
-			nY = cY + changeY.item()
-		else:
-			nY = cY
-
-		if self.pChange is not None:
-			nZ = cZ + self.pChange
-		else:
-			nZ = cZ
-
-		nX = round(nX,2)
-		nY = round(nY,2)
-		nZ = round(nZ,2)
-		return nX, nY, nZ
-	
-
-	
-	def incrementSphereCoords(self, c_theta, c_azimuth, c_prism, degreesToRotate):
-
-		# cAltX = -cX - LEVER_POINT[0]
-		# cAltY = cZ - LEVER_POINT[2]
-		# cAltZ = cY - LEVER_POINT[1]
-
-		degreesToRotate = 0
-
-		if self.thetaChange is None:
-			self.thetaChange = float(0)
-
-		if self.phiChange is None:
-			self.phiChange = float(0)
-
-		# Add rotation of coordinates after mapping
-		changeMatrix = np.array([[self.thetaChange],\
-								 [self.phiChange]])
-        
-		if degreesToRotate is not None:
-			radsToRotate = np.radians(degreesToRotate)
-		else:
-			radsToRotate = 0
-
-		changeRotated = np.array([ [np.cos(radsToRotate), -np.sin(radsToRotate)],\
-								   [np.sin(radsToRotate),  np.cos(radsToRotate)]])
-
-		changeRotated = np.dot(changeRotated, changeMatrix)
-
-
-		# print("X Stick: ", self.RstickX)
-		# print("Y Stick: ", self.RstickY)
-		# print("X Change: ", self.xChange)
-		# print("Y Change: ", self.yChange)
-		# print("Phi Change: ", self.phiChange)
-		# print("Theta Change: ", self.thetaChange)
-		changeTheta = changeRotated[0]
-		changePhi = -changeRotated[1]
-		# print(changeTheta.item())
-		# print(changePhi.item())
-
-		# Calculate spherical coordinates:
-		cTheta = c_theta #mt.atan2(mt.sqrt(cAltX**2 + cAltY**2), cAltZ) 
-		cPhi = c_azimuth # mt.atan2(cAltY, cAltX) 
-		cPrism = c_prism #mt.sqrt((cAltX)**2 + (cAltY)**2 + (cAltZ)**2)
-
-		# Increment the theta, phi and radius as input from controller:
-
-		if self.thetaChange is not None:
-			# method .item() converts numpy to native python type
-			nTheta = cTheta + changeTheta.item()*mt.pi/180
-		else:
-			nTheta = cTheta
-
-		if self.phiChange is not None:
-			nPhi = cPhi + changePhi.item()*mt.pi/180
-		else:
-			nPhi = cPhi
-
-		if self.radChange != 0:
-			nPrism = cPrism + self.radChange
-		else:
-			nPrism = cPrism
-
-		# # Convert back to shperical coordinates
-		# nAltX = nRadius*mt.sin(nTheta)*mt.cos(nPhi)
-		# nAltY = nRadius*mt.sin(nTheta)*mt.sin(nPhi)
-		# nAltZ = nRadius*mt.cos(nTheta)
-
-		# #Do the inverse
-		# nX = -(nAltX + LEVER_POINT[0])
-		# nY = nAltZ + LEVER_POINT[1]
-		# nZ = nAltY + LEVER_POINT[2]
-
-		# print("Change in coords:")
-		# print(cX - nX)
-		# print(cY - nY)
-		# print(cZ - nZ)
-		# print()
-
-		# nX = round(nX,2)
-		# nY = round(nY,2)
-		# nZ = round(nZ,2)
-		return nTheta, nPhi, nPrism
-
 
 
 	def getPSButtonData(self):
@@ -670,10 +488,6 @@ if __name__ == "__main__":
 		# ps4.updateAndMapPS4()
 		ps4Buttons = ps4.getPSButtonData()
 		controllerButtons = ps4Buttons
-		# print(controllerButtons)    
-		# [xPS4, yPS4, zPS4] = ps4.incrementXYZCoords(cX, cY, cZ, rotateDegrees)
-		# cX, cY, cZ = xPS4, yPS4, zPS4
-
 
 		[desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos] = ps4.incrementCylCoords(axialPos, rotaryPos, toolExt, wristAngle, graspPos)
 		axialPos, rotaryPos, toolExt, wristAngle, graspPos = desAxialPos, desRotaryPos, desTooExt, desWristAngle, desGraspPos
