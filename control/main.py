@@ -1245,8 +1245,8 @@ if __name__ == '__main__':
         for x in range(n):
             pumpController.sendStep(zeroAngle, zeroAngle, zeroAngle, zeroAngle, zeroPress, HOLD_MODE, ISOLATE_P_SUPPLY, buttonValue)
             time.sleep(0.2)
-            print(x)
-
+            # print(x)
+    time.sleep(3)
     print("Connected to Control Unit? ", pumpsConnected)
     labelDict["pumpLabel"].config(fg = "green") if pumpsConnected else labelDict["pumpLabel"].config(fg = "red")
 
