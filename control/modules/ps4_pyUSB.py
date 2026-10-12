@@ -43,17 +43,21 @@ for device in devices:
 		INTERFACE_DS4 = 0
 		SETTING_DS4 = 0
 		ENDPOINT_DS4_OUT = 0
+		break
 
 	elif VENDOR_ID_PS4 == device.idVendor:
 		# print("PS4 controller detected")
 		VENDOR_ID = VENDOR_ID_PS4
+		SETTING_DS4 = 0
+		ENDPOINT_DS4_OUT = 0 # Input endpoint
 		PRODUCT_ID = device.idProduct #PRODUCT_ID_PS4
 		if PRODUCT_ID == PRODUCT_ID_PS4:
 			INTERFACE_DS4 = 3 # 0 # HID interface number in cfg list
+			break
 		elif PRODUCT_ID == PRODUCT_ID_PS4_OLD:
 			INTERFACE_DS4 = 0
-		SETTING_DS4 = 0
-		ENDPOINT_DS4_OUT = 0 # Input endpoint
+			break
+
 
 	else:
 		VENDOR_ID = None

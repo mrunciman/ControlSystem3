@@ -38,7 +38,7 @@ class ardLogger():
         self.tempData.extend([realStepL] + [realStepR] + [realStepT] + [realStepP] +
                              [pressL] + [pressR] + [pressT] + [pressP] + [regulatorSensor] +
                              [loadL] + [loadR] + [loadT] + [loadP] +
-                             timeL)
+                             [timeL])
         self.ardData.append(self.tempData)
         self.tempData = []
         return

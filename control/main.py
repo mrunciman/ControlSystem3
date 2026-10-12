@@ -205,7 +205,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 intermedTool, desToolExt = kineSolve.setToolMotor(desToolExt)
                 intermedWrist, desWristAngle = kineSolve.setWristMotor(desWristAngle)
                 intermedGrasp, desGraspPos = kineSolve.setGraspMotor(desGraspPos)
-                # print("Motor angles: ", desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, "\n")
+                print("Motor angles: ", desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, "\n")
                 
 
                 desiredThetaAxial = intermedAxial + jointOffsetList[0]
@@ -276,7 +276,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
 
                 # Log values from arduinos
                 if pumpDataUpdated:
-                    ardLogging.ardLogCollide(stepList, pressList, timeL, loadList)
+                    ardLogging.ardLogAll(stepList, pressList, timeL, loadList)
 
                 # Get current pump position, pressure and times from arduinos
                 stepList, pressList, timeL, loadList = pumpController.getData()
@@ -337,7 +337,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
 
             if pumpsConnected:
                 # Save values gathered from arduinos
-                ardLogging.ardLogCollide(stepList, pressList, timeL, loadList)
+                ardLogging.ardLogAll(stepList, pressList, timeL, loadList)
                 # Save joint information
                 ardLogging.ardSave()
                 # Ensure same number of rows in position log file
