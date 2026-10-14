@@ -48,8 +48,8 @@ class kineSolver:
         # Gantry robot geometry and limits
         ###################################################################
         # Limits on angle change of torque coil / rotary axis
-        self.MIN_ROTARY = -400.0   # degrees 
-        self.MAX_ROTARY =  400.0   # degrees
+        self.MIN_ROTARY = -100.0   # degrees 
+        self.MAX_ROTARY =  100.0   # degrees
         self.targDirRot = 1
         self.prevDirRot = 1
         self.antiHystDegRot = 360/360
@@ -68,7 +68,7 @@ class kineSolver:
 
         # Limits on how far instrument can be extended
         self.MIN_TOOL_EXT = -1000   # mm
-        self.MAX_TOOL_EXT = 1000    # mm
+        self.MAX_TOOL_EXT = 60    # mm
         # Geometry of tool extension motor 
         self.TOOL_EXT_ROLLER_RADIUS = 7.5/2 #mm
 

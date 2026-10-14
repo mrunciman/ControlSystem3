@@ -51,7 +51,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
         posLogging = positionInput.posLogger()
         opTrack = optiStream.optiTracker()
 
-        SAMP_FREQ = 1/kineSolve.TIMESTEP
+        SAMP_FREQ = 100
         CALIBRATION_MODE = 0
         HOLD_MODE = 1
         ACTIVE_MODE = 2
@@ -183,7 +183,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
         # Begin main loop
         next_iteration = time.perf_counter()
         while(not flagStop):
-            next_iteration += kineSolve.TIMESTEP
+            next_iteration += 1/SAMP_FREQ
 
             # Get offsest values from GUI
             jointOffsetIndex = 0
@@ -205,7 +205,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 intermedTool, desToolExt = kineSolve.setToolMotor(desToolExt)
                 intermedWrist, desWristAngle = kineSolve.setWristMotor(desWristAngle)
                 intermedGrasp, desGraspPos = kineSolve.setGraspMotor(desGraspPos)
-                print("Motor angles: ", desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, "\n")
+                # print("Motor angles: ", desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, "\n")
                 
 
                 desiredThetaAxial = intermedAxial + jointOffsetList[0]
@@ -290,11 +290,11 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 kineSolve.TIMESTEP = (timeL - prevTimeL)/1000
                 # kineSolve.TIMESTEP = 0.01
                 if (kineSolve.TIMESTEP < 0.01):
-                    kineSolve.TIMESTEP = 0.01
+                    kineSolve.TIMESTEP = 1/SAMP_FREQ
                 # print((timeL - prevTimeL)/1000)
             else:
                 pumpDataUpdated = False
-                kineSolve.TIMESTEP = 0.01
+                kineSolve.TIMESTEP = 1/SAMP_FREQ
 
             # Update current position, cable lengths, and volumes as previous targets
             prevTimeL = timeL
@@ -307,6 +307,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
             flagStop = classSettings.stopFlag
 
             remaining = next_iteration - time.perf_counter()
+            # print(remaining)
             if remaining > 0:
                 time.sleep(remaining)
             else:

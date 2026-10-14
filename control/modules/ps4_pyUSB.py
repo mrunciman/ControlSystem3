@@ -468,7 +468,8 @@ class ps4USB(threading.Thread):
 			try:
 				usb.util.release_interface(self.dev, INTERFACE_DS4)
 				if platform.system() == "Linux":
-					self.dev.attach_kernel_driver(INTERFACE_DS4)
+					if self.dev.is_kernel_driver_active(INTERFACE_DS4):
+						self.dev.detach_kernel_driver(INTERFACE_DS4)
 			except usb.core.USBError:
 				pass
 

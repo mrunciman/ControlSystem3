@@ -20,7 +20,7 @@ class posLogger():
         # self.fileName = 'desiredLog.csv' # For test purposes
         with open(self.fileName, mode ='w', newline='') as posLog1: 
             logger1 = csv.writer(posLog1)
-            logger1.writerow(['X', 'Y', 'Z', 'inclination', 'azimuth', 'Timestamp', time.time()])
+            logger1.writerow(['ThetaAxial', 'ThetaRotary', 'ThetaTool', 'ThetaTool', 'ThetaGrasp', 'Timestamp', time.time()])
 
     def posLog(self, desX, desY, desZ, inclination, azimuth):
         self.poseData.append([desX] + [desY] + [desZ] + [inclination] + [azimuth] + [time.time()])
