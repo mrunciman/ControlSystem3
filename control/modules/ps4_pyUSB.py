@@ -80,10 +80,15 @@ class ps4USB(threading.Thread):
 		#self.dev.set_configuration()
 		# print(self.dev)
 		if self.dev is not None:
+			if platform.system() == "Linux":
+				if self.dev.is_kernel_driver_active(INTERFACE_DS4):
+					self.dev.detach_kernel_driver(INTERFACE_DS4)
+				usb.util.claim_interface(self.dev, INTERFACE_DS4)
+
 			self.cfg = self.dev.get_active_configuration()
 			# print(self.cfg)
 			self.interface = self.cfg[(INTERFACE_DS4, SETTING_DS4)]
-			# print("Interface  ",  self.interface)
+			# print("Interface  ",  self.interface.bInterfaceNumber)
 			# self.endpoint = self.interface[ENDPOINT_DS4_OUT]
 			self.endpoint = usb.util.find_descriptor(
 				self.interface,
@@ -116,12 +121,7 @@ class ps4USB(threading.Thread):
 					if self.data[0] == 0x30:
 						self.controller = True
 						print("Guli connected:", self.controller)
-
-			if platform.system() == "Linux":
-				if self.dev.is_kernel_driver_active(0):
-					self.dev.detach_kernel_driver(0)
-
-				usb.util.claim_interface(self.dev, 0)	
+	
 			# try:
 			# 	for i in range(interfaceNo+1):
 			# 		# print(i)
@@ -235,7 +235,7 @@ class ps4USB(threading.Thread):
 							self.getChanges()
 
 				except Exception as e:
-					print(f"Error with PS4 controller: {e}")
+					print(f"Error with controller in run(): {e}")
 					self.controller = None
 				
 				
@@ -243,10 +243,15 @@ class ps4USB(threading.Thread):
 			else:
 				# Ps4 controller not connected 
 				# try to reconnect
-				print("Trying reconnect")
+				print("Reconnect controller")
 				try:
+					self.disconnectController()
 					self.dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID, backend=BACKEND)
 					if self.dev is not None:
+						if platform.system() == "Linux":
+							if self.dev.is_kernel_driver_active(INTERFACE_DS4):
+								self.dev.detach_kernel_driver(INTERFACE_DS4)
+							usb.util.claim_interface(self.dev, INTERFACE_DS4)
 						self.cfg = self.dev.get_active_configuration()
 						self.interface = self.cfg[(INTERFACE_DS4, SETTING_DS4)]
 						self.endpoint = usb.util.find_descriptor(
@@ -266,17 +271,13 @@ class ps4USB(threading.Thread):
 								)
 
 							#Initialise Gulikit controller
-							self.send_command(0x01)
-							self.send_command(0x02)
-							self.send_command(0x03)
-							self.send_command(0x02)
-							response = self.send_command(0x04)
-							print(response[0])
+							response = self.send_command(0x01)
+							# print(response[0])
 							if response[0] == 0x30:
 								self.controller = True
 
 				except Exception as e:
-					# print(f"Error with PS4 controller: {e}")
+					print(f"Error with controller in reconnect: {e}")
 					self.controller = None
 			# print(self.RstickX , self.RstickY, self.R1, self.R2)
 
@@ -576,15 +577,15 @@ class ps4USB(threading.Thread):
 		packet[0] = 0x80
 		packet[1] = command
 		# print(f"\nSEND: 80 {command:02X}")
-		self.endpoint_out.write(packet, timeout=1000)
+		self.endpoint_out.write(packet)
 
 		try:
-			response = self.endpoint.read(64, timeout=1000)
+			response = self.endpoint.read(64)
 			# print("RECV:"," ".join(f"{x:02X}" for x in response))
 			return response
 
 		except usb.core.USBTimeoutError:
-			print("No response")
+			print("No response - timeout")
 			return None
 		
 
@@ -639,9 +640,9 @@ class ps4USB(threading.Thread):
 	def disconnectController(self):
 		if self.dev is not None:
 			try:
-				usb.util.release_interface(self.dev, 0)
+				usb.util.release_interface(self.dev, INTERFACE_DS4)
 				if platform.system() == "Linux":
-					self.dev.attach_kernel_driver(0)
+					self.dev.attach_kernel_driver(INTERFACE_DS4)
 			except usb.core.USBError:
 				pass
 
