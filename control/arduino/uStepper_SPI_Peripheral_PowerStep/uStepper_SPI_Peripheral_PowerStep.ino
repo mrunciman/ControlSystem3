@@ -4,7 +4,11 @@
 
 uStepperS stepper;
 
-const uint8_t SS_Pin = 3;
+//The following line needs changing if SS_Pin is anything other than 3
+//if ((PIND & _BV(PD3)) == 0) {
+#define SOFTWARE_SS_PIN_REG PIND
+#define SOFTWARE_SS_BIT PD3
+const uint8_t SS_Pin = 3; 
 
 union dataFloat{
   float fData;
@@ -37,7 +41,7 @@ volatile dataFloat posFromController;
 const int NUM_CHARS = 4;
 const int LAST_CHAR_NUM = 5;
 
-char inputArray[56];
+// char inputArray[56];
 
 volatile int posIndex = 0;
 volatile uint8_t lastByte = 0;
@@ -53,7 +57,10 @@ char END_MESSAGE = '>';
 char POWER_ON_FLAG = 'Y';
 char POWER_OFF_FLAG = 'N';
 volatile bool powerState = false;
-volatile bool prevPowerState = false;
+// volatile bool prevPowerState = false;
+volatile bool requestedPowerState = false;
+volatile bool requestedPowerStateValid = false;
+bool powerEnabled = false;
 
 
 float LEAD = 8.0;
@@ -74,7 +81,6 @@ float angleEstLocal = 0.0;
 
 void setup(void)
 {
-  noInterrupts();
   Serial.begin(115200);
   if (ENABLECLOSEDLOOP){
     stepper.setup(CLOSEDLOOP,200);   // stepper.setup();     //Initiate the stepper object with default settings
@@ -107,13 +113,14 @@ void setup(void)
   pinMode(MISO0, OUTPUT);
   pinMode(SS0, INPUT);
   // pinMode(SCK0, INPUT);
-  pinMode(SS_Pin, INPUT);
+  // pinMode(SS_Pin, INPUT);
+  pinMode(SS_Pin, INPUT_PULLUP);
   
-  // turn on SPI in peripheral mode, but with no interrupt
+  noInterrupts();
+  // turn on SPI in peripheral mode
   SPCR0 = 0;
   SPCR0 |= (1<<SPIE0)|(1<<SPE0)|(0<<DORD0)|(0<<MSTR0)|(0<<CPOL0)|(0<<CPHA0)|(0<<SPR01)|(0<<SPR00); // SPI_MODE Defined by CPOL and CPHA)
-  SPSR0 &= ~(0<<SPI2X0);
-
+  // SPSR0 &= ~(0<<SPI2X0);
   interrupts();
 }
 
@@ -123,6 +130,11 @@ void setup(void)
 ISR (SPI_STC_vect){
   // Continue if this peripheral is selected
   if (digitalRead(SS_Pin) == LOW){
+  // if ((SOFTWARE_SS_PIN_REG & _BV(SOFTWARE_SS_BIT)) == 0) {
+    if (receivedOK) {
+      // Previous complete packet has not yet been consumed.
+      return;
+    }
     char c = SPDR0;
     // delayMicroseconds(microDelay);
     // If start byte was received in a previous call and
@@ -139,24 +151,39 @@ ISR (SPI_STC_vect){
       }
       else if(posIndex == NUM_CHARS){//(c is power state bit){
         // Serial.println(c, DEC);
-        prevPowerState = powerState;
+        // prevPowerState = powerState;
         if (c == POWER_ON_FLAG){
-          powerState = true;
+          requestedPowerState = true;
+          requestedPowerStateValid = true;
         }
-        else{
-          powerState = false;
+        else if (c == POWER_OFF_FLAG){
+          requestedPowerState = false;
+          requestedPowerStateValid = true;
+        }
+        else {
+          requestedPowerStateValid = false;
+          startMsgReceived = false;
+          endMsgReceived = false;
+          receivedOK = false;
+          posIndex = 0;
+          return;
         }
         posIndex++;
       }
       else if(posIndex == LAST_CHAR_NUM){//(c == END_MESSAGE){
         // Serial.println(c, DEC);
-        if(c == END_MESSAGE){
+        if((c == END_MESSAGE) && requestedPowerStateValid){
           // Serial.println("End message");
           receivedOK = true;
           endMsgReceived = true;
-          startMsgReceived = false;
         }
-        posIndex++;
+        else{
+          receivedOK = false;
+          endMsgReceived = false;
+        }
+        startMsgReceived = false;
+        requestedPowerStateValid = false;
+        posIndex = 0;
       }
       else{
         // posIndex is incorrect
@@ -164,6 +191,8 @@ ISR (SPI_STC_vect){
         startMsgReceived = false;
         endMsgReceived = false;
         receivedOK = false;
+        requestedPowerStateValid = false;
+        posIndex = 0;
         // Serial.println(c, BIN);
       }
     }
@@ -172,22 +201,28 @@ ISR (SPI_STC_vect){
       startMsgReceived = true;
       endMsgReceived = false;
       receivedOK = false;
+      requestedPowerStateValid = false;
       // Serial.println();
       // Serial.println("Start message");
       // Serial.println(c);    
       posIndex = 0;
       // SPDR0 = 0;//posEncoder.bData[posIndex];
     }
-    else if (c == END_MESSAGE){
-      endMsgReceived = true;
-      startMsgReceived = false;
-      receivedOK = false;
-      // check for posIndex == 4    - this should always be the case
-      // Serial.println("End message - wrong place");
-    }
+    // else if (c == END_MESSAGE){
+    //   startMsgReceived = false;
+    //   endMsgReceived = false;
+    //   receivedOK = false;
+    //   requestedPowerStateValid = false;
+    //   posIndex = 0;
+    //   // check for posIndex == 4    - this should always be the case
+    //   // Serial.println("End message - wrong place");
+    // }
     else{
       startMsgReceived = false;
+      endMsgReceived = false;
       receivedOK = false;
+      requestedPowerStateValid = false;
+      posIndex = 0;
       // either startMsgReceived is false or posIndex is too high, and
       // data doesn't correspond to start or end bytes 
       // Serial.print(c, BIN);
@@ -255,19 +290,23 @@ void encoderFlag(){
 }
 
 
-void toggleMotorPower(bool powState, bool prevPowState){
+void toggleMotorPower(bool powState){//, bool prevPowState){
   // Disable motor power based on status byte from controllerz
   // First check for a change in status:
-  if (prevPowState != powState){
-    if(powState == true){
+  if(powState == true){
+    if(powerEnabled == false){
       stepper.setBrakeMode(HARDBRAKE, brakeCurrent);
+      powerEnabled = true;
       if (ENABLECLOSEDLOOP){
         stepper.enablePid();
       }
     }
-    else {
+  }
+  else {
+    if(powerEnabled == true){
       stepper.setBrakeMode(FREEWHEELBRAKE);
       stepper.disablePid();
+      powerEnabled = false;
     }
   }
 }
@@ -291,12 +330,14 @@ void loop(void)
     angleEstDriver = convertStepToAngle(stepCountDriver);
 
     // Put in float variable for SPI comms
+    noInterrupts();
     if (ENABLECLOSEDLOOP){
       posEncoder.fData = angleEncoder;
     }
     else{
       posEncoder.fData = angleEstDriver;
     }
+    interrupts();
     
     // encoderFlag();
 
@@ -304,59 +345,102 @@ void loop(void)
   }
 
 
+  bool packetAvailable = false;
+  bool localRequestedPowerState = false;
+  float localRequestedAngle = 0.0f;
+
   // If both start and end messages received correctly,
   // change angular position received from controller
-  if (checkInput() == 1){// Check the input array and reset the receivedOK flag
-    toggleMotorPower(powerState, prevPowerState);
-    checkEncoder(encoderOK);
+  noInterrupts();
+  if (receivedOK) {
+      localRequestedPowerState = requestedPowerState;
+      localRequestedAngle = posFromController.fData;
 
-    // Read desired angle from pump controller
-    angleDesired = posFromController.fData;
-    // Convert desired angle to number of microsteps
-    stepCountDesired = convertDesiredAngleToStepNumber(angleDesired);    
+      receivedOK = false;
+      endMsgReceived = false;
 
-    // Update actual position, expressed in microsteps
-    stepCountDriver = stepper.driver.getPosition();
-    // int load = stepper.driver.getStallValue();
-    // Serial.println(angleDesired);
-
-    // Calculate difference between desired position and actual position
-    stepError = stepCountDesired - stepCountDriver;
-
-    // Move towards target position
-    if(powerState){
-      // Checking the power first will make sure stepCountDriver is accurate
-      stepper.moveSteps(stepError);
-    }
-
-    // IF angleEncoder FROM ENCODER DOESN'T MATCH THE ESTIMATED ANGLE 
-    // angleEstDriver FROM THE DRIVER THEN WE HAVE A PROBLEM
-
-
-    // Serial.print("Encoder:    ");
-    // Serial.println(angleEncoder);
-
-    // Serial.print("Est angle:  ");
-    // Serial.println(angleEstDriver);
-    // Serial.print("Angle in:   ");
-    // Serial.println(angleDesired);
-
-    // Serial.print("Est steps:  ");
-    // Serial.println(stepCountDriver);
-    // Serial.print("Step in:    ");
-    // Serial.println(stepCountDesired);
-
-    // Serial.print("Step error: ");
-    // Serial.println(stepError);
-
-    // Serial.print("Power:      ");
-    // Serial.println(powerState);
-    // Serial.println();
-
-    // Clear message flags so that any one message
-    // will only move the motor once.
-    startMsgReceived = false;
-    endMsgReceived = false;
+      packetAvailable = true;
   }
+  interrupts();
+
+  // Only make changes on whole packets, avoiding data from previous packets leaking into current
+  if (packetAvailable) {
+      powerState = localRequestedPowerState;
+      angleDesired = localRequestedAngle;
+
+      toggleMotorPower(powerState);
+
+      stepCountDesired = convertDesiredAngleToStepNumber(angleDesired);
+
+      stepCountDriver = stepper.driver.getPosition();
+
+      stepError = stepCountDesired - stepCountDriver;
+
+      if (powerState) {
+          stepper.moveSteps(stepError);
+      }
+  }
+
+  // // If both start and end messages received correctly,
+  // // change angular position received from controller
+  // if (checkInput() == 1){// Check the input array and reset the receivedOK flag
+  //   if (requestedPowerState != powerState) {
+  //     prevPowerState = powerState;
+  //     powerState = requestedPowerState;
+  //   }
+  //   toggleMotorPower(powerState);
+  //   // toggleMotorPower(powerState, prevPowerState);
+  //   checkEncoder(encoderOK);
+
+  //   // Read desired angle from pump controller
+  //   noInterrupts();
+  //   angleDesired = posFromController.fData;
+  //   interrupts();
+  //   // Convert desired angle to number of microsteps
+  //   stepCountDesired = convertDesiredAngleToStepNumber(angleDesired);    
+
+  //   // Update actual position, expressed in microsteps
+  //   stepCountDriver = stepper.driver.getPosition();
+  //   // int load = stepper.driver.getStallValue();
+  //   // Serial.println(angleDesired);
+
+  //   // Calculate difference between desired position and actual position
+  //   stepError = stepCountDesired - stepCountDriver;
+
+  //   // Move towards target position
+  //   if(powerState){
+  //     // Checking the power first will make sure stepCountDriver is accurate
+  //     stepper.moveSteps(stepError);
+  //   }
+
+  //   // IF angleEncoder FROM ENCODER DOESN'T MATCH THE ESTIMATED ANGLE 
+  //   // angleEstDriver FROM THE DRIVER THEN WE HAVE A PROBLEM
+
+
+  //   // Serial.print("Encoder:    ");
+  //   // Serial.println(angleEncoder);
+
+  //   // Serial.print("Est angle:  ");
+  //   // Serial.println(angleEstDriver);
+  //   // Serial.print("Angle in:   ");
+  //   // Serial.println(angleDesired);
+
+  //   // Serial.print("Est steps:  ");
+  //   // Serial.println(stepCountDriver);
+  //   // Serial.print("Step in:    ");
+  //   // Serial.println(stepCountDesired);
+
+  //   // Serial.print("Step error: ");
+  //   // Serial.println(stepError);
+
+  //   // Serial.print("Power:      ");
+  //   // Serial.println(powerState);
+  //   // Serial.println();
+
+  //   // Clear message flags so that any one message
+  //   // will only move the motor once.
+  //   startMsgReceived = false;
+  //   endMsgReceived = false;
+  // }
   
 }

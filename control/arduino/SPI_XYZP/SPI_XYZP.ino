@@ -74,12 +74,13 @@ CS11 - 32
 CS12 - 33
 */
 
+
 // X is Left actuator, Y is Right, Z is Top
-int selectPinRot = 10;   // Axial - first value from Pi - CS2
-int selectPinTool = 11;  // Rotary - second value from Pi - CS3
-int selectPinWrist = 12; // Tool - third from Pi - CS4
-int selectPinAxial = 9;  // Wrist - 4th from Pi - CS1
-int selectPinGrasp = 28; // Grasper - 5th value from Pi - CS9
+int selectPinAxial = 10; // Axial - first value from Pi - CS2
+int selectPinRot = 11;   // Rotary - second value from Pi - CS3
+int selectPinTool = 12;  // Tool - third from Pi - CS4
+int selectPinWrist = 9;  // Wrist - 4th from Pi - CS1
+int selectPinGrasp = 28; // Grasper - 5th value from Pi - CS7
 
 int pressPinX = A4;
 int pressPinY = A3;
@@ -239,11 +240,11 @@ void setup() {
   analogReference(INTERNAL2V56);
 
   // Initialise pumps 
-  axisList[0].init(selectPinRot, pressPinX, LOOP_PERIOD, limitPinRot);     // Axial
-  axisList[1].init(selectPinTool, pressPinY, LOOP_PERIOD, limitPinTool);   // Rotary
-  axisList[2].init(selectPinWrist, pressPinZ, LOOP_PERIOD, limitPinWrist); // Wrist
-  axisList[3].init(selectPinAxial, pressPinP, LOOP_PERIOD, limitPinAxial); // Tool
-  axisList[4].init(selectPinGrasp, pressPinAir, LOOP_PERIOD, limitPinGrasp); // Grasper
+  axisList[0].init(selectPinAxial, pressPinX, LOOP_PERIOD, limitPinRot);     // Axial pin 10   - first value from Pi - CS2
+  axisList[1].init(selectPinRot, pressPinY, LOOP_PERIOD, limitPinTool);      // Rotary pin 11  - second value from Pi - CS3
+  axisList[2].init(selectPinTool, pressPinZ, LOOP_PERIOD, limitPinWrist);    // Wrist pin 12   - third from Pi - CS4
+  axisList[3].init(selectPinWrist, pressPinP, LOOP_PERIOD, limitPinAxial);   // Tool pin 9     - 4th from Pi - CS1
+  axisList[4].init(selectPinGrasp, pressPinAir, LOOP_PERIOD, limitPinGrasp); // Grasper pin 28 - 5th value from Pi - CS7
 
   //Initialise pressure regulator
   // pressureRegulator.init(selectPinGrasp, pressPinAir, valvePin, valvePinStruct);

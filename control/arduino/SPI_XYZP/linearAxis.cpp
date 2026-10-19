@@ -75,6 +75,7 @@ void LinAxis::sendRecvFloat_POWER(dataFloat *outData, dataFloat *inData, char po
   SPI.beginTransaction(settingsSPI);
   // take the select pin low to activate buffer
   digitalWrite(selectPin, LOW);
+  delayMicroseconds(microDelay);
   
   //Send first byte and discard last byte that was sent (lastByte)
   // transfer first sends data on MOSI, then waits and receives from MISO
