@@ -5,31 +5,87 @@ Enables connection, pressure monitoring, and step count monitoring for later bur
 protection and volume calculation.
 """
 import serial 
+import serial.tools.list_ports
 import time
 import numpy as np
 
+WINDOW_SIZE = 10
+
+def ardConnect():
+    # serial.tools.list_ports.comports()
+    comlist = []
+    for comport in serial.tools.list_ports.comports():
+        comlist.append(comport.device)
+    # print(comlist)
+
+    PUMPNAMES = ['LHS', 'RHS', 'TOP', 'PRI']#, 'PNEU']
+    pumpDict = {}
+    serialDict = {}
+
+    reply = ""
+    replyFlag = 0
+    MAXREPLYNO  = len(PUMPNAMES)
+    MESSAGE = '1'
+    MESSAGE = MESSAGE.encode('utf-8')
+
+    # Find the pumps and determine their names, otherwise flag that they're not connected
+    
+    # Open each device in COM port list
+    for device in comlist:
+        replyFlag = 0
+        with serial.Serial() as ser:
+            ser.baudrate = 115200
+            ser.port = device
+            ser.timeout = 0
+            ser.open()
+            ser.reset_input_buffer()
+            #Leave time to initialise
+            time.sleep(1)
+
+            while(replyFlag != MAXREPLYNO):
+                ser.write(MESSAGE)
+                #delay before reading reply
+                time.sleep(1)
+                reply = ser.readline().strip()
+                reply = reply.decode('ascii')
+                ser.reset_input_buffer()
+                # print("Reply: ", reply)
+
+                if reply in PUMPNAMES:
+                    index = PUMPNAMES.index(reply) # Which one of pumpNames was reply
+                    pumpDict.update({PUMPNAMES[index]:device})
+                    serialDict.update({device:ser})
+                    reply = ""
+                    break
+                replyFlag += 1
+        # print(pumpDict)
+
+    return pumpDict, serialDict, PUMPNAMES, comlist
+
 class ardInterfacer:
 
-    def __init__(self, namePump, numPort):
-        self.pumpName = namePump
-        self.portNumber = numPort
-        self.ser = serial.Serial()
-        self.ser.port = 'COM%s' % (self.portNumber) 
-        self.ser.baudrate = 115200
-        self.ser.timeout = 0
+    def __init__(self, namePump, ser):
+        self.PUMP_NAME = namePump
+        # self.portNumber = numPort
+        # self.ser = serial.Serial()
+        # self.ser.port = 'COM%s' % (self.portNumber) 
+        # self.ser.baudrate = 115200
+        # self.ser.timeout = 0
+        self.ser = ser
 
-        self.press1 = 0.0
-        self.press2 = 0.0
-        self.press3 = 0.0
-        self.press4 = 0.0
-        self.press5 = 0.0
-        self.press6 = 0.0
-        self.press7 = 0.0
-        self.press8 = 0.0
-        self.press9 = 0.0
-        self.press10 = 0.0
-        self.pressArray = np.array([self.press1, self.press2, self.press3, self.press4, self.press5, \
-            self.press6, self.press7, self.press8, self.press9, self.press10])
+        # self.press1 = 0.0
+        # self.press2 = 0.0
+        # self.press3 = 0.0
+        # self.press4 = 0.0
+        # self.press5 = 0.0
+        # self.press6 = 0.0
+        # self.press7 = 0.0
+        # self.press8 = 0.0
+        # self.press9 = 0.0
+        # self.press10 = 0.0
+        # self.pressArray = np.array([self.press1, self.press2, self.press3, self.press4, self.press5, \
+        #     self.press6, self.press7, self.press8, self.press9, self.press10])
+        self.pressArray = np.zeros(WINDOW_SIZE)
         self.pressMed = np.median(self.pressArray)
         self.pressMedPrev = self.pressMed
 
@@ -47,7 +103,7 @@ class ardInterfacer:
         e.g. top = connect("TOP", 4)
         """
         self.ser.open()
-        message = self.pumpName + "\n"
+        message = self.PUMP_NAME + "\n"
         reply = ""
         message = message.encode('utf-8')    #Encode message
         time.sleep(1)     #give arduino time to set up (there are delays in arduino code for pressure sensor)
@@ -60,7 +116,7 @@ class ardInterfacer:
                 self.ser.reset_input_buffer()
                 reply = reply.decode('ascii')
 
-                if reply == self.pumpName:
+                if reply == self.PUMP_NAME:
                     self.ser.reset_output_buffer()
                     break
 
@@ -69,21 +125,50 @@ class ardInterfacer:
 
 
 
-    def sendStep(self, stepNumber):
+    def sendStep(self, stepNumber, controlState = None, inflationState = None):
         """
         This function sends ideal position (stepNumber) then receives
         the real step count (stepCount) from arduino.
         steps = sendStep(serialConnection, stepNumber)
         """
         if type(stepNumber) != str:
-            stepString = "{:04d}".format(stepNumber)
+            stepString = "{:06d}".format(stepNumber)
         else:
             stepString = stepNumber
-        message = "S" + stepString + "\n"
+        # If we are sending the extra state variables, alter the 
+        # output message appropriately
+        if controlState is not None:
+            msg = self.setState(controlState, inflationState)
+            message = msg + stepString + "\n"
+        else:
+            message = "S" + stepString + "\n"
         # print("Message: ", repr(message))
         message = message.encode('utf-8')
         self.ser.write(message)
         return
+    
+    def setState(self, controlState, inflationState):
+        # Choice of control states of C, H, or S
+        # calibration state is C
+        # Hold state is H
+        # Active mode is S
+        if controlState == 1:
+            msg = "C"
+        elif controlState == 2:
+            msg = "H"
+        elif controlState == 3:
+            msg = "S"
+        # Choice of inflation states of I or D
+        # inflated state is I
+        # deflated is D
+        if inflationState == 0:
+            msg = msg + "I"
+        elif inflationState == 1:
+            msg = msg + "D"
+        else:
+            msg = msg + "_" # Decimal 95
+        return msg
+
 
 
 
@@ -94,6 +179,8 @@ class ardInterfacer:
         # Wait here for reply - source of delay
         while noBytes == 0:
             noBytes = self.ser.in_waiting
+        # stepPress = self.ser.readline()
+        # print(stepPress)
         # Read all bytes in input buffer
         # stepPress = ser.read(noBytes)
         # Check for end character
@@ -101,32 +188,47 @@ class ardInterfacer:
             x = self.ser.read()
             if x == b"":
                 break
-            elif x == b"E":
+            if x == b"E":
                 break
             stepPress = stepPress + x
 
+        # print(stepPress)
         stepPress = stepPress.decode('utf-8')
+        # print(stepPress)
         stepPress = stepPress.split(',')
         # print(stepPress)
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
 
         # IF STEP COUNT = L_'pumpName' STOP AND DISCONNECT ALL
-
+        # print(stepPress)
         if stepPress == ['']:
             stepCount = "S_Empty" # Change this later to handle dropped values
             pumpPress = "P_Empty"
             pumpTime = "T_Empty"
-        else:
+        elif len(stepPress) == 3:
             stepCount = stepPress[0]
             if "L " in stepCount: # If "L " in stepPress then limit hit/pressure error
                 print("In from arduino: ", stepPress)
                 raise TypeError('Pressure limit or switch hit in main loop')
-            pumpPress = float(stepPress[1])/10
-            # if pumpPress < 0:
-            #     print("Negative pressure: ", stepPress)
-            #     raise TypeError('Error reading pressure in main loop')
-            pumpTime = int(stepPress[2])
+
+            filtPump = filter(str.isdigit, stepPress[1])
+            pumpPress = "".join(filtPump)
+            if pumpPress == "":
+                pumpPress = 0
+            pumpPress = int(pumpPress)*10 # pressure in Pascals
+            # pumpPress = int(stepPress[1])/10 # pressure in mbar
+
+            filtTime = filter(str.isdigit, stepPress[2])
+            pumpTime = "".join(filtTime)
+            if pumpTime == "":
+                pumpTime = 0
+            pumpTime = int(pumpTime)
+
+        else:
+            stepCount = stepPress
+            pumpPress = 0
+            pumpTime = 0
         return stepCount, pumpPress, pumpTime
 
 
@@ -138,59 +240,66 @@ class ardInterfacer:
             pumpTime = timeIn
             return stepCount, pumpPress, pumpTime
         else:
-            x = "e"
-            stepPress = b""
-            while self.ser.in_waiting == 0:
-                pass
-            # Check for end character
-            while ord(x) != ord("E"):
-                x = self.ser.read()
-                if x == b"":
-                    break
-                elif x == b"E":
-                    break
-                stepPress = stepPress + x
-
-            stepPress = stepPress.decode('utf-8')
-            stepPress = stepPress.split(',')
-            self.ser.reset_input_buffer()
-            self.ser.reset_output_buffer()
-
-            if stepPress == b"":
-                stepCount = "S_Empty" # Change this later to handle dropped values
-                pumpPress = "P_Empty"
-                pumpTime = "T_Empty"
-            else:
-                # print(stepPress)
-                stepCount = stepPress[0]
-                if "L " in stepCount: # If "L " in stepPress then limit hit/pressure error
-                    print("In from arduino: ", stepPress)
-                    raise TypeError('Pressure limit or switch hit during calibration')
-                pumpPress = float(stepPress[1])/10
-                # if pumpPress < 0:
-                #     print("Negative pressure: ", stepPress)
-                #     raise TypeError('Error reading pressure during calibration')
-                pumpTime = int(stepPress[2])
-
-            # if (isPumpZero == True):
-            #     stepCount = 0
-            #     pumpPress = pressIn
-            #     pumpTime = timeIn
+            [stepCount, pumpPress, pumpTime] = self.listenReply()
             return stepCount, pumpPress, pumpTime
+        # else:
+        #     x = "e"
+        #     stepPress = b""
+        #     while self.ser.in_waiting == 0:
+        #         pass
+        #     # Check for end character
+        #     while ord(x) != ord("E"):
+        #         x = self.ser.read()
+        #         if x == b"":
+        #             break
+        #         elif x == b"E":
+        #             break
+        #         stepPress = stepPress + x
+
+        #     stepPress = stepPress.decode('utf-8')
+        #     stepPress = stepPress.split(',')
+        #     self.ser.reset_input_buffer()
+        #     self.ser.reset_output_buffer()
+        #     print("In from arduino: ", stepPress)
+
+        #     if stepPress == b"":
+        #         stepCount = "S_Empty" # Change this later to handle dropped values
+        #         pumpPress = "P_Empty"
+        #         pumpTime = "T_Empty"
+        #     else:
+        #         # print(stepPress)
+        #         stepCount = stepPress[0]
+        #         if "L " in stepCount: # If "L " in stepPress then limit hit/pressure error
+        #             print("In from arduino: ", stepPress)
+        #             raise TypeError('Pressure limit or switch hit during calibration')
+        #         pumpPress = float(stepPress[1])/10
+        #         # if pumpPress < 0:
+        #         #     print("Negative pressure: ", stepPress)
+        #         #     raise TypeError('Error reading pressure during calibration')
+        #         pumpTime = int(stepPress[2])
+
+        #     # if (isPumpZero == True):
+        #     #     stepCount = 0
+        #     #     pumpPress = pressIn
+        #     #     pumpTime = timeIn
+        #     return stepCount, pumpPress, pumpTime
 
     def newPressMed(self, newPress):
-        self.press10 = self.press9
-        self.press9 = self.press8
-        self.press8 = self.press7
-        self.press7 = self.press6
-        self.press6 = self.press5
-        self.press5 = self.press4
-        self.press4 = self.press3
-        self.press3 = self.press2
-        self.press2 = self.press1
-        self.press1 = newPress
-        self.pressArray = np.array([self.press1, self.press2, self.press3, self.press4, self.press5,\
-            self.press6, self.press7, self.press8, self.press9, self.press10])
+        # self.press10 = self.press9
+        # self.press9 = self.press8
+        # self.press8 = self.press7
+        # self.press7 = self.press6
+        # self.press6 = self.press5
+        # self.press5 = self.press4
+        # self.press4 = self.press3
+        # self.press3 = self.press2
+        # self.press2 = self.press1
+        # self.press1 = newPress
+        np.roll(self.pressArray, 1)
+        self.pressArray[0] = newPress
+
+        # self.pressArray = np.array([self.press1, self.press2, self.press3, self.press4, self.press5,\
+        #     self.press6, self.press7, self.press8, self.press9, self.press10])
         self.pressMedPrev = self.pressMed
         self.pressMed = np.median(self.pressArray)
 

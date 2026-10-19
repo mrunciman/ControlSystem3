@@ -1,7 +1,0 @@
-{
-    "board": "arduino:avr:uno",
-    "sketch": "VolumeControl.ino",
-    "programmer": "AVR ISP",
-    "output": "../ArduinoOutput",
-    "port": "COM15"
-}

@@ -1,4 +1,13 @@
 import optirx as rx
+import csv
+import os
+import time
+
+location = os.path.dirname(__file__)
+parent = os.path.dirname(location)
+logTime = time.strftime("%Y-%m-%d %H-%M-%S")
+relative = "logs/opti/optiTrack " + logTime + ".csv"
+fileName = os.path.join(parent, relative)
 
 class optiTracker:
 
@@ -6,24 +15,38 @@ class optiTracker:
         self.marker1 = (0, 0, 0)
         self.marker2 = (0, 0, 0)
         self.marker3 = (0, 0, 0)
-        self.version = (2, 10, 0, 0)  # NatNet version to use
+        self.version = (2, 9, 0, 0)  # NatNet version to use
         self.trackSock = rx.mkdatasock()
+        # self.trackSock.setblocking(False)
+        # self.trackSock.connect(self.trackSock)
+        # print(self.trackSock)
         self.packet = []
         self.trackData = []
+        self.markerData = []
     
     def readSocket(self):
         self.trackData = self.trackSock.recv(rx.MAX_PACKETSIZE)
+        print(self.trackData)
         self.packet = rx.unpack(self.trackData, version=self.version)
         if type(self.packet) is rx.SenderData:
             self.version = self.packet.natnet_version
         self.marker1 = self.packet.labeled_markers[0].position
         self.marker2 = self.packet.labeled_markers[1].position
-        self.marker3 = self.packet.labeled_markers[2].position
-        print("M1: ", self.marker1, "M2: ", self.marker2, "M3: ", self.marker3)
-        return self.marker1, self.marker2, self.marker3
+        self.markerData.append([self.marker1] + [self.marker2])
+        # self.marker3 = self.packet.labeled_markers[2].position
+        # print("M1: ", self.marker1, "M2: ", self.marker2, "M3: ", self.marker3)
+        # return self.marker1, self.marker2, self.marker3
+        return self.marker1, self.marker2
+
+    def optiSave(self):
+        with open(fileName, 'a', newline='') as optiLog:
+            optiLog2 = csv.writer(optiLog)
+            for i in range(len( self.markerData)):
+                optiLog2.writerow( self.markerData[i])
+        return
 
     def closeSocket(self):
-        self.trackSock.shutdown()
+        # self.trackSock.shutdown() # Socket methods
         self.trackSock.close()
 
 

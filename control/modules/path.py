@@ -21,9 +21,13 @@ class pathGenerator:
         self.zPath = np.array([])
 
         # File name initialisation
-        self.location = os.path.dirname(__file__)
+        if os.path.isdir("C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime"):
+            self.location = "C:/Users/msrun/OneDrive - Imperial College London/Imperial/DataLogs/DT_Prime"
+        else:
+            self.location = os.path.dirname(__file__)
+        # print(os.path.abspath(os.pardir))
         self.logTime = time.strftime("%Y-%m-%d %H-%M-%S")
-        self.relative = "paths/genericPath" + self.logTime + str(self.sideLength) + "EqSide.csv"
+        self.relative = "../paths/genericPath" + self.logTime + str(self.sideLength) + "EqSide.csv"
         self.fileName = []
 
     def generatePath(self):
@@ -46,7 +50,7 @@ class pathGenerator:
         circRadius = 0.6250
         circRad = circRadius #np.concatenate([np.linspace(0, self.circRadius, self.noSteps), np.linspace(self.circRadius, 0, self.noSteps)])
 
-        self.relative = "paths/circPath " + self.logTime + " " + str(circRadius) + "mmRad" + str(numReps) + "Reps.csv"
+        self.relative = "../paths/circPath " + self.logTime + " " + str(circRadius) + "mmRad" + str(numReps) + "Reps.csv"
         self.fileName = os.path.join(self.location, self.relative)
 
         rotStep = np.linspace(0, 2*mt.pi*(1 - 1/(noSteps)), noSteps)
@@ -64,7 +68,7 @@ class pathGenerator:
         topHelix = 35
         circRad = circRadius #np.concatenate([np.linspace(0, self.circRadius, self.noSteps), np.linspace(self.circRadius, 0, self.noSteps)])
 
-        self.relative = "paths/helixPath " + self.logTime + " " + str(circRadius) + "mmRad" + str(numReps) + "Reps.csv"
+        self.relative = "../paths/helixPath " + self.logTime + " " + str(circRadius) + "mmRad" + str(numReps) + "Reps.csv"
         self.fileName = os.path.join(self.location, self.relative)
 
         rotStep = np.linspace(0, numRots*2*mt.pi*(1 - 1/(noSteps)), noSteps)
@@ -85,7 +89,7 @@ class pathGenerator:
         bwdRadius = np.linspace(circRadius, 0, noSteps)
         spiralRad = np.concatenate((fwdRadius, bwdRadius))
 
-        self.relative = "paths/spiralPath " + self.logTime + " " + str(circRadius) + "mmRad" + str(self.sideLength) + "EqSide.csv"
+        self.relative = "../paths/spiralPath " + self.logTime + " " + str(circRadius) + "mmRad" + str(self.sideLength) + "EqSide.csv"
         self.fileName = os.path.join(self.location, self.relative)
 
         fwdRot = np.linspace(0, 2*mt.pi*(1 - 1/(noSteps)), noSteps)
@@ -108,8 +112,8 @@ class pathGenerator:
         numRots = 5
         noSteps = 180*numRots # number of steps per 
         circRadius = 15
-        bottomSpiral = 2.5
-        topSpiral = 32.5
+        bottomSpiral = 110
+        topSpiral = 110
 
         fwdRadius = np.linspace(0, circRadius, noSteps)
         bwdRadius = np.linspace(circRadius, 0, noSteps)
@@ -118,7 +122,7 @@ class pathGenerator:
         spiralPrism = np.concatenate((fwdPrism, bwdPrism))
         spiralRad = np.concatenate((fwdRadius, bwdRadius))
 
-        self.relative = "paths/spiralZ " + self.logTime + " " + str(circRadius) + "mmRad" + str(self.sideLength) + "EqSide.csv"
+        self.relative = "../paths/spiralZ " + self.logTime + " " + str(circRadius) + "mmRad" + str(self.sideLength) + "EqSide.csv"
         self.fileName = os.path.join(self.location, self.relative)
 
         fwdRot = np.linspace(0, numRots*2*mt.pi*(1 - 1/(noSteps)), noSteps)
@@ -156,7 +160,7 @@ class pathGenerator:
         spiralPrism = flatSpirZ*np.ones(2*noSteps)
         spiralRad = np.concatenate((fwdRadius, bwdRadius))
 
-        self.relative = "paths/spiralOnCyl " + self.logTime + " " + str(circRadius) + "mmRad" + str(self.sideLength) + "EqSide.csv"
+        self.relative = "../paths/spiralOnCyl " + self.logTime + " " + str(circRadius) + "mmRad" + str(self.sideLength) + "EqSide.csv"
         self.fileName = os.path.join(self.location, self.relative)
 
         fwdRot = np.linspace(0, numRots*2*mt.pi*(1 - 1/(noSteps)), noSteps)
@@ -223,7 +227,7 @@ class pathGenerator:
         lenVerLines = heightFactor*maxLenHorLines
         # Next line up: starts vertically above last, ends at intersection with triangle
 
-        self.relative = "paths/raster " + self.logTime + " " + str(sideFactor) + "B" + str(heightFactor) + "H"\
+        self.relative = "../paths/raster " + self.logTime + " " + str(sideFactor) + "B" + str(heightFactor) + "H"\
             + str(self.sideLength) + "EqSide.csv"
         self.fileName = os.path.join(self.location, self.relative)
 
@@ -313,7 +317,7 @@ class pathGenerator:
         strainRange = maxStrain - minStrain
         numSteps = strainRange/stepSize
 
-        self.relative = "paths/PV " + self.logTime + " 2-17mm " + str(stepSize) + "mm step.csv"
+        self.relative = "../paths/PV " + self.logTime + " 2-17mm " + str(stepSize) + "mm step.csv"
         self.fileName = os.path.join(self.location, self.relative)
 
         sixSecSamples = 62
@@ -357,7 +361,7 @@ class pathGenerator:
         sampsMoving = 150
         sampsPause = 100
 
-        self.relative = "paths/spring " + self.logTime + " 2-17mm " + str(numReps) + "Reps.csv"
+        self.relative = "../paths/spring " + self.logTime + " 2-17mm " + str(numReps) + "Reps.csv"
         self.fileName = os.path.join(self.location, self.relative)
 
         np.linspace(minStrain, maxStrain, sampsMoving)
@@ -397,7 +401,38 @@ class pathGenerator:
         self.yPath = np.concatenate((self.yPath, yListPauseD))
 
 
+    def pointMatrix(self, centreX, centreY, spaceX, spaceY, width, height):
+        """
+        Create rectangular array of points centred at (centreX, centreY),
+        going from -(width/2) to +(width/2) and -(breadth/2) to 
+        +(breadth/2), with spacings of spaceX and spaceY.
+        """
+        self.relative = "../paths/gridPath " + self.logTime + " centre " + str(centreX) + "-" + str(centreY)\
+            + " " + str(width) + "x" + str(height) + "grid " + str(spaceX) + "x" + str(spaceY) + "spacing.csv"
+        self.fileName = os.path.join(self.location, self.relative)
+        numPointsX = mt.floor(width/spaceX)+1
+        numPointsY = mt.floor(height/spaceY)+1
 
+        zCoord = 87.75 + 10
+
+        rowNum = 0
+        # colNum = 0
+
+        startX = centreX - width/2
+        stopX = centreX + width/2
+        startY = centreY - height/2
+        # stopY = centreY + height/2
+
+        while rowNum < numPointsY:
+            xListInter = np.linspace(startX, stopX, numPointsX)
+            yListInter = np.array(numPointsY*[startY + rowNum*spaceY])
+            rowNum += 1
+            self.xPath = np.concatenate((self.xPath, xListInter))
+            self.yPath = np.concatenate((self.yPath, yListInter))
+
+        numGridPoints = len(self.xPath)
+        self.zPath = np.array(numGridPoints*[zCoord])
+        
 
     #####
     # Concentric triangles
@@ -421,8 +456,10 @@ class pathGenerator:
     
 
 
-sideLength = 18.911 # mm, from workspace2 model
-noCycles = 10
+sideLength = 30.0 # mm, from workspace2 model
+noCycles = 1
 pathGen = pathGenerator(sideLength)
-pathGen.spiralOnCyl(noCycles)
+Grid_size = 20
+pathGen.pointMatrix(15, 8.66025, Grid_size/3, Grid_size/3, Grid_size, Grid_size)
+# pathGen.spiralPath2(noCycles)
 pathGen.generatePath()

@@ -2,24 +2,7 @@
 import time
 import csv
 import os
-
-# Create a file in 'log' directory and empty contents (if it already exists)
-# Append timestamp in ms to name
-# location = "Imperial College London/Imperial/Fluidic Control/ControlSystem/logs/pumps"
-location = os.path.dirname(__file__)
-parent = os.path.dirname(location)
-logTime = time.strftime("%Y-%m-%d %H-%M-%S")
-relative = "logs/pumps/arduinoLogs " + logTime + ".csv"
-fileName = os.path.join(parent, relative) # USE THIS IN REAL TESTS
-# fileName = 'ardLogFile.csv' # For test purposes
-with open(fileName, mode ='w', newline='') as arduinoLog1: 
-    ardLog1 = csv.writer(arduinoLog1)
-    ardLog1.writerow(['S_LHS', 'Lc_LHS', 'A_LHS', 'M_LHS', 'P_LHS', 'P_LMed', 'T_LHS',\
-        'S_RHS', 'Lc_RHS', 'A_RHS', 'M_RHS', 'P_RHS', 'P_RMed', 'T_RHS',\
-        'S_TOP', 'Lc_TOP','A_TOP', 'M_TOP', 'P_TOP', 'P_TMed', 'T_TOP',\
-        'S_PRI', 'Lc_PRI','A_PRI', 'M_PRI', 'P_PRI', 'P_PMed', 'T_PRI',\
-        'S_PNEU', 'Lc_PNEU','A_PNEU', 'M_PNEU', 'P_PNEU', 'P_PnMed', 'T_PNEU',\
-        'C_LHS', 'C_RHS', 'C_TOP', 'C_DEG', time.time()])
+import platform
 
 
 
@@ -27,45 +10,45 @@ class ardLogger():
 
     def __init__(self):
         self.ardData = []
+        self.tempData = []
         self.numRows = 0
 
-    def ardLog(self, secondstep, length, theta, primarystep, press, median, timems):
-    # lhsS, lhsLc, lhsA, lhsMaster, lhsP, lhsMed, lhsT,\
-        # rhsS, rhsLc, rhsA, rhsMaster, rhsP, rhsMed, rhsT,\
-        # topS, topLc, topA, topMaster, topP, topMed, topT,\
-        # extS, extLc, extA, extMaster, extP, extMed, extT,\
-        # pneuS, pneuLc, pneuA, pneuMaster, pneuP, pneuMed, pneuT,\
-        # lhsC, rhsC, topC, degC):
-        """
-        Save stepCount, master cable lengths, pressure values and time 
-        from pumps in a list to later save in csv.
-        """
-        # # Take a list as an argument and unpack that?
-        # args = locals() # Dictionary of input arguments
-        # args.pop('self') # Take argument 'self' out of dictionary
-        # self.ardData.append([i for i in args.values()])
-        self.ardData.append([secondstep] + [length] + [theta] + [primarystep] + [press] + [median] + [timems])
-        # print(self.ardData[self.numRows])
-        # self.numRows = self.numRows + 1
+        if platform.system() == "Windows":
+            self.parent = "C:/Users/msrun/Documents/Inflatable Robot Control/ControlSystem3/control/"
+        else:
+            self.parent = "/home/lannsair/Documents/DataLogs/DT Prime/"
 
-        # ardData.append([lhsS] + [lhsLc] + [lhsA] + [lhsMaster] + [lhsP] + [lhsT]\
-        #     + [rhsS] + [rhsLc] + [rhsA] + [rhsMaster] + [rhsP] + [rhsT]\
-        #     + [topS] + [topLc] + [topA] + [topMaster] + [topP] + [topT])
+        self.logTime = time.strftime("%Y-%m-%d %H-%M-%S")
+        self.relative = "logs/pumps/arduinoLogs " + self.logTime + ".csv"
+        self.fileName = os.path.join(self.parent, self.relative) # USE THIS IN REAL TESTS
+        # self.fileName = 'ardLogFile.csv' # For test purposes
+        with open(self.fileName, mode ='w', newline='') as arduinoLog1: 
+            ardLog1 = csv.writer(arduinoLog1)
+            ardLog1.writerow(['Axial', 'Rotary', 'Tool', 'Wrist', 'Grasp',
+                              'Sensor1', 'Sensor2', 'Sensor3', 'Sensor4', 'Sensor5',
+                              'Load1', 'Load2','Load3', 'Load4',
+                              'ArduinoTime',
+                              'StartTime: ', time.time()])
+
+
+    def ardLogAll(self, stepList, pressList, timeL, loadList):
+        [realStepL, realStepR, realStepT, realStepP] = stepList
+        [pressL, pressR, pressT, pressP, regulatorSensor] = pressList
+        [loadL, loadR, loadT, loadP] = loadList
+        self.tempData.extend([realStepL] + [realStepR] + [realStepT] + [realStepP] +
+                             [pressL] + [pressR] + [pressT] + [pressP] + [regulatorSensor] +
+                             [loadL] + [loadR] + [loadT] + [loadP] +
+                             [timeL])
+        self.ardData.append(self.tempData)
+        self.tempData = []
         return
 
-    def ardLogCollide(self, lhsC, rhsC, topC, degC):
-        self.ardData.append([lhsC] + [rhsC] + [topC] + [degC])
-        return
-
-    def ardRowInc(self):
-        self.numRows = self.numRows + 1
-        return
 
     def ardSave(self):
         """
         Save ardLog list into csv file
         """
-        with open(fileName, 'a', newline='') as arduinoLog2:
+        with open(self.fileName, 'a', newline='') as arduinoLog2:
             ardLog2 = csv.writer(arduinoLog2)
             for i in range(len(self.ardData)):
                 ardLog2.writerow(self.ardData[i])
