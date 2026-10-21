@@ -162,6 +162,8 @@ class ps4USB(threading.Thread):
 		self.TRIGGER_RANGE = 2
 		self.TRIGGER_SHIFT = 1
 		self.XY_DEADTHRESH = 0.05
+		self.X_DEADTHRESH = 0.2
+		self.Y_DEADTHRESH = 0.05
 		self.PRISM_CHANGE = 1
 		self.TOOL_CHANGE = 1
 		self.GRASP_CHANGE = 1
@@ -251,9 +253,9 @@ class ps4USB(threading.Thread):
 	def getChanges(self):
 	# print("Data getter:", self.RstickH, self.RstickV)
 		# Rotary
-		if (abs(self.RstickX) > self.XY_DEADTHRESH):
+		if (abs(self.RstickX) > self.X_DEADTHRESH):
 			self.phiChange = float(self.PHI_SENSITIVITY*self.RstickX)
-			self.xChange = -self.X_SENSITIVITY*self.RstickX
+			self.xChange = - self.X_SENSITIVITY*self.RstickX
 			# print("RstickH", self.RstickH)
 			# print("Phi Change: ", self.phiChange)
 		else:
@@ -262,7 +264,7 @@ class ps4USB(threading.Thread):
 
 
 		# Wrist 
-		if (abs(self.RstickY) > self.XY_DEADTHRESH):
+		if (abs(self.RstickY) > self.Y_DEADTHRESH):
 			self.yChange = self.Y_SENSITIVITY*self.RstickY
 			# self.thetaChange = self.THETA_SENSITIVITY*self.RstickY
 			# print("Theta Change: ", self.phiChange)
