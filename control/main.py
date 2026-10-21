@@ -38,6 +38,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
         deactivateButtons(dictButtons)
 
         jointOffsetButtons = classSettings.jointOffsetButtons
+        motorAngleLabels = classSettings.motorAngleLabels
         useOptitrack = classSettings.useOptitrack
         usePathFile = classSettings.usePathFile
         flagStop = classSettings.stopFlag
@@ -206,7 +207,11 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 intermedWrist, desWristAngle = kineSolve.setWristMotor(desWristAngle)
                 intermedGrasp, desGraspPos = kineSolve.setGraspMotor(desGraspPos)
                 # print("Motor angles: ", desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, "\n")
-                
+                dictLabel["axialLabel"].config(text = '{0:.2f}'.format(desAxialPos) + ' mm')
+                dictLabel["rotaryLabel"].config(text = '{0:.2f}'.format(desRotaryPos) + ' deg')
+                dictLabel["toolLabel"].config(text = '{0:.2f}'.format(desToolExt) + ' mm')
+                dictLabel["wristLabel"].config(text = '{0:.2f}'.format(desWristAngle) + ' deg')
+                dictLabel["graspLabel"].config(text = '{0:.2f}'.format(desGraspPos) + ' mm')
 
                 desiredThetaAxial = intermedAxial + jointOffsetList[0]
                 desiredThetaRotary = intermedRotary + jointOffsetList[1]
@@ -408,7 +413,7 @@ class controlSettings:
         self.useOmni = False
         self.socketOmni = None
         self.useOptitrack = False
-        self.useFibrebot = False
+        self.motorAngleLabels = None
         self.moveRobotRunning = False
         self.usePathFile = False
         self.goToHome = False
@@ -602,6 +607,7 @@ if __name__ == '__main__':
     headingSLabel = Label(contentFrame, text = "Settings", font='bold')
     headingLLabel = Label(contentFrame, text = "Status", font='bold')
     headingPLabel = Label(contentFrame, text = "Offsets", font='bold')
+    headingPosLabel = Label(contentFrame, text = "Joint Values", font='bold')
 
 
     # Create buttons
@@ -681,7 +687,21 @@ if __name__ == '__main__':
     labelObj = extendLabel
     labelDict.update({"extendLabel" : labelObj})
 
-    
+    axialValueLabel = Label(contentFrame, text = "0.00 mm")
+    labelDict.update({"axialLabel" : axialValueLabel})
+
+    rotaryValueLabel = Label(contentFrame, text = "0.00 deg")
+    labelDict.update({"rotaryLabel" : rotaryValueLabel})
+
+    toolValueLabel = Label(contentFrame, text = "0.00 mm")
+    labelDict.update({"toolLabel" : toolValueLabel})
+
+    wristValueLabel = Label(contentFrame, text = "0.00 deg")
+    labelDict.update({"wristLabel" : wristValueLabel})
+
+    graspValueLabel = Label(contentFrame, text = "0.00 mm")
+    labelDict.update({"graspLabel" : graspValueLabel})
+
     # Creates slider to rotate input device coordinates.
     # To be placed below the pressure bars, so it is the same width as the pressure bar canvas
     rotationSlider = Scale(contentFrame, from_=180, to=-180, length = 400, tickinterval=60, orient = HORIZONTAL)
@@ -696,13 +716,13 @@ if __name__ == '__main__':
     ISOLATE_P_SUPPLY = 1
 
     if pumpsConnected:
+        time.sleep(3)
         n = 1
         for x in range(n):
             pumpController.sendStep(initThetaAxial, initThetaRotary, initThetaTool, initThetaWrist, initThetaGrasp, 
                                     HOLD_MODE, ISOLATE_P_SUPPLY, buttonValue
                                     )
             time.sleep(0.2)
-            print(x)
 
     print("Connected to Control Unit? ", pumpsConnected)
     labelDict["pumpLabel"].config(fg = "green") if pumpsConnected else labelDict["pumpLabel"].config(fg = "red")
@@ -750,6 +770,7 @@ if __name__ == '__main__':
     headingSLabel.grid(column = 0, row = 0, pady = yPadding, padx = xPadding)
     headingLLabel.grid(column = 1, row = 0, pady = yPadding, padx = xPadding)
     headingPLabel.grid(column = 4, row = 0, columnspan = 3, pady = yPadding, padx = xPadding)
+    headingPosLabel.grid(column = 7, row = 0, pady = yPadding, padx = xPadding)
     # pressCanvas.grid(column = 3, row = 2, rowspan = 6, columnspan = 4, pady = yPadding, padx = xPadding)
 
     # Place buttons
@@ -773,6 +794,9 @@ if __name__ == '__main__':
     rowFirstColumn = 1
     columnNo = 1
     for l in labelDict:
+        if l in ["axialLabel"]:
+            columnNo = 7
+            rowFirstColumn = 1
         if l not in ["rotationSlider"]: # Exclude rotation slider here
             labelDict[l].grid(column = columnNo, row = rowFirstColumn, pady = yPadding, padx = xPadding)
             rowFirstColumn = rowFirstColumn + 1
@@ -802,8 +826,9 @@ if __name__ == '__main__':
         rootWindow.update_idletasks()
         rootWindow.update()
         if pumpsConnected:
-            if (settingsClass.moveRobotRunning == False):
+            if (settingsClass.moveRobotRunning):
                 stepList, pressList, timeL, loadList = pumpController.getData()
+                # print(stepList)
 
 
     rootWindow.destroy()
