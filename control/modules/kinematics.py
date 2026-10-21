@@ -169,5 +169,102 @@ class kineSolver:
         graspMotorAngle = 360.0*desGraspPos/self.LEAD
         graspMotorAngle = round(graspMotorAngle,2)
         return graspMotorAngle, desGraspPos
+    
+
+
+    def inverseGantry(self, x, y, z, phi):
+
+        rho = mt.hypot(x, y)
+
+        if abs(phi) < 1e-8:
+            A = self.LENGTH_WRIST
+            B = 0.0
+        else:
+            A = self.LENGTH_WRIST * mt.sin(phi) / phi
+            B = self.LENGTH_WRIST * (1.0 - mt.cos(phi)) / phi
+
+        if abs(mt.sin(phi)) < 1e-8:
+            raise ValueError(
+                "Singular configuration: prism6 cannot be determined "
+                "independently from position when sin(phi) is zero."
+            )
+
+        theta1 = mt.atan2(-x, y)
+
+        prism6 = (rho - B) / mt.sin(phi)
+
+        prism0 = z - A - prism6 * mt.cos(phi)
+
+        return prism0, theta1, prism6
+
+
+
+    def inverse_kinematics_smooth(
+        x, y, z, phi, Lw,
+        previous_prism0,
+        previous_theta1,
+        previous_prism6,
+        damping=0.02,
+        radial_tolerance=1e-6
+    ):
+        sphi = mt.sin(phi)
+        cphi = mt.cos(phi)
+
+        # Numerically stable constant-curvature terms
+        if abs(phi) < 1e-4:
+            phi2 = phi * phi
+            A = Lw * (1.0 - phi2 / 6.0 + phi2 * phi2 / 120.0)
+            B = Lw * (phi / 2.0 - phi * phi2 / 24.0)
+        else:
+            A = Lw * sphi / phi
+            B = Lw * (1.0 - cphi) / phi
+
+        rho = mt.hypot(x, y)
+
+        # theta1 becomes unobservable as rho approaches zero.
+        if rho > radial_tolerance:
+            measured_theta1 = mt.atan2(-x, y)
+
+            # Unwrap measured_theta1 to be closest to previous_theta1.
+            angle_error = mt.atan2(
+                mt.sin(measured_theta1 - previous_theta1),
+                mt.cos(measured_theta1 - previous_theta1)
+            )
+            measured_theta1 = previous_theta1 + angle_error
+
+            # Smoothly reduce reliance on x-y direction near the singularity.
+            theta_weight = rho * rho / (
+                rho * rho + radial_tolerance * radial_tolerance
+            )
+
+            theta1 = (
+                previous_theta1
+                + theta_weight * (measured_theta1 - previous_theta1)
+            )
+        else:
+            theta1 = previous_theta1
+
+        # Signed radial position using the selected theta1.
+        radial_position = (
+            -x * mt.sin(theta1)
+            + y * mt.cos(theta1)
+        )
+
+        # Damped solution for prism6:
+        # Away from phi=0, approaches (radial_position - B) / sin(phi).
+        # At phi=0, approaches previous_prism6.
+        damping_squared = damping * damping
+
+        prism6 = (
+            sphi * (radial_position - B)
+            + damping_squared * previous_prism6
+        ) / (
+            sphi * sphi + damping_squared
+        )
+
+        # Choose prism0 to satisfy z exactly.
+        prism0 = z - A - prism6 * cphi
+
+        return prism0, theta1, prism6
 
 
