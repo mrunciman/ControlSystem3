@@ -35,21 +35,16 @@ class kineSolver:
         ###################################################################
         # Extension/Retraction Geometry
         ###################################################################
-        # Set limits on shaft extension
-        # self.minShaftExt = self.SHAFT_LENGTH + 1
-        self.MIN_EXTEND = 0.0 # mm
-        self.MAX_EXTEND = 100 # mm
-        self.LENGTH_WRIST = 16
-        # Set limit when curvature of continuum joint is assumed zero
-        self.MIN_CONT_RAD = 0.1 # mm
+
+
 
 
         ###################################################################
         # Gantry robot geometry and limits
         ###################################################################
         # Limits on angle change of torque coil / rotary axis
-        self.MIN_ROTARY = -100.0   # degrees 
-        self.MAX_ROTARY =  100.0   # degrees
+        self.MIN_ROTARY = -400.0   # degrees 
+        self.MAX_ROTARY =  400.0   # degrees
         self.targDirRot = 1
         self.prevDirRot = 1
         self.antiHystDegRot = 360/360
@@ -65,6 +60,12 @@ class kineSolver:
         self.THETA_REST = 2*mt.asin((self.TIP_CUTAWAY_WIDTH/2)/self.HYPOT_TIP)
         self.WRIST_THETA_0 = mt.radians(24)
         self.WRIST_D_0 = 2*self.HYPOT_TIP*mt.sin(self.WRIST_THETA_0/2)
+
+
+        # Set limits on shaft extension
+        self.LENGTH_WRIST = 16
+        self.MIN_EXTEND = 0.0 # mm
+        self.MAX_EXTEND = 70 - self.LENGTH_WRIST*(1 - mt.sin(mt.radians(self.MAX_WRIST_ANGLE))/mt.radians(self.MAX_WRIST_ANGLE)) # mm
 
         # Limits on how far instrument can be extended
         self.MIN_TOOL_EXT = -1000   # mm
