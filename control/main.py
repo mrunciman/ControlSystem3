@@ -192,7 +192,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 jointOffsetList[jointOffsetIndex] = joint.offset.get()
                 jointOffsetIndex = jointOffsetIndex + 1
 
-                                
+            dictLabel["omniLabel"].config(fg = "green") if ps4.controller is not None else dictLabel["omniLabel"].config(fg = "red")
             if ps4.controller is not None:
                 ps4Buttons = ps4.getPSButtonData()
                 controllerButtons = ps4Buttons
@@ -219,7 +219,6 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 desiredThetaWrist = intermedWrist + jointOffsetList[3]
                 desiredThetaGrasp = intermedGrasp + jointOffsetList[4]
 
-
                 frameRotAngle = dictLabel["rotationSlider"].get()
                 
 
@@ -233,6 +232,26 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 dictLabel["grasperLabel"].config(text = "Grasper close", fg = "red")
             else:
                 dictLabel["grasperLabel"].config(text = "Grasper", fg = "white")
+
+            if ps4.RstickX > 1e-8:
+                dictLabel["joystickXLabel"].config(text = 'Joystick LR: +' + '{0:.2f}'.format(ps4.RstickX), fg = "green")
+            elif ps4.RstickX < 1e-8:
+                dictLabel["joystickXLabel"].config(text = 'Joystick LR: ' + '{0:.2f}'.format(ps4.RstickX), fg = "red")
+            else:
+                dictLabel["joystickXLabel"].config(text = 'Joystick LR: +' + '{0:.2f}'.format(ps4.RstickX), fg = "white")
+
+            if ps4.RstickY > 1e-8:
+                dictLabel["joystickYLabel"].config(text = 'Joystick UD: +' + '{0:.2f}'.format(ps4.RstickY), fg = "green")
+            elif ps4.RstickY < 1e-8:
+                dictLabel["joystickYLabel"].config(text = 'Joystick UD: ' + '{0:.2f}'.format(ps4.RstickY), fg = "red")
+            else:
+                dictLabel["joystickYLabel"].config(text = 'Joystick UD: +' + '{0:.2f}'.format(ps4.RstickY), fg = "white")
+
+            if axialPos < desAxialPos:
+                dictLabel["R1R2Label"].config(text = 'R1R2 Out: ' + '{0:.2f}'.format(ps4.R2))
+            elif axialPos > desAxialPos:
+                dictLabel["R1R2Label"].config(text = 'R1R2 In : ' + '{0:.2f}'.format(ps4.R1))
+
             
             if desToolExt < toolExt:
                 dictLabel["extendLabel"].config(text = "Tool retract", fg = "orange")
@@ -261,13 +280,13 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 robotPitch = viewerInputList[9]
                 robotYaw = viewerInputList[10]
                 posLogging.posLog(robotX, robotY, robotZ, robotRoll, robotPitch, robotYaw)
-                #TODO show position on GUI
+                #Show position on GUI
                 dictLabel["robotXLabel"].config(text = '{0:.2f}'.format(robotX) + ' mm')
                 dictLabel["robotYLabel"].config(text = '{0:.2f}'.format(robotY) + ' mm')
                 dictLabel["robotZLabel"].config(text = '{0:.2f}'.format(robotZ) + ' mm')
-                dictLabel["robotRollLabel"].config(text = '{0:.2f}'.format(robotRoll) + ' rad')
-                dictLabel["robotPitchLabel"].config(text = '{0:.2f}'.format(robotPitch) + ' rad')
-                dictLabel["robotYawLabel"].config(text = '{0:.2f}'.format(robotYaw) + ' rad')
+                dictLabel["robotRollLabel"].config(text = '{0:.2f}'.format(robotRoll) + ' deg')
+                dictLabel["robotPitchLabel"].config(text = '{0:.2f}'.format(robotPitch) + ' deg')
+                dictLabel["robotYawLabel"].config(text = '{0:.2f}'.format(robotYaw) + ' deg')
 
             if pumpsConnected:
 
@@ -677,7 +696,6 @@ if __name__ == '__main__':
     buttonDict.update({"stopButton" : buttonObj})
 
     resetButton = Button(contentFrame, text = "Reset")
-    buttonObj = stopButton
     buttonObj = resetButton
     buttonDict.update({"resetButton" : buttonObj})
 
@@ -686,24 +704,28 @@ if __name__ == '__main__':
     labelDict = {}
 
     pumpLabel = Label(contentFrame, text = "Pump controller connection")
-    labelObj = pumpLabel
-    labelDict.update({"pumpLabel" : labelObj})
+    labelDict.update({"pumpLabel" : pumpLabel})
 
     omniLabel = Label(contentFrame, text = "Controller connected")
-    labelObj = omniLabel
-    labelDict.update({"omniLabel" : labelObj})
+    labelDict.update({"omniLabel" : omniLabel})
 
     # calibrationLabel = Label(contentFrame, text = "Calibration")
     # labelObj = calibrationLabel
     # labelDict.update({"calibrationLabel" : labelObj})
+    R1R2Label = Label(contentFrame, text = "R1R2")
+    labelDict.update({"R1R2Label" : R1R2Label})
+
+    joystickXLabel = Label(contentFrame, text = "Joystick LR: ")
+    labelDict.update({"joystickXLabel" : joystickXLabel})
 
     extendLabel = Label(contentFrame, text = "Tool")
-    labelObj = extendLabel
-    labelDict.update({"extendLabel" : labelObj})
+    labelDict.update({"extendLabel" : extendLabel})
+
+    joystickYLabel = Label(contentFrame, text = "Joystick UD: ")
+    labelDict.update({"joystickYLabel" : joystickYLabel})
 
     grasperLabel = Label(contentFrame, text = "Grasper")
-    labelObj = grasperLabel
-    labelDict.update({"grasperLabel" : labelObj})
+    labelDict.update({"grasperLabel" : grasperLabel})
 
     axialValueLabel = Label(contentFrame, text = "0.00 mm")
     labelDict.update({"axialLabel" : axialValueLabel})
@@ -729,13 +751,13 @@ if __name__ == '__main__':
     posZLabel = Label(contentFrame, text = "0.00 mm")
     labelDict.update({"robotZLabel" : posZLabel})
 
-    rollLabel = Label(contentFrame, text = "0.00 rad")
+    rollLabel = Label(contentFrame, text = "0.00 deg")
     labelDict.update({"robotRollLabel" : rollLabel})
 
-    pitchLabel = Label(contentFrame, text = "0.00 rad")
+    pitchLabel = Label(contentFrame, text = "0.00 deg")
     labelDict.update({"robotPitchLabel" : pitchLabel})
 
-    yawLabel = Label(contentFrame, text = "0.00 rad")
+    yawLabel = Label(contentFrame, text = "0.00 deg")
     labelDict.update({"robotYawLabel" : yawLabel})
 
     # Creates slider to rotate input device coordinates.
@@ -818,7 +840,7 @@ if __name__ == '__main__':
             buttonDict[b].grid(column = columnNo, row = rowZerothColumn, pady = yPadding, padx = xPadding)
             rowZerothColumn = rowZerothColumn + 1
         else:
-            buttonDict[b].grid(column = columnNo, row = rowZerothColumn + 5, pady = yPadding, padx = xPadding)
+            buttonDict[b].grid(column = columnNo, row = rowZerothColumn + 6, pady = yPadding, padx = xPadding)
             columnNo = columnNo + 1
     # columnNo = 0
     # homeButton.grid(column = columnNo, row = rowZerothColumn + 2, pady = yPadding, padx = xPadding)
@@ -828,9 +850,12 @@ if __name__ == '__main__':
     # rotationSlider.grid(column = columnNo, row = rowZerothColumn + 1, columnspan = 4, pady = yPadding, padx = xPadding)
 
     # Place labels
-    rowFirstColumn = 1
-    columnNo = 1
+    rowFirstColumn = 2
+    columnNo = 0
     for l in labelDict:
+        if l in ["R1R2Label"]:
+            columnNo = 1
+            rowFirstColumn =1
         if l in ["axialLabel"]:
             columnNo = 7
             rowFirstColumn = 1

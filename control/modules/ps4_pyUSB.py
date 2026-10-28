@@ -209,7 +209,7 @@ class ps4USB(threading.Thread):
 			else:
 				# Ps4 controller not connected 
 				# try to reconnect
-				print("Reconnect controller")
+				# print("Reconnect controller")
 				try:
 					self.disconnectController()
 					self.dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID, backend=BACKEND)
