@@ -51,7 +51,7 @@ class kineSolver:
 
         # Limits on wrist angle
         self.MIN_WRIST_ANGLE = 0   # degrees 
-        self.MAX_WRIST_ANGLE = 120  # degrees 
+        self.MAX_WRIST_ANGLE = 130  # degrees 
         # Geometry of wrist motor
         self.HYPOT_TIP = 5.62      # mm
         self.TIP_CUTAWAY_WIDTH = 2.34 # mm
@@ -98,7 +98,7 @@ class kineSolver:
         axialMotorAngle = 360.0*desAxialPosAdjusted/self.LEAD
         axialMotorAngle = round(axialMotorAngle,2)
             
-        return axialMotorAngle, desAxialPos
+        return axialMotorAngle, desAxialPos, axialAdjustForWrist
 
 
     def setRotaryMotor(self, desRotaryPos, prevRotPos):

@@ -201,7 +201,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 [desAxialPos, desRotaryPos, desToolExt, desWristAngle, desGraspPos] = ps4.incrementCylCoords(axialPos, rotaryPos, toolExt, wristAngle, graspPos)
                 
                 # Convert desired joint values into angular positions of each motor
-                intermedAxial, desAxialPos = kineSolve.setAxialMotor(desAxialPos, desWristAngle)
+                intermedAxial, desAxialPos, axialAdjustForWrist = kineSolve.setAxialMotor(desAxialPos, desWristAngle)
                 intermedRotary, desRotaryPos = kineSolve.setRotaryMotor(desRotaryPos, rotaryPos)
                 intermedTool, desToolExt = kineSolve.setToolMotor(desToolExt)
                 intermedWrist, desWristAngle = kineSolve.setWristMotor(desWristAngle)
@@ -242,20 +242,32 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 dictLabel["extendLabel"].config(text = "Tool", fg = "white")
 
 
-            visualiseOffset = 1
-            viewerInputList[0] = desAxialPos + jointOffsetList[0]*visualiseOffset
-            viewerInputList[1] = desRotaryPos + jointOffsetList[1]*visualiseOffset
-            viewerInputList[2] = desToolExt + jointOffsetList[2]*visualiseOffset
-            viewerInputList[3] = desWristAngle + jointOffsetList[3]*visualiseOffset
-            viewerInputList[4] = desGraspPos + jointOffsetList[4]*visualiseOffset
-            viewerInputList[5] = 0 + jointOffsetList[5]*visualiseOffset
+            visualiseOffset = 0
+            viewerInputList[0] = desAxialPos + axialAdjustForWrist + jointOffsetList[0]*visualiseOffset
+            viewerInputList[1] = desRotaryPos   + jointOffsetList[1]*visualiseOffset
+            viewerInputList[2] = desToolExt     + jointOffsetList[2]*visualiseOffset
+            viewerInputList[3] = desWristAngle  + jointOffsetList[3]*visualiseOffset
+            viewerInputList[4] = desGraspPos    + jointOffsetList[4]*visualiseOffset
             # print("From tkinter ", viewerInputList)
 
     
             # desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp
             # Log desired positions
             if pumpDataUpdated:
-                posLogging.posLog(desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp)
+                robotX = viewerInputList[5]
+                robotY = viewerInputList[6]
+                robotZ = viewerInputList[7]
+                robotRoll = viewerInputList[8]
+                robotPitch = viewerInputList[9]
+                robotYaw = viewerInputList[10]
+                posLogging.posLog(robotX, robotY, robotZ, robotRoll, robotPitch, robotYaw)
+                #TODO show position on GUI
+                dictLabel["robotXLabel"].config(text = '{0:.2f}'.format(robotX) + ' mm')
+                dictLabel["robotYLabel"].config(text = '{0:.2f}'.format(robotY) + ' mm')
+                dictLabel["robotZLabel"].config(text = '{0:.2f}'.format(robotZ) + ' mm')
+                dictLabel["robotRollLabel"].config(text = '{0:.2f}'.format(robotRoll) + ' rad')
+                dictLabel["robotPitchLabel"].config(text = '{0:.2f}'.format(robotPitch) + ' rad')
+                dictLabel["robotYawLabel"].config(text = '{0:.2f}'.format(robotYaw) + ' rad')
 
             if pumpsConnected:
 
@@ -347,7 +359,13 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 # Save joint information
                 ardLogging.ardSave()
                 # Ensure same number of rows in position log file
-                posLogging.posLog(desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp)
+                robotX = viewerInputList[5]
+                robotY = viewerInputList[6]
+                robotZ = viewerInputList[7]
+                robotRoll = viewerInputList[8]
+                robotPitch = viewerInputList[9]
+                robotYaw = viewerInputList[10]
+                posLogging.posLog(robotX, robotY, robotZ, robotRoll, robotPitch, robotYaw)
                 #Save position data
                 posLogging.posSave()
 
@@ -590,7 +608,7 @@ def viewer_process(angleList):
 if __name__ == '__main__':
     rootWindow = Tk()
     rootWindow.title("Lannsair Endoluminal Robotics")
-    rootWindow.geometry("800x400")
+    rootWindow.geometry("900x450")
 
     contentFrame = ttk.Frame(rootWindow)
     winStyle = ttk.Style()
@@ -600,15 +618,15 @@ if __name__ == '__main__':
 
     manager = multiprocessing.Manager()
 
-    initThetaAxial, initThetaRotary, initThetaTool, initThetaWrist, initThetaGrasp, initSpare = 0, 0, 0, 0, 0, 0
-    viewerInput = manager.list([initThetaAxial, initThetaRotary, initThetaTool, initThetaWrist, initThetaGrasp, initSpare])
+    initThetaAxial, initThetaRotary, initThetaTool, initThetaWrist, initThetaGrasp, localX, localY, localZ, localRoll, localPitch, localYaw = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    viewerInput = manager.list([initThetaAxial, initThetaRotary, initThetaTool, initThetaWrist, initThetaGrasp, localX, localY, localZ, localRoll, localPitch, localYaw])
 
     # Headings
     headingSLabel = Label(contentFrame, text = "Settings", font='bold')
     headingLLabel = Label(contentFrame, text = "Status", font='bold')
     headingPLabel = Label(contentFrame, text = "Offsets", font='bold')
-    headingPosLabel = Label(contentFrame, text = "Joint Values", font='bold')
-
+    headingJointLabel = Label(contentFrame, text = "Joint Values", font='bold')
+    headingPosLabel = Label(contentFrame, text = "Pose", font='bold')
 
     # Create buttons
 
@@ -679,13 +697,13 @@ if __name__ == '__main__':
     # labelObj = calibrationLabel
     # labelDict.update({"calibrationLabel" : labelObj})
 
-    grasperLabel = Label(contentFrame, text = "Grasper")
-    labelObj = grasperLabel
-    labelDict.update({"grasperLabel" : labelObj})
-
     extendLabel = Label(contentFrame, text = "Tool")
     labelObj = extendLabel
     labelDict.update({"extendLabel" : labelObj})
+
+    grasperLabel = Label(contentFrame, text = "Grasper")
+    labelObj = grasperLabel
+    labelDict.update({"grasperLabel" : labelObj})
 
     axialValueLabel = Label(contentFrame, text = "0.00 mm")
     labelDict.update({"axialLabel" : axialValueLabel})
@@ -701,6 +719,24 @@ if __name__ == '__main__':
 
     graspValueLabel = Label(contentFrame, text = "0.00 mm")
     labelDict.update({"graspLabel" : graspValueLabel})
+
+    posXLabel = Label(contentFrame, text = "0.00 mm")
+    labelDict.update({"robotXLabel" : posXLabel})
+
+    posYLabel = Label(contentFrame, text = "0.00 mm")
+    labelDict.update({"robotYLabel" : posYLabel})
+
+    posZLabel = Label(contentFrame, text = "0.00 mm")
+    labelDict.update({"robotZLabel" : posZLabel})
+
+    rollLabel = Label(contentFrame, text = "0.00 rad")
+    labelDict.update({"robotRollLabel" : rollLabel})
+
+    pitchLabel = Label(contentFrame, text = "0.00 rad")
+    labelDict.update({"robotPitchLabel" : pitchLabel})
+
+    yawLabel = Label(contentFrame, text = "0.00 rad")
+    labelDict.update({"robotYawLabel" : yawLabel})
 
     # Creates slider to rotate input device coordinates.
     # To be placed below the pressure bars, so it is the same width as the pressure bar canvas
@@ -770,7 +806,8 @@ if __name__ == '__main__':
     headingSLabel.grid(column = 0, row = 0, pady = yPadding, padx = xPadding)
     headingLLabel.grid(column = 1, row = 0, pady = yPadding, padx = xPadding)
     headingPLabel.grid(column = 4, row = 0, columnspan = 3, pady = yPadding, padx = xPadding)
-    headingPosLabel.grid(column = 7, row = 0, pady = yPadding, padx = xPadding)
+    headingJointLabel.grid(column = 7, row = 0, pady = yPadding, padx = xPadding)
+    headingPosLabel.grid(column = 9, row = 0, pady = yPadding, padx = xPadding)
     # pressCanvas.grid(column = 3, row = 2, rowspan = 6, columnspan = 4, pady = yPadding, padx = xPadding)
 
     # Place buttons
@@ -781,7 +818,7 @@ if __name__ == '__main__':
             buttonDict[b].grid(column = columnNo, row = rowZerothColumn, pady = yPadding, padx = xPadding)
             rowZerothColumn = rowZerothColumn + 1
         else:
-            buttonDict[b].grid(column = columnNo, row = rowZerothColumn + 3, pady = yPadding, padx = xPadding)
+            buttonDict[b].grid(column = columnNo, row = rowZerothColumn + 5, pady = yPadding, padx = xPadding)
             columnNo = columnNo + 1
     # columnNo = 0
     # homeButton.grid(column = columnNo, row = rowZerothColumn + 2, pady = yPadding, padx = xPadding)
@@ -797,6 +834,9 @@ if __name__ == '__main__':
         if l in ["axialLabel"]:
             columnNo = 7
             rowFirstColumn = 1
+        elif l in ["robotXLabel"]:
+            columnNo = 9
+            rowFirstColumn = 1
         if l not in ["rotationSlider"]: # Exclude rotation slider here
             labelDict[l].grid(column = columnNo, row = rowFirstColumn, pady = yPadding, padx = xPadding)
             rowFirstColumn = rowFirstColumn + 1
@@ -804,9 +844,9 @@ if __name__ == '__main__':
 
       # Offset buttons
     # Dynamically create 6 joint controls
-    jointLabelList = ["Axial", "Rotary", "Tool Ext", "Wrist", "Grasper", "Extra"]
+    jointLabelList = ["Axial", "Rotary", "Tool Ext", "Wrist", "Grasper"]#, "Extra"]
     joints = []
-    for i in range(1, 7):
+    for i in range(1, len(jointLabelList)+1):
         joint_row = jointOffsets.JointControl(contentFrame, joint_id=i, rowNo=i, colNo=3)
         joint_row.lbl_name.config(text = jointLabelList[i-1])
         joints.append(joint_row)

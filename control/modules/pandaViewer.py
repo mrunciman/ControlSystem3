@@ -12,6 +12,7 @@ class RobotViewer(ShowBase):
         props = WindowProperties()
         props.setTitle("Motion Visualisation")
         self.win.requestProperties(props)
+        self.tipCoords = [None, None, None, None] # x, y, z, phi
 
         # Load the background image into Panda3D's background 2D layer (render2dp)
         # Note: If you want the image to stretch and completely fill the window, use render2dp.
@@ -29,7 +30,7 @@ class RobotViewer(ShowBase):
         self.cam.node().getDisplayRegion(0).setClearColorActive(False)
 
         # Store input reference (list from Tkinter/shared memory)
-        self.inputList = inputList
+        # self.inputList = inputList
         # self.jointSpace = None
         self.lastJointSpace = [None, None, None, None, None, None]
         self.lastAngles = [None, None]
@@ -111,7 +112,7 @@ class RobotViewer(ShowBase):
         self.render.setLight(alnp)
 
         # Update task
-        self.taskMgr.add(self.check_input_gantry, "CheckInputTask")
+        self.taskMgr.add(self.check_input_gantry, "CheckInputTask",  extraArgs=[inputList], appendTask=True)
 
     def make_cylinder(self):
         """Use Panda3D's built-in geometry for a cylinder."""
@@ -215,7 +216,7 @@ class RobotViewer(ShowBase):
         T_3_4 = self.make_dh_matrix_ConstCurv(phi, Lw) # wrist angle        
         T_4_5 = self.make_dh_matrix(theta4, alpha4, dist4, prism4) # intermediate 2
         T_5_6 = self.make_dh_matrix(theta5, alpha5, dist5, prism5) # intermediate 3
-        T_6_7 = self.make_dh_matrix(theta6, alpha6, dist6, prism6) # tool extension
+        # T_6_7 = self.make_dh_matrix(theta6, alpha6, dist6, prism6) # tool extension
 
         # # Pure C++ matrix multiplications (Incredibly fast)
         T_0_2 = T_1_2 * T_0_1 # axial and rotary motions
@@ -224,9 +225,11 @@ class RobotViewer(ShowBase):
         T_0_4 = T_3_4 * T_0_3 # apply wrist angle
         T_0_5 = T_4_5 * T_0_4 # intermed 2
         T_0_6 = T_5_6 * T_0_5 # intermed 3
-        T_0_7 = T_6_7 * T_0_6 # tool extension
+        # T_0_7 = T_6_7 * T_0_6 # tool extension
 
         T_0_7 = self.base_to_tip(theta1, phi, prism0, prism6)
+
+        self.tipCoords = self.get_tip_pose(T_0_7)
 
         self.RobotWristBase.set_mat(T_0_3)
         # Apply transform to assembly (position + rotations)
@@ -266,12 +269,15 @@ class RobotViewer(ShowBase):
 
 
 
-    def check_input_gantry(self, task):
+    def check_input_gantry(self, inputList, task):
         """Poll inputList for updates (simulating Tkinter shared state)."""
         try:
-            localJointSpace = self.inputList
+            localJointSpace = inputList
             self.update_robot_gantry(localJointSpace)
             self.lastJointSpace = localJointSpace
+            if len(inputList) == 11:
+                inputList[5:] = self.tipCoords
+                # print(inputList)
         except Exception as e:
             print("Error:", e)
 
@@ -335,8 +341,54 @@ class RobotViewer(ShowBase):
             -st1 * sphi,                    ct1 * sphi,                     cphi,                           0.0,
             -st1 * (B + prism6 * sphi),     ct1 * (B + prism6 * sphi),      prism0 + A + prism6 * cphi,     1.0
         )
+        # self.tipCoords = [T_0_7[3][0], T_0_7[3][1], T_0_7[3][2], phi]
+        # print(self.tipCoords)
         return T_0_7
 
+    def get_tip_pose(self, T_0_7, in_degrees = True):
+        """
+        Extract tip position and ZYX Euler orientation from transformation matrix T_0_7.
+
+        """
+
+        # Position
+        x = T_0_7[3][0]
+        y = T_0_7[3][1]
+        z = T_0_7[3][2]
+
+        # Rot matrix elements
+        # First column:
+        r00 = T_0_7[0][0]
+        r01 = T_0_7[1][0]
+        r02 = T_0_7[2][0]
+
+        # Second column:
+        r10 = T_0_7[0][1]
+        r11 = T_0_7[1][1]
+        r12 = T_0_7[2][1]
+
+        # Third column:
+        r20 = T_0_7[0][2]
+        r21 = T_0_7[1][2]
+        r22 = T_0_7[2][2]
+
+        # ZYX Euler angles: R = Rz(yaw) * Ry(pitch) * Rx(roll)
+        pitch = mt.atan2(-r20, mt.hypot(r00, r10))
+
+        if mt.hypot(r00, r10) > 1e-8:
+            roll = mt.atan2(r21, r22)
+            yaw = mt.atan2(r10, r00)
+        else:
+            #Gimbal lock fallback
+            roll = 0.0
+            yaw = mt.atan2(-r01, r11)
+
+        if in_degrees:
+            roll = mt.degrees(roll)
+            pitch = mt.degrees(pitch)
+            yaw = mt.degrees(yaw)
+
+        return x, y, z, roll, pitch, yaw
 
 
 
