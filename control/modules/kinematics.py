@@ -69,7 +69,7 @@ class kineSolver:
 
         # Limits on how far instrument can be extended
         self.MIN_TOOL_EXT = -1000   # mm
-        self.MAX_TOOL_EXT = 60    # mm
+        self.MAX_TOOL_EXT = 100    # mm
         # Geometry of tool extension motor 
         self.TOOL_EXT_ROLLER_RADIUS = 7.5/2 #mm
 

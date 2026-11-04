@@ -65,7 +65,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
 
         pumpDataUpdated = False
         firstMoveDelay = 0
-        firstMoveDivider = 400
+        firstMoveDivider = 100
 
 
         ############################################################################
@@ -80,12 +80,13 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
         xMap, yMap, zMap = 0, 0, 0
 
         ps4 = ps4_pyUSB.ps4USB() # Create an object from controller
+        dictLabel["omniLabel"][1] = ps4.controller
         if ps4.controller is not None:
             ps4.start() #start and listen to events
             ps4Buttons = 0
-            dictLabel["omniLabel"].config(fg = "green")
+            dictLabel["omniLabel"][0].config(fg = "green")
         else:
-            dictLabel["omniLabel"].config(fg = "red")
+            dictLabel["omniLabel"][0].config(fg = "red")
 
         print("Single-hand controller connected? ", ps4.controller is not None)
         
@@ -154,7 +155,8 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
         pumpsConnected = pumpController.connected
         print("Connected to Control Unit? ", pumpsConnected)
         
-        dictLabel["pumpLabel"].config(fg = "green") if pumpsConnected else dictLabel["pumpLabel"].config(fg = "red")
+        dictLabel["pumpLabel"][1] = pumpsConnected
+        # dictLabel["pumpLabel"].config(fg = "green") if pumpsConnected else dictLabel["pumpLabel"].config(fg = "red")
 
         if pumpsConnected:
             pumpController.sendStep(initThetaAxial, initThetaRot, initThetaTool, initThetaWrist, initThetaGrasp, 
@@ -192,7 +194,8 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 jointOffsetList[jointOffsetIndex] = joint.offset.get()
                 jointOffsetIndex = jointOffsetIndex + 1
 
-            dictLabel["omniLabel"].config(fg = "green") if ps4.controller is not None else dictLabel["omniLabel"].config(fg = "red")
+            dictLabel["omniLabel"][1] = ps4.controller
+            # dictLabel["omniLabel"].config(fg = "green") if ps4.controller is not None else dictLabel["omniLabel"].config(fg = "red")
             if ps4.controller is not None:
                 ps4Buttons = ps4.getPSButtonData()
                 controllerButtons = ps4Buttons
@@ -207,11 +210,16 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 intermedWrist, desWristAngle = kineSolve.setWristMotor(desWristAngle)
                 intermedGrasp, desGraspPos = kineSolve.setGraspMotor(desGraspPos)
                 # print("Motor angles: ", desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, "\n")
-                dictLabel["axialLabel"].config(text = '{0:.2f}'.format(desAxialPos) + ' mm')
-                dictLabel["rotaryLabel"].config(text = '{0:.2f}'.format(desRotaryPos) + ' deg')
-                dictLabel["toolLabel"].config(text = '{0:.2f}'.format(desToolExt) + ' mm')
-                dictLabel["wristLabel"].config(text = '{0:.2f}'.format(desWristAngle) + ' deg')
-                dictLabel["graspLabel"].config(text = '{0:.2f}'.format(desGraspPos) + ' mm')
+                dictLabel["axialLabel"][1] = '{0:.2f}'.format(desAxialPos) + ' mm'
+                # dictLabel["axialLabel"].config(text = '{0:.2f}'.format(desAxialPos) + ' mm')
+                dictLabel["rotaryLabel"][1] = '{0:.2f}'.format(desRotaryPos) + ' deg'
+                # dictLabel["rotaryLabel"].config(text = '{0:.2f}'.format(desRotaryPos) + ' deg')
+                dictLabel["toolLabel"][1] = '{0:.2f}'.format(desToolExt) + ' mm'
+                # dictLabel["toolLabel"].config(text = '{0:.2f}'.format(desToolExt) + ' mm')
+                dictLabel["wristLabel"][1] = '{0:.2f}'.format(desWristAngle) + ' deg'
+                # dictLabel["wristLabel"].config(text = '{0:.2f}'.format(desWristAngle) + ' deg')
+                dictLabel["graspLabel"][1] = '{0:.2f}'.format(desGraspPos) + ' mm'
+                # dictLabel["graspLabel"].config(text = '{0:.2f}'.format(desGraspPos) + ' mm')
 
                 desiredThetaAxial = intermedAxial + jointOffsetList[0]
                 desiredThetaRotary = intermedRotary + jointOffsetList[1]
@@ -219,46 +227,54 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 desiredThetaWrist = intermedWrist + jointOffsetList[3]
                 desiredThetaGrasp = intermedGrasp + jointOffsetList[4]
 
-                frameRotAngle = dictLabel["rotationSlider"].get()
+                # frameRotAngle = dictLabel["rotationSlider"].get()
                 
 
             if classSettings.goToHome:
                 controllerButtons = 0
 
+            dictLabel["graspLabel"][1] = controllerButtons
+            # if controllerButtons == 1:
+            #     dictLabel["grasperLabel"].config(text = "Grasper open", fg = "green")
+            # elif controllerButtons == 2:
+            #     dictLabel["grasperLabel"].config(text = "Grasper close", fg = "red")
+            # else:
+            #     dictLabel["grasperLabel"].config(text = "Grasper", fg = "white")
 
-            if controllerButtons == 1:
-                dictLabel["grasperLabel"].config(text = "Grasper open", fg = "green")
-            elif controllerButtons == 2:
-                dictLabel["grasperLabel"].config(text = "Grasper close", fg = "red")
-            else:
-                dictLabel["grasperLabel"].config(text = "Grasper", fg = "white")
+            dictLabel["joystickXLabel"][1] = ps4.RstickX
+            # if ps4.RstickX > 1e-8:
+            #     dictLabel["joystickXLabel"].config(text = 'Joystick LR: +' + '{0:.2f}'.format(ps4.RstickX), fg = "green")
+            # elif ps4.RstickX < 1e-8:
+            #     dictLabel["joystickXLabel"].config(text = 'Joystick LR: ' + '{0:.2f}'.format(ps4.RstickX), fg = "red")
+            # else:
+            #     dictLabel["joystickXLabel"].config(text = 'Joystick LR: +' + '{0:.2f}'.format(ps4.RstickX), fg = "white")
 
-            if ps4.RstickX > 1e-8:
-                dictLabel["joystickXLabel"].config(text = 'Joystick LR: +' + '{0:.2f}'.format(ps4.RstickX), fg = "green")
-            elif ps4.RstickX < 1e-8:
-                dictLabel["joystickXLabel"].config(text = 'Joystick LR: ' + '{0:.2f}'.format(ps4.RstickX), fg = "red")
-            else:
-                dictLabel["joystickXLabel"].config(text = 'Joystick LR: +' + '{0:.2f}'.format(ps4.RstickX), fg = "white")
+            dictLabel["joystickYLabel"][1] = ps4.RstickY
+            # if ps4.RstickY > 1e-8:
+            #     dictLabel["joystickYLabel"].config(text = 'Joystick UD: +' + '{0:.2f}'.format(ps4.RstickY), fg = "green")
+            # elif ps4.RstickY < 1e-8:
+            #     dictLabel["joystickYLabel"].config(text = 'Joystick UD: ' + '{0:.2f}'.format(ps4.RstickY), fg = "red")
+            # else:
+            #     dictLabel["joystickYLabel"].config(text = 'Joystick UD: +' + '{0:.2f}'.format(ps4.RstickY), fg = "white")
 
-            if ps4.RstickY > 1e-8:
-                dictLabel["joystickYLabel"].config(text = 'Joystick UD: +' + '{0:.2f}'.format(ps4.RstickY), fg = "green")
-            elif ps4.RstickY < 1e-8:
-                dictLabel["joystickYLabel"].config(text = 'Joystick UD: ' + '{0:.2f}'.format(ps4.RstickY), fg = "red")
-            else:
-                dictLabel["joystickYLabel"].config(text = 'Joystick UD: +' + '{0:.2f}'.format(ps4.RstickY), fg = "white")
-
+            
             if axialPos < desAxialPos:
-                dictLabel["R1R2Label"].config(text = 'R1R2 Out: ' + '{0:.2f}'.format(ps4.R2))
+                dictLabel["R1R2Label"][1] = 'R2 - Out'
             elif axialPos > desAxialPos:
-                dictLabel["R1R2Label"].config(text = 'R1R2 In : ' + '{0:.2f}'.format(ps4.R1))
+                dictLabel["R1R2Label"][1] = 'R1 - In' 
+            else:dictLabel["R1R2Label"][1] = 'R1R2'
+
 
             
             if desToolExt < toolExt:
-                dictLabel["extendLabel"].config(text = "Tool retract", fg = "orange")
+                dictLabel["extendLabel"][1] = 1
+                # dictLabel["extendLabel"].config(text = "Tool retract", fg = "orange")
             elif desToolExt > toolExt:
-                dictLabel["extendLabel"].config(text = "Tool extend", fg = "cyan")
+                dictLabel["extendLabel"][1] = 2
+                # dictLabel["extendLabel"].config(text = "Tool extend", fg = "cyan")
             else:
-                dictLabel["extendLabel"].config(text = "Tool", fg = "white")
+                dictLabel["extendLabel"][1] = 3
+                # dictLabel["extendLabel"].config(text = "Tool", fg = "white")
 
 
             visualiseOffset = 0
@@ -281,12 +297,18 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 robotYaw = viewerInputList[10]
                 posLogging.posLog(robotX, robotY, robotZ, robotRoll, robotPitch, robotYaw)
                 #Show position on GUI
-                dictLabel["robotXLabel"].config(text = '{0:.2f}'.format(robotX) + ' mm')
-                dictLabel["robotYLabel"].config(text = '{0:.2f}'.format(robotY) + ' mm')
-                dictLabel["robotZLabel"].config(text = '{0:.2f}'.format(robotZ) + ' mm')
-                dictLabel["robotRollLabel"].config(text = '{0:.2f}'.format(robotRoll) + ' deg')
-                dictLabel["robotPitchLabel"].config(text = '{0:.2f}'.format(robotPitch) + ' deg')
-                dictLabel["robotYawLabel"].config(text = '{0:.2f}'.format(robotYaw) + ' deg')
+                dictLabel["robotXLabel"][1] = '{0:.2f}'.format(robotX) + ' mm'
+                # dictLabel["robotXLabel"].config(text = '{0:.2f}'.format(robotX) + ' mm')
+                dictLabel["robotYLabel"][1] = '{0:.2f}'.format(robotY) + ' mm'
+                # dictLabel["robotYLabel"].config(text = '{0:.2f}'.format(robotY) + ' mm')
+                dictLabel["robotZLabel"][1] = '{0:.2f}'.format(robotZ) + ' mm'
+                # dictLabel["robotZLabel"].config(text = '{0:.2f}'.format(robotZ) + ' mm')
+                dictLabel["robotRollLabel"][1] = '{0:.2f}'.format(robotRoll) + ' deg'
+                # dictLabel["robotRollLabel"].config(text = '{0:.2f}'.format(robotRoll) + ' deg')
+                dictLabel["robotPitchLabel"][1] = '{0:.2f}'.format(robotPitch) + ' deg'
+                # dictLabel["robotPitchLabel"].config(text = '{0:.2f}'.format(robotPitch) + ' deg')
+                dictLabel["robotYawLabel"][1] = '{0:.2f}'.format(robotYaw) + ' deg'
+                # dictLabel["robotYawLabel"].config(text = '{0:.2f}'.format(robotYaw) + ' deg')
 
             if pumpsConnected:
 
@@ -342,12 +364,12 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
             # Stop operation if Stop button hit
             flagStop = classSettings.stopFlag
 
-            remaining = next_iteration - time.perf_counter()
-            # print(remaining)
-            if remaining > 0:
-                time.sleep(remaining)
-            else:
-                next_iteration = time.perf_counter()
+            # remaining = next_iteration - time.perf_counter()
+            # # print(remaining)
+            # if remaining > 0:
+            #     time.sleep(remaining)
+            # else:
+            #     next_iteration = time.perf_counter()
 
     except UserCancelled:
         print("Operation cancelled by user.")
@@ -704,66 +726,103 @@ if __name__ == '__main__':
     labelDict = {}
 
     pumpLabel = Label(contentFrame, text = "Pump controller connection")
-    labelDict.update({"pumpLabel" : pumpLabel})
+    pumpValue = 0
+    pumpList = [pumpLabel, pumpValue]
+    labelDict.update({"pumpLabel" : pumpList})
+    # print(labelDict["pumpLabel"][0])
 
     omniLabel = Label(contentFrame, text = "Controller connected")
-    labelDict.update({"omniLabel" : omniLabel})
+    omniValue = 0
+    omniList = [omniLabel, omniValue]
+    labelDict.update({"omniLabel" : omniList})
 
     # calibrationLabel = Label(contentFrame, text = "Calibration")
     # labelObj = calibrationLabel
     # labelDict.update({"calibrationLabel" : labelObj})
     R1R2Label = Label(contentFrame, text = "R1R2")
-    labelDict.update({"R1R2Label" : R1R2Label})
+    R1R2Value = 0
+    R1R2List = [R1R2Label, R1R2Value]
+    labelDict.update({"R1R2Label" : R1R2List})
 
     joystickXLabel = Label(contentFrame, text = "Joystick LR: ")
-    labelDict.update({"joystickXLabel" : joystickXLabel})
+    joystickXValue = 0
+    joystickXList = [joystickXLabel, joystickXValue]
+    labelDict.update({"joystickXLabel" : joystickXList})
 
     extendLabel = Label(contentFrame, text = "Tool")
-    labelDict.update({"extendLabel" : extendLabel})
+    extendValue = 0
+    extendList = [extendLabel, extendValue]
+    labelDict.update({"extendLabel" : extendList})
 
     joystickYLabel = Label(contentFrame, text = "Joystick UD: ")
-    labelDict.update({"joystickYLabel" : joystickYLabel})
+    joystickYValue = 0
+    joystickYList = [joystickYLabel, joystickYValue]
+    labelDict.update({"joystickYLabel" : joystickYList})
 
     grasperLabel = Label(contentFrame, text = "Grasper")
-    labelDict.update({"grasperLabel" : grasperLabel})
+    grasperValue = 0
+    grasperList = [grasperLabel, grasperValue]
+    labelDict.update({"grasperLabel" : grasperList})
 
     axialValueLabel = Label(contentFrame, text = "0.00 mm")
-    labelDict.update({"axialLabel" : axialValueLabel})
+    axialValueValue = 0
+    axialValueList = [axialValueLabel, axialValueValue]
+    labelDict.update({"axialLabel" : axialValueList})
 
     rotaryValueLabel = Label(contentFrame, text = "0.00 deg")
-    labelDict.update({"rotaryLabel" : rotaryValueLabel})
+    rotaryValueValue = 0
+    rotaryValueList = [rotaryValueLabel, rotaryValueValue]
+    labelDict.update({"rotaryLabel" : rotaryValueList})
 
     toolValueLabel = Label(contentFrame, text = "0.00 mm")
-    labelDict.update({"toolLabel" : toolValueLabel})
+    toolValueValue = 0
+    toolValueList = [toolValueLabel, toolValueValue]
+    labelDict.update({"toolLabel" : toolValueList})
 
     wristValueLabel = Label(contentFrame, text = "0.00 deg")
-    labelDict.update({"wristLabel" : wristValueLabel})
+    wristValueValue = 0
+    wristValueList = [wristValueLabel, wristValueValue]
+    labelDict.update({"wristLabel" : wristValueList})
 
     graspValueLabel = Label(contentFrame, text = "0.00 mm")
-    labelDict.update({"graspLabel" : graspValueLabel})
+    graspValueValue = 0
+    graspValueList = [graspValueLabel, graspValueValue]
+    labelDict.update({"graspLabel" : graspValueList})
 
     posXLabel = Label(contentFrame, text = "0.00 mm")
-    labelDict.update({"robotXLabel" : posXLabel})
+    posXValue = 0
+    posXList = [posXLabel, posXValue]
+    labelDict.update({"robotXLabel" : posXList})
 
     posYLabel = Label(contentFrame, text = "0.00 mm")
-    labelDict.update({"robotYLabel" : posYLabel})
+    posYValue = 0
+    posYList = [posYLabel, posYValue]
+    labelDict.update({"robotYLabel" : posYList})
 
     posZLabel = Label(contentFrame, text = "0.00 mm")
-    labelDict.update({"robotZLabel" : posZLabel})
+    posZValue = 0
+    posZList = [posZLabel, posZValue]
+    labelDict.update({"robotZLabel" : posZList})
 
     rollLabel = Label(contentFrame, text = "0.00 deg")
-    labelDict.update({"robotRollLabel" : rollLabel})
+    rollValue = 0
+    rollList = [rollLabel, rollValue]
+    labelDict.update({"robotRollLabel" : rollList})
 
     pitchLabel = Label(contentFrame, text = "0.00 deg")
-    labelDict.update({"robotPitchLabel" : pitchLabel})
+    pitchValue = 0
+    pitchList = [pitchLabel, pitchValue]
+    labelDict.update({"robotPitchLabel" : pitchList})
 
     yawLabel = Label(contentFrame, text = "0.00 deg")
-    labelDict.update({"robotYawLabel" : yawLabel})
+    yawValue = 0
+    yawList = [yawLabel, yawValue]
+    labelDict.update({"robotYawLabel" : yawList})
 
     # Creates slider to rotate input device coordinates.
     # To be placed below the pressure bars, so it is the same width as the pressure bar canvas
     rotationSlider = Scale(contentFrame, from_=180, to=-180, length = 400, tickinterval=60, orient = HORIZONTAL)
-    labelDict.update({"rotationSlider" : rotationSlider})
+    # labelDict.update({"rotationSlider" : rotationSlider})
 
     buttonValue = 0
     pumpController = threadArdComms.ardThreader()
@@ -783,7 +842,8 @@ if __name__ == '__main__':
             time.sleep(0.2)
 
     print("Connected to Control Unit? ", pumpsConnected)
-    labelDict["pumpLabel"].config(fg = "green") if pumpsConnected else labelDict["pumpLabel"].config(fg = "red")
+    labelDict["pumpLabel"][1] = pumpsConnected
+    labelDict["pumpLabel"][0].config(fg = "green") if pumpsConnected else labelDict["pumpLabel"][0].config(fg = "red")
 
     # Set command for move Robot button, taking in label dictionary
     # moveButton.config(command = lambda : threading.Thread(target = moveRobot, args = [buttonDict, labelDict, settingsClass, pumpController, viewerInput]).start())
@@ -862,8 +922,9 @@ if __name__ == '__main__':
         elif l in ["robotXLabel"]:
             columnNo = 9
             rowFirstColumn = 1
+
         if l not in ["rotationSlider"]: # Exclude rotation slider here
-            labelDict[l].grid(column = columnNo, row = rowFirstColumn, pady = yPadding, padx = xPadding)
+            labelDict[l][0].grid(column = columnNo, row = rowFirstColumn, pady = yPadding, padx = xPadding)
             rowFirstColumn = rowFirstColumn + 1
 
 
@@ -886,13 +947,75 @@ if __name__ == '__main__':
     sv_ttk.set_theme("dark")
 
     #Begin Tk loop
+    updateGUI_limit = 1000
+    updateGUI_count = 0
 
     while (settingsClass.destroyWindow is False):
         rootWindow.update_idletasks()
         rootWindow.update()
-        if pumpsConnected:
-            if (settingsClass.moveRobotRunning):
-                stepList, pressList, timeL, loadList = pumpController.getData()
+
+        if (settingsClass.moveRobotRunning):
+            updateGUI_count = updateGUI_count + 1
+            if updateGUI_count == updateGUI_limit:
+                updateGUI_count = 0
+                labelDict["omniLabel"][0].config(fg = "green") if labelDict["omniLabel"][1] is not None else labelDict["omniLabel"][0].config(fg = "red")
+                labelDict["pumpLabel"][0].config(fg = "green") if labelDict["pumpLabel"][1] else labelDict["pumpLabel"][0].config(fg = "red")
+                labelDict["axialLabel"][0].config(text  = labelDict["axialLabel"][1])
+                labelDict["rotaryLabel"][0].config(text = labelDict["rotaryLabel"][1])
+                labelDict["toolLabel"][0].config(text   = labelDict["toolLabel"][1])
+                labelDict["wristLabel"][0].config(text  = labelDict["wristLabel"][1])
+                labelDict["graspLabel"][0].config(text  = labelDict["graspLabel"][1])
+
+
+                labelDict["R1R2Label"][0].config(text = labelDict["R1R2Label"][1])
+
+
+                if labelDict["graspLabel"][1] == 1:
+                    labelDict["grasperLabel"][0].config(text = "Grasper open", fg = "green")
+                elif labelDict["graspLabel"][1] == 2:
+                    labelDict["grasperLabel"][0].config(text = "Grasper close", fg = "red")
+                else:
+                    labelDict["grasperLabel"][0].config(text = "Grasper", fg = "white")
+
+
+                joyXString = 'Joystick LR: +' + '{0:.2f}'.format(labelDict["joystickXLabel"][1])
+                if labelDict["joystickXLabel"][1] > 1e-8:
+                    labelDict["joystickXLabel"][0].config(text = joyXString, fg = "green")
+                elif labelDict["joystickXLabel"][1] < 1e-8:
+                    labelDict["joystickXLabel"][0].config(text = joyXString, fg = "red")
+                else:
+                    labelDict["joystickXLabel"][0].config(text = joyXString, fg = "white")
+
+
+                joyYString = 'Joystick UD: +' + '{0:.2f}'.format(labelDict["joystickYLabel"][1])
+                if labelDict["joystickYLabel"][1] > 1e-8:
+                    labelDict["joystickYLabel"][0].config(text = joyYString, fg = "green")
+                elif labelDict["joystickYLabel"][1] < 1e-8:
+                    labelDict["joystickYLabel"][0].config(text = joyYString, fg = "red")
+                else:
+                    labelDict["joystickYLabel"][0].config(text = joyYString, fg = "white")
+                
+
+                if labelDict["extendLabel"][1] == 1:
+                    labelDict["extendLabel"][0].config(text = "Tool retract",fg = "red")
+                elif labelDict["extendLabel"][1] == 2:
+                    labelDict["extendLabel"][0].config(text = "Tool extend", fg = "green")
+                else:
+                    labelDict["extendLabel"][0].config(text = "Tool", fg = "white")
+
+
+                labelDict["robotXLabel"][0].config(text     = labelDict["robotXLabel"][1])
+                labelDict["robotYLabel"][0].config(text     = labelDict["robotYLabel"][1])
+                labelDict["robotZLabel"][0].config(text     = labelDict["robotZLabel"][1])
+                labelDict["robotRollLabel"][0].config(text  = labelDict["robotRollLabel"][1])
+                labelDict["robotPitchLabel"][0].config(text = labelDict["robotPitchLabel"][1])
+                labelDict["robotYawLabel"][0].config(text   = labelDict["robotYawLabel"][1])
+
+
+
+        # if pumpsConnected:
+        #     if (settingsClass.moveRobotRunning):
+        #         stepList, pressList, timeL, loadList = pumpController.getData()
                 # print(stepList)
 
 
