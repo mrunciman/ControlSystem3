@@ -8,6 +8,7 @@ import threading
 import numpy as np
 import math as mt
 import platform
+from pathlib import Path
 
 # See https://www.psdevwiki.com/ps4/DS4-USB for details on data indices
 
@@ -25,12 +26,15 @@ PRODUCT_ID_PS4_OLD = 0x5c4 # = 1476 in decimal
 
 if platform.system() == "Windows":
 	# For asus laptops:
-	BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
-	#"C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+	dir_path = Path("C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+	if dir_path.is_dir():
+		BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+		#"C:\\Users\\msrun\\Documents\\Inflatable Robot Control\\ControlSystem3\\venv-deploy\\Lib\\site-packages\\libusb\\_platform\\_windows\\x64\\libusb-1.0.dll")
+	else:
+		BACKEND = usb.backend.libusb1.get_backend(find_library=lambda x: "C:\\Users\\msrun\\Documents\\ControlSystem3\\.venv-deploy\\Lib\\site-packages\\libusb\\_platform\\windows\\x86_64\\libusb-1.0.dll")
 else:
 	# Don't forget to change the path to libusb-1.0.dll
 	BACKEND = usb.backend.libusb1.get_backend() 
-
 
 
 devices = usb.core.find(find_all=True, backend=usb.backend.libusb1.get_backend())

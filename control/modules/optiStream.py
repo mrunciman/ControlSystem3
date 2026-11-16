@@ -5,6 +5,7 @@ import sys
 import numpy as np
 from numpy import linalg as la
 import platform
+from pathlib import Path
 try: 
     from modules import NatNetClient
     from modules import DataDescriptions
@@ -29,7 +30,12 @@ class optiTracker:
 
     def __init__(self):
         if platform.system() == "Windows":
-            self.parent = "C:/Users/msrun/Documents/Inflatable Robot Control/ControlSystem3/control/"
+            dir_path = Path("C:/Users/msrun/Documents/Inflatable Robot Control/ControlSystem3/control/")
+            if dir_path.is_dir():
+                self.parent = "C:/Users/msrun/Documents/Inflatable Robot Control/ControlSystem3/control/"
+            else:
+                self.parent = "C:/Users/msrun/Documents/ControlSystem3/control/"
+                
         else:
             self.parent = "/home/lannsair/Documents/DataLogs/DT Prime/"
     

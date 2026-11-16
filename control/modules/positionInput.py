@@ -2,7 +2,7 @@ import time
 import csv
 import os
 import platform
-
+from pathlib import Path
 
 class posLogger():
 
@@ -10,7 +10,12 @@ class posLogger():
         self.poseData = []
 
         if platform.system() == "Windows":
-            self.parent = "C:/Users/msrun/Documents/Inflatable Robot Control/ControlSystem3/control/"
+            dir_path = Path("C:/Users/msrun/Documents/Inflatable Robot Control/ControlSystem3/control/")
+            if dir_path.is_dir():
+                self.parent = "C:/Users/msrun/Documents/Inflatable Robot Control/ControlSystem3/control/"
+            else:
+                self.parent = "C:/Users/msrun/Documents/ControlSystem3/control/"
+
         else:
             self.parent = "/home/lannsair/Documents/DataLogs/DT Prime/"
 

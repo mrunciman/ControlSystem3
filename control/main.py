@@ -122,6 +122,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
 
 
         desAxialPos, desRotaryPos, desToolExt, desWristAngle, desGraspPos = 0, 0, 0, 0, 0
+        axialAdjustForWrist = 0
         axialPos, rotaryPos, toolExt, wristAngle, graspPos = 0, 0, 0, 0, 0
 
         desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp = 0, 0, 0, 0, 0

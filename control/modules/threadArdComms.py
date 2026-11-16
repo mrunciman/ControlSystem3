@@ -289,7 +289,7 @@ class LocalReaderThread(threading.Thread):
             numBytes = self.serial.write(data)
         finally:
             self._lock.release()
-            return numBytes
+        return numBytes
         
     def close(self):
         """Close the serial port and exit reader thread (uses lock)"""
