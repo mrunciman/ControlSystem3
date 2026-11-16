@@ -3,6 +3,28 @@
 */
 
 
+// Mega to uStepper
+// Byte 0: START_MESSAGE
+// Byte 1: COMMAND_SET_POSITION
+// Byte 2: sequence number N
+// Byte 3: angle byte 0
+// Byte 4: angle byte 1
+// Byte 5: angle byte 2
+// Byte 6: angle byte 3
+// Byte 7: power flag
+// Byte 8: END_MESSAGE
+
+// uStepper to Mega
+// Byte 0: START_MESSAGE
+// Byte 1: status
+// Byte 2: completed sequence number
+// Byte 3: encoder byte 0
+// Byte 4: encoder byte 1
+// Byte 5: encoder byte 2
+// Byte 6: encoder byte 3
+// Byte 7: actual power-enabled flag
+// Byte 8: END_MESSAGE
+
 #include <SPI.h>
 // #include <avr/dtostrf.h> // for atoi() function on Due
 #include "linearAxis.h"
@@ -81,11 +103,11 @@ int selectPinWrist = 12; // Tool - third from Pi - CS4
 int selectPinAxial = 9;  // Wrist - 4th from Pi - CS1
 int selectPinGrasp = 28; // Grasper - 5th value from Pi - CS9
 
-int pressPinX = A4;
-int pressPinY = A3;
-int pressPinZ = A2;
-int pressPinP = A1;
-int pressPinAir = A0;
+int pressPinRot = A4;
+int pressPinTool = A3;
+int pressPinWrist = A2;
+int pressPinAxial = A1;
+int pressPinGrasp = A0;
 
 int limitPinRot = 22;
 int limitPinTool = 24;
@@ -116,12 +138,12 @@ char posXStr[10];
 char posYStr[10]; 
 char posZStr[10];
 char posPStr[10];
+char posGStr[10];
 
 char pressXStr[10];
 char pressYStr[10]; 
 char pressZStr[10];
 char pressPStr[10]; 
-char pressRegStr[10]; 
 
 float angles[number_pumps];
 // char *angleStrings[number_pumps] = {posXStr, posYStr, posZStr, posPStr}; // array of char pointers
@@ -200,53 +222,30 @@ int PORT_NUM_LOAD_CELLS[NUMBER_OF_SENSORS] = {3,0,1,4};
 // Adafruit_ADS1115 ads;  /* Use this for the 16-bit version */
 // int PORT_NUMBER_ADS = 5;
 
+
+const unsigned long ACK_TIMEOUT_MS = 100;
+const uint16_t MAX_CONSECUTIVE_ACK_FAILURES = 3;
+
+uint16_t consecutiveAckFailures[5] =
+{
+    0, 0, 0, 0, 0
+};
+
+bool allMotorCommunicationsHealthy = true;
+
 ////////////////////////////////////////////////////////
 // Setup
-
 void setup() {
 
   Serial.begin(115200);
-  // Serial.println("Start LRTP Stage");
-
-  // Wire.begin();
-  // Wire.setClock(3400000);
-  // loadCell.begin();
-
-
-  // Initialize all the sensors
-  // for (byte i = 0; i < NUMBER_OF_SENSORS; i++){
-  //   enableMuxPort(PORT_NUM_LOAD_CELLS[i]);
-  //   loadCell.begin();
-  //   disableMuxPort(PORT_NUM_LOAD_CELLS[i]);
-  // }
-  // enableMuxPort(PORT_NUMBER_ADS);
-  // ads.begin();
-  // disableMuxPort(PORT_NUMBER_ADS);
-  // if (initSuccess == false)
-  // {
-  //   Serial.print("Freezing...");
-  //   while (1)
-  //     ;
-  // }
-
-
-
-  // Set reference for analogue pins to 1.1V instead of 5 V
-  // P_measured limited to maximum of 154.85 kPa, resolution of 0.278 kPa
-  // Set reference for analogue pins to 2.56V instead of 5 V
-  // P_measured limited to maximum of 531.97 kPa, resolution of 0.65 kPa for actuators
-  // P_measured limited to maximum of 354.65 kPa, resolution of 0.43 kPa for structure
-  analogReference(INTERNAL2V56);
 
   // Initialise pumps 
-  axisList[0].init(selectPinRot, pressPinX, LOOP_PERIOD, limitPinRot);     // Axial
-  axisList[1].init(selectPinTool, pressPinY, LOOP_PERIOD, limitPinTool);   // Rotary
-  axisList[2].init(selectPinWrist, pressPinZ, LOOP_PERIOD, limitPinWrist); // Wrist
-  axisList[3].init(selectPinAxial, pressPinP, LOOP_PERIOD, limitPinAxial); // Tool
-  axisList[4].init(selectPinGrasp, pressPinAir, LOOP_PERIOD, limitPinGrasp); // Grasper
+  axisList[0].init(selectPinRot, pressPinRot, LOOP_PERIOD, limitPinRot);     // Axial
+  axisList[1].init(selectPinTool, pressPinTool, LOOP_PERIOD, limitPinTool);   // Rotary
+  axisList[2].init(selectPinWrist, pressPinWrist, LOOP_PERIOD, limitPinWrist); // Wrist
+  axisList[3].init(selectPinAxial, pressPinAxial, LOOP_PERIOD, limitPinAxial); // Tool
+  axisList[4].init(selectPinGrasp, pressPinGrasp, LOOP_PERIOD, limitPinGrasp); // Grasper
 
-  //Initialise pressure regulator
-  // pressureRegulator.init(selectPinGrasp, pressPinAir, valvePin, valvePinStruct);
 
   // Grasper control from haptic
   pinMode(grasper_RHS_FWD, OUTPUT);
@@ -292,7 +291,8 @@ void updateEncoderData(){
   int i = 0;
   for(auto &item : axisList){
     if (positionInputs[i] != nullptr) {
-      angles[i] = atof(positionInputs[i]);
+      // angles[i] = atof(positionInputs[i]);
+      angles[i] = item.angleIn;
       i++;
     }
   }
@@ -300,105 +300,13 @@ void updateEncoderData(){
 
 
 
-// void intialPositions(){
-//   // Read encoder value from each motor. 
-//   for(auto &item : axisList){
-//     // For each motor, SPI transfer desired and true angular positions
-//     // item.dataOut.fData = 0.0;
-//     item.sendRecvFloat(&item.dataOut, &item.dataIn);
-//     item.sendRecvFloat_POWER(&item.dataOut, &item.dataIn, powerState);
-//     item.initEncoder = item.angleIn;
-//   }
-// }
-  
-
-
-// void intialPressures(){
-//   // Read pressure sensor of each syringe. 
-//   for(auto &item : axisList){
-//     // For each syringe pump, read related pressure sensor
-//     item.pressureBaseline = item.readPressure();
-//   }
-// }
-
-
-
-// void readActuatorPressures(){
-//   // Update pressure data for each syringe pump
-//   int i = 0;
-//   for(auto &item : axisList){ 
-//     // pressures[i] = item.readPressure();
-//     pressuresF[i] = item.readPressure();
-//     i++;
-//   }
-// }
-
-// void readPressStructure(){
-//   // Read pressure sensor of pneumatic structure
-//   if (number_pressure_regs == 1){
-//     pressuresF[number_pumps] = pressureRegulator.readStructPressure();
-//   }
-// }
-
-
-// void updateAllPressures(){
-//   //readActuatorPressures();
-//   // readPressStructure();
-// }
-
-
-// int checkPressures(){
-//   int i = 0;
-//   int checkPress = 0;
-//   for(auto &item : axisList){ 
-//     if (pressuresF[i]> item.MAX_PRESS_KPA){
-//       checkPress += 1;
-//     }
-//     i++; 
-//   }
-//   return checkPress;
-// }
-
-
-
-// void checkAnglesToMotors(){
-  // Changes desiredAngle.
-  // Limit the range of the motors to their respective maxima and minima
-  // for hydraulic and prismatic stages
-
-  // int i = 0;
-  // for (auto &item : axisList){
-  //   if (i < number_pumps){
-  //     // For hydraulic pumps, limit to between angle of approx max volume and almost zero
-  //     if (item.desiredAngle > item.MAX_ANGLE){
-  //       item.desiredAngle = item.MAX_ANGLE;
-  //     }
-  //     else if (item.desiredAngle < item.MIN_ANGLE){
-  //       item.desiredAngle = item.MIN_ANGLE;
-  //     }
-  //   }
-  //   else{
-  //     // For prismatic stage, limit between max extension and zero
-  //     if (item.desiredAngle > item.MAX_ANGLE_P){
-  //       item.desiredAngle = item.MAX_ANGLE_P;
-  //     }
-  //     else if (item.desiredAngle < item.MIN_ANGLE_P){
-  //       item.desiredAngle = item.MIN_ANGLE_P;
-  //     }
-  //   }
-  //   i++;
-  // }
-// }
-
 
 void setMotorAngleChanges(){
   // Update angle to be sent 
   for (auto &item : axisList){
     // desiredAngle is angle received from control computer
     // angleIn is angle received from given stepper motor
-    // int checkPress = checkPressures();
-    // Serial.println(checkPress);
-    // checkAnglesToMotors();
+
 
     // If any pressure is too high, prevent change of angle of any motor
     // if (checkPress == 0){
@@ -415,75 +323,112 @@ void setMotorAngleChanges(){
 }
 
 
-// void setZeroAngleChanges(){
-//   // Set change of angle to zero to prevent motion when
-//   // angles are sent to motors
-//   for (auto &item : axisList){
-//     item.deltaAngle = 0.0;
-//     item.dataOut.fData = item.deltaAngle;
-//   }
-// }
-
-
 
 
 // Move each motor individually by sending and receiving data
 void moveMotors(){
+  allMotorCommunicationsHealthy = true;
+
+  uint8_t index = 0;
   // Iterate through list of uStepper objects
   for(auto &item : axisList){ 
     // For each motor, SPI transfer desired and true angular positions
     // item.sendRecvFloat(&item.dataOut, &item.dataIn);
-    item.sendRecvFloat_POWER(&item.dataOut, &item.dataIn, powerState);
+    // item.sendRecvFloat_POWER(&item.dataOut, &item.dataIn, powerState);
+    const bool previousCommandAcknowledged = item.sendCommandPipelined(item.dataOut.fData, powerState);
+    /*
+      * The first transaction after reset returns STATUS_IDLE,
+      * so do not classify it as a failure solely because it is
+      * not STATUS_COMPLETE.
+      */
+    const bool startupResponse =
+        (item.previousCommandSequence == 0) &&
+        (item.acknowledgedStatus == STATUS_IDLE);
+
+    if (previousCommandAcknowledged ||
+        startupResponse)
+    {
+      consecutiveAckFailures[index] = 0;
+    }
+    else
+    {
+      consecutiveAckFailures[index]++;
+
+      if (consecutiveAckFailures[index] >=
+          MAX_CONSECUTIVE_ACK_FAILURES)
+      {
+          allMotorCommunicationsHealthy = false;
+      }
+    }
+
+    index++;
+
+
+  }
+  /*
+    * Choose the safe response appropriate to the mechanism.
+    *
+    * This example requests motor power off after repeated
+    * communication failures.
+    */
+  if (!allMotorCommunicationsHealthy)
+  {
+    powerState = POWER_OFF;
+  }
+
+}
+
+
+void requestAllMotorsOff()
+{
+  for (auto &item : axisList)
+  {
+    item.sendCommandPipelined(
+      item.dataOut.fData,
+      POWER_OFF);
   }
 }
 
-// // Send values to serial
-// void writeData(){
-//   // Write angle and pressure data to control computer.
 
-//   // // Save float values in char arrays as Arduino can't send them as is
-//   dtostrf(angles[0], FLOAT_LEN, FLOAT_PREC, posXStr);
-//   dtostrf(angles[1], FLOAT_LEN, FLOAT_PREC, posYStr);
-//   dtostrf(angles[2], FLOAT_LEN, FLOAT_PREC, posZStr);
-//   dtostrf(angles[3], FLOAT_LEN, FLOAT_PREC, posPStr);
+bool confirmAllLatestCommands()
+{
+  bool allConfirmed = true;
 
-//   dtostrf(axisList[0].pressureRead, FLOAT_LEN, FLOAT_PREC, pressXStr);
-//   dtostrf(axisList[1].pressureRead, FLOAT_LEN, FLOAT_PREC, pressYStr);
-//   dtostrf(axisList[2].pressureRead, FLOAT_LEN, FLOAT_PREC, pressZStr);
-//   dtostrf(axisList[3].pressureRead, FLOAT_LEN, FLOAT_PREC, pressPStr);
+  for (auto &item : axisList)
+  {
+    if (!item.readLatestAcknowledgement())
+    {
+      allConfirmed = false;
+    }
+  }
 
-//   // dtostrf(loadArray[0], FLOAT_LEN, FLOAT_PREC, loadXStr);
-//   // dtostrf(loadArray[1], FLOAT_LEN, FLOAT_PREC, loadYStr);
-//   // dtostrf(loadArray[2], FLOAT_LEN, FLOAT_PREC, loadZStr);
-//   // dtostrf(loadArray[3], FLOAT_LEN, FLOAT_PREC, loadPStr);
+  return allConfirmed;
+}
 
-//   dtostrf(pressureRegulator.pressureRead, FLOAT_LEN, FLOAT_PREC, pressRegStr);
-  
 
-//   writeTime = millis();
-//   // Clear data char array
-//   data[0] ='\0';
-//   // Send 4 encoder values, five pressure values, time and end byte
-//   // sprintf(data, "%c,%s,%s,%s,%s,%s,%s,%s,%s,%s,%lu,%c,%d,%c\n", \
-//   //   startByte,\
-//   //   posXStr, posYStr, posZStr, posPStr,\
-//   //   pressXStr, pressYStr, pressZStr, pressPStr, pressRegStr,\
-//   //   writeTime,\
-//   //   calibrationFlag,\
-//   //   calibratedBytes,\
-//   //   endByte);
+void stopAndConfirmMotors()
+{
+    for (auto &item : axisList)
+    {
+        item.sendCommandPipelined(
+            item.dataOut.fData,
+            POWER_OFF);
+    }
 
-//   sprintf(data, "%c,%s,%s,%s,%s,%s,%s,%s,%s,%s,%lu,%c,%d,%ld,%ld,%ld,%ld,%c\n", \
-//     startByte,\
-//     posXStr, posYStr, posZStr, posPStr,\
-//     pressXStr, pressYStr, pressZStr, pressPStr, pressRegStr,\
-//     writeTime,\
-//     calibrationFlag,\
-//     calibratedBytes,\
-//     loadArray[0], loadArray[1], loadArray[2], loadArray[3],\
-//     endByte);
-//   Serial.write(data);
-// }
+    delay(2);
+
+    const bool shutdownConfirmed =
+        confirmAllLatestCommands();
+
+    if (!shutdownConfirmed)
+    {
+        // Record fault, retry, or assert the common reset.
+    }
+}
+
+
+
+
 
 // Send values to serial
 void writeData(){
@@ -494,6 +439,7 @@ void writeData(){
   dtostrf(angles[1], FLOAT_LEN, FLOAT_PREC, posYStr);
   dtostrf(angles[2], FLOAT_LEN, FLOAT_PREC, posZStr);
   dtostrf(angles[3], FLOAT_LEN, FLOAT_PREC, posPStr);
+  dtostrf(angles[4], FLOAT_LEN, FLOAT_PREC, posGStr);
 
   dtostrf(axisList[0].pressureRead, FLOAT_LEN, FLOAT_PREC, pressXStr);
   dtostrf(axisList[1].pressureRead, FLOAT_LEN, FLOAT_PREC, pressYStr);
@@ -504,30 +450,17 @@ void writeData(){
   dtostrf(convLoads[1], FLOAT_LEN, FLOAT_PREC, loadYStr);
   dtostrf(convLoads[2], FLOAT_LEN, FLOAT_PREC, loadZStr);
   dtostrf(convLoads[3], FLOAT_LEN, FLOAT_PREC, loadPStr);
-
-  dtostrf(angles[4], FLOAT_LEN, FLOAT_PREC, pressRegStr);
   
 
   writeTime = millis();
   // Clear data char array
   data[0] ='\0';
-  // Send 4 encoder values, five pressure values, time and end byte
-  // sprintf(data, "%c,%s,%s,%s,%s,%s,%s,%s,%s,%s,%lu,%c,%d,%c\n", \
-  //   startByte,\
-  //   posXStr, posYStr, posZStr, posPStr,\
-  //   pressXStr, pressYStr, pressZStr, pressPStr, pressRegStr,\
-  //   writeTime,\
-  //   calibrationFlag,\
-  //   calibratedBytes,\
-  //   endByte);
 
-  sprintf(data, "%c,%s,%s,%s,%s,%s,%s,%s,%s,%s,%lu,%c,%d,%s,%s,%s,%s,%c\n", \
+  sprintf(data, "%c,%s,%s,%s,%s,%s,%s,%s,%s,%s,%lu,%s,%s,%s,%s,%c\n", \
     startByte,\
-    posXStr, posYStr, posZStr, posPStr,\
-    pressXStr, pressYStr, pressZStr, pressPStr, pressRegStr,\
+    posXStr, posYStr, posZStr, posPStr, posGStr,\
+    pressXStr, pressYStr, pressZStr, pressPStr,\
     writeTime,\
-    calibrationFlag,\
-    calibratedBytes,\
     loadXStr, loadYStr, loadZStr, loadPStr,\
     endByte);
   Serial.write(data);
@@ -695,30 +628,6 @@ void getArray(){
     // }
   
 
-
-  // // Read until we find start character '{'
-  // while (charRead != '['){
-  //   if (Serial.available() > 0){
-  //     charRead = Serial.read();
-  //     Serial.println(charRead);
-  //   }
-  // }
-  // // Read until we find end character '}'
-  // while (charRead != ']'){
-  //   if (Serial.available() > 0){
-  //     charRead = Serial.read();
-  //     Serial.println(charRead);
-  //     // if (charRead == '\n'){
-  //     //   // inputArray[0] = '\0';
-  //     //   break;
-  //     // }
-  //     if (charRead != ']'){
-  //       inputArray[i] = charRead;
-  //       i++;
-  //     }
-  //   }
-  // }
-  // Serial.print("Rcvd: "); Serial.print(inputArray); Serial.println(" End. ");
 }
 
 
@@ -790,14 +699,6 @@ void splitArray(){
       // Serial.println(positionInputs[j]);
       j++;
     }
-    // float interPress = atof(*pressureInput);
-    // if (interPress < pressureRegulator.STRUCT_MAX_PRESS){
-    //   if ((interPress =! 100.0) || (interPress != 101.0)){
-    //     interPress = 100.0;
-    //   }
-    //   pressureRegulator.inputPress = interPress;
-    //   // Serial.print("Pressure: "); Serial.println(interPress);
-    // }
   }
 }
 
@@ -999,36 +900,6 @@ void loop() {
 
 
 
-
-    // Set grasper state based on buttonState
-    switch(buttonState){
-      
-      case STOP_GRASP:
-        digitalWrite(grasper_RHS_FWD, HIGH);
-        digitalWrite(grasper_RHS_BWD, HIGH);
-        break;
-
-      case CLOSE_GRASP:
-        digitalWrite(grasper_RHS_FWD, HIGH);
-        digitalWrite(grasper_RHS_BWD, LOW);
-        break;
-
-      case OPEN_GRASP:
-        digitalWrite(grasper_RHS_FWD, LOW);
-        digitalWrite(grasper_RHS_BWD, HIGH);
-        break;
-
-      default:
-        digitalWrite(grasper_RHS_FWD, HIGH);
-        digitalWrite(grasper_RHS_BWD, HIGH);
-        break;
-    } // Grasper state loop
-
-
-
-    // Read pressures and put in array to be sent
-    // updateAllPressures();
-
     // Put encoder values in array to be sent
     updateEncoderData();
 
@@ -1044,73 +915,7 @@ void loop() {
     // Move the motors based on the angles set in the state machine
     moveMotors();
 
-    // Change state of the solenoid valve
-    // pressureRegulator.latchValve();
-
-    // Change inflatable structure behaviour based on inflatationState
-    // inflationState determined by input in readSerial()
-    // Firstly change from input_set state to isolated state if pressure has had time to settle
-    // if (inflationState == INPUTPRESSURE){
-    //   if (pressureRegulator.prevInputPress != pressureRegulator.inputPress){ // current desired pressure different from last time
-    //       inflationCounter = 0;
-    //   }
-    //   else if (inflationCounter >= infStableTime){
-    //     inflationState = ISOLATED;
-    //   }
-    // }
-    // else if (inflationState == DEFLATING){
-    //   if (deflationCounter >= 3*infStableTime){
-    //     inflationState = ISOLATED;
-    //   }
-    // }
-
-    // switch (inflationState){
-
-    //   case ISOLATED:
-    //     //Change valve states
-    //     pressureRegulator.isolateSupply();
-    //     // set to atmospheric pressure
-    //     pressureRegulator.desStructPress = P_ATMOS; 
-    //     // Change pressure regulator value 
-    //     pressureRegulator.writePressureReg();
-    //     break;
-      
-    //   case DEFLATING:
-    //     if (prevInfState != DEFLATING){
-    //       deflationCounter = 0;
-    //       prevInfState = DEFLATING;
-    //     }
-        
-    //     deflationCounter = deflationCounter + 1;
-    //     if (deflationCounter >= 3*infStableTime){
-    //       inflationState = ISOLATED;
-    //     }
-
-    //     pressureRegulator.desStructPress = P_INFLATED; // Allow regulator to open
-    //     // Change pressure regulator value 
-    //     pressureRegulator.writePressureReg();
-    //     //Change valve states
-    //     pressureRegulator.deflateStructure();
-    //     break;
-
-    //   case INPUTPRESSURE:
-    //     if (prevInfState != INPUTPRESSURE){
-    //       inflationCounter = 0;
-    //     }
-    //     else if (prevInfState == INPUTPRESSURE){
-    //       inflationCounter = inflationCounter + 1;
-    //     }
-    //     // Serial.println(atof(*pressureInput));
-    //     if (pressureRegulator.inputPress > 5.0){
-    //       pressureRegulator.desStructPress = pressureRegulator.inputPress; // set by control computer
-    //       // Change pressure regulator value 
-    //       pressureRegulator.writePressureReg();
-    //       //Change valve states
-    //       pressureRegulator.inflateStructure();
-    //     }
-    //     break;
-        
-    // } //Inflation switch
+    
   
   } //Timing loop
   

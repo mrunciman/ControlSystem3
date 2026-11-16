@@ -25,48 +25,6 @@ void LinAxis::init(int CS_Pin, int P_Pin, float periodSeconds, int L_Pin)
 }
 
 
-void LinAxis::sendRecvFloat(dataFloat *outData, dataFloat *inData)
-{
-  prevAngleIn = angleIn;
-  SPI.beginTransaction(settingsSPI);
-  // take the select pin low to activate buffer
-  digitalWrite(selectPin, LOW);
-  
-  //Send first byte and discard last byte that was sent (lastByte)
-  // transfer first sends data on MOSI, then waits and receives from MISO
-
-  // firstByte should be 0 sent by motor at end of SPI interrupt
-  firstByte = SPI.transfer(firstOut); 
-  // Serial.print(firstOut);
-  delayMicroseconds(microDelay);
-
-  // firstByte will now be 0 from start of SPI interrupt on motor
-  firstByte = SPI.transfer(outData->bData[0]);
-  // Serial.print(outData->bData[0], BIN);
-  delayMicroseconds(microDelay);
-  for (int i = 0; i < NUM_CHARS-1; i++){
-    if (i < NUM_CHARS-2){
-      // Send bytes 2 - 4 and receive bytes 1 -3
-      inData->bData[i] = SPI.transfer(outData->bData[i+1]);
-      // Serial.print(outData->bData[i+1], BIN);
-    }
-    else if (i == NUM_CHARS-2){
-      inData->bData[i] = SPI.transfer(lastOut);
-      // Serial.print(lastOut);
-    }
-    delayMicroseconds(microDelay); // delay between transmissions
-    // Serial.println(inData->bData[i]);
-  }
-  // take the select pin high to de-select the chip:
-  digitalWrite(selectPin, HIGH);
-  delayMicroseconds(microDelay);
-  SPI.endTransaction();
-
-  angleIn = REAL_DIRECTION*inData->fData;
-}
-
-
-
 
 
 void LinAxis::sendRecvFloat_POWER(dataFloat *outData, dataFloat *inData, char powerStatus)
@@ -120,6 +78,262 @@ void LinAxis::sendRecvFloat_POWER(dataFloat *outData, dataFloat *inData, char po
 }
 
 
+bool LinAxis::acknowledgementMatchesPreviousCommand() const
+{
+    return responseFramingValid && (acknowledgedSequence == previousCommandSequence);
+}
+
+
+
+bool LinAxis::acknowledgementSuccessful() const
+{
+    return acknowledgementMatchesPreviousCommand() && (acknowledgedStatus == STATUS_COMPLETE);
+}
+
+
+
+bool LinAxis::sendCommandPipelined(
+    float desiredAngle,
+    char requestedPowerState)
+{
+    dataFloat desired;
+    desired.fData = desiredAngle;
+
+    /*
+     * The response received during this transaction should normally
+     * acknowledge the previous command.
+     */
+    previousCommandSequence = lastCommandSequence;
+    lastCommandSequence = nextSequence;
+
+    txPacket[PACKET_START_INDEX] =
+        '<';
+
+    txPacket[PACKET_TYPE_INDEX] =
+        COMMAND_SET_POSITION;
+
+    txPacket[PACKET_SEQUENCE_INDEX] =
+        lastCommandSequence;
+
+    txPacket[PACKET_FLOAT_INDEX + 0] =
+        desired.bData[0];
+
+    txPacket[PACKET_FLOAT_INDEX + 1] =
+        desired.bData[1];
+
+    txPacket[PACKET_FLOAT_INDEX + 2] =
+        desired.bData[2];
+
+    txPacket[PACKET_FLOAT_INDEX + 3] =
+        desired.bData[3];
+
+    txPacket[PACKET_POWER_INDEX] =
+        static_cast<uint8_t>(requestedPowerState);
+
+    txPacket[PACKET_END_INDEX] =
+        '>';
+
+
+    SPI.beginTransaction(settingsSPI);
+
+    digitalWrite(selectPin, LOW);
+    delayMicroseconds(microDelay);
+
+    for (uint8_t i = 0; i < SPI_PACKET_SIZE; i++)
+    {
+        rxPacket[i] =
+            SPI.transfer(txPacket[i]);
+
+        delayMicroseconds(microDelay);
+    }
+
+    digitalWrite(selectPin, HIGH);
+    delayMicroseconds(microDelay);
+
+    SPI.endTransaction();
+
+    /*
+     * Validate the fixed response frame.
+     */
+    responseFramingValid =
+        (rxPacket[PACKET_START_INDEX] == '<') &&
+        (rxPacket[PACKET_END_INDEX] == '>');
+
+    if (!responseFramingValid)
+    {
+        framingErrorCount++;
+        acknowledgementErrorCount++;
+        communicationHealthy = false;
+    }
+    else
+    {
+        acknowledgedStatus =
+            static_cast<StatusCode>(
+                rxPacket[PACKET_TYPE_INDEX]);
+
+        acknowledgedSequence =
+            rxPacket[PACKET_SEQUENCE_INDEX];
+
+        dataFloat returnedAngle;
+
+        returnedAngle.bData[0] =
+            rxPacket[PACKET_FLOAT_INDEX + 0];
+
+        returnedAngle.bData[1] =
+            rxPacket[PACKET_FLOAT_INDEX + 1];
+
+        returnedAngle.bData[2] =
+            rxPacket[PACKET_FLOAT_INDEX + 2];
+
+        returnedAngle.bData[3] =
+            rxPacket[PACKET_FLOAT_INDEX + 3];
+
+        prevAngleIn = angleIn;
+        angleIn =
+            REAL_DIRECTION *
+            returnedAngle.fData;
+
+        actualPowerState =
+            static_cast<char>(
+                rxPacket[PACKET_POWER_INDEX]);
+
+        responseSequenceValid =
+            (acknowledgedSequence ==
+             previousCommandSequence);
+
+        /*
+         * STATUS_IDLE with sequence 0 is expected on the first
+         * transaction after startup.
+         */
+        const bool startupResponse =
+            (previousCommandSequence == 0) &&
+            (acknowledgedSequence == 0) &&
+            (acknowledgedStatus == STATUS_IDLE);
+
+        if (responseSequenceValid || startupResponse)
+        {
+            communicationHealthy = true;
+            acknowledgementTime = millis();
+        }
+        else
+        {
+            sequenceErrorCount++;
+            acknowledgementErrorCount++;
+            communicationHealthy = false;
+        }
+    }
+
+
+    /*
+     * Advance sequence number. Zero is reserved for startup/idle.
+     */
+    nextSequence++;
+
+    if (nextSequence == 0)
+    {
+        nextSequence = 1;
+    }
+
+
+    return acknowledgementSuccessful();
+}
+
+
+
+bool LinAxis::readLatestAcknowledgement()
+{
+    for (uint8_t i = 0; i < SPI_PACKET_SIZE; i++)
+    {
+        txPacket[i] = 0;
+    }
+
+    txPacket[PACKET_START_INDEX] = '<';
+    txPacket[PACKET_TYPE_INDEX] = COMMAND_NOP;
+
+    /*
+     * The NOP carries the most recent command sequence for
+     * diagnostic clarity. The peripheral does not execute it.
+     */
+    txPacket[PACKET_SEQUENCE_INDEX] = lastCommandSequence;
+    txPacket[PACKET_POWER_INDEX] = 'N';
+    txPacket[PACKET_END_INDEX] = '>';
+
+
+    SPI.beginTransaction(settingsSPI);
+
+    digitalWrite(selectPin, LOW);
+    delayMicroseconds(microDelay);
+
+    for (uint8_t i = 0; i < SPI_PACKET_SIZE; i++)
+    {
+        rxPacket[i] =
+            SPI.transfer(txPacket[i]);
+
+        delayMicroseconds(microDelay);
+    }
+
+    digitalWrite(selectPin, HIGH);
+    delayMicroseconds(microDelay);
+
+    SPI.endTransaction();
+
+
+    responseFramingValid =
+        (rxPacket[PACKET_START_INDEX] == '<') &&
+        (rxPacket[PACKET_END_INDEX] == '>');
+
+    if (!responseFramingValid)
+    {
+        framingErrorCount++;
+        acknowledgementErrorCount++;
+        communicationHealthy = false;
+        return false;
+    }
+
+
+    acknowledgedStatus =
+        static_cast<StatusCode>(
+            rxPacket[PACKET_TYPE_INDEX]);
+
+    acknowledgedSequence =
+        rxPacket[PACKET_SEQUENCE_INDEX];
+
+    dataFloat returnedAngle;
+
+    for (uint8_t i = 0; i < 4; i++)
+    {
+        returnedAngle.bData[i] =
+            rxPacket[PACKET_FLOAT_INDEX + i];
+    }
+
+    prevAngleIn = angleIn;
+    angleIn =
+        REAL_DIRECTION *
+        returnedAngle.fData;
+
+    actualPowerState =
+        static_cast<char>(
+            rxPacket[PACKET_POWER_INDEX]);
+
+    responseSequenceValid =
+        (acknowledgedSequence ==
+         lastCommandSequence);
+
+    communicationHealthy =
+        responseSequenceValid;
+
+    if (communicationHealthy)
+    {
+        acknowledgementTime = millis();
+    }
+    else
+    {
+        sequenceErrorCount++;
+        acknowledgementErrorCount++;
+    }
+
+    return communicationHealthy && (acknowledgedStatus == STATUS_COMPLETE);
+}
 
 
 float LinAxis::readPressure()

@@ -3,11 +3,12 @@ import serial
 import serial.tools.list_ports
 from serial.threaded import LineReader
 import time
+import platform
 
 
 startByte = "<"
 endByte = ">"
-CORRECT_LENGTH = 18
+CORRECT_LENGTH = 16
 # CORRECT_LENGTH = 17
 
 CALIBRATION_MODE = 0
@@ -22,18 +23,21 @@ class ardThreader:
 
     def __init__(self):
         self.ser = serial.Serial()
-        self.ser.port = '/dev/ttyACM0'
+        if platform.system() == "Windows":
+            self.ser.port = 'COM5'
+        else:
+            self.ser.port = '/dev/ttyACM0'
         self.ser.baudrate = 115200
         self.ser.timeout = 1
         self.connected = False
         self.t = None
 
-        self.positionData = [0.0, 0.0, 0.0, 0.0]
-        self.pressData = [0, 0, 0, 0, 0]
+        self.positionData = [0.0, 0.0, 0.0, 0.0, 0.0]
+        self.pressData = [0, 0, 0, 0]
         self.loadData= [0, 0, 0, 0]
         self.ardTime = 0
-        self.calibrationFlag = 0
-        self.calibrationByte = 0
+        # self.calibrationFlag = 0
+        # self.calibrationByte = 0
 
     def startThreader(self):
         try:
@@ -162,8 +166,8 @@ class ardThreader:
             self.positionData = self.t.positionD
             self.pressData = self.t.pressD
             self.ardTime = self.t.ardT
-            self.calibrationFlag = self.t.caliFlag
-            self.calibrationByte = self.t.caliByte
+            # self.calibrationFlag = self.t.caliFlag
+            # self.calibrationByte = self.t.caliByte
             rawLoadData = self.t.loadD
             # loadIntercepts = [-157842.064, 120690.686, 50251.4, 203841.3] #[-156889, 116872, 46333, 202873] # [0, 0, 0, 0] #[-158219, 112814, 49024, 206650] #[-156889.3692, 116872.8942, 46333.59892, 202873.5869]
             # loadGradients = [298.89, 213.08, 291.40, 263.92]
@@ -382,24 +386,24 @@ class SerialReaderProtocolLine(LineReader):
             # self.transport.positionD = [float(x) for x in pos]
             self.transport.errorFlag = 0
             try:
-                self.transport.positionD = [float(x) for x in stepPress[1:5]] # FOR FUTURE USE
+                self.transport.positionD = [float(x) for x in stepPress[1:6]] # FOR FUTURE USE
                 # print(self.transport.positionD)
 
                 # press = [stepPress[1], stepPress[3], stepPress[5], stepPress[7], stepPress[8]]
                 # self.transport.pressD = [int(y) for y in press]
-                self.transport.pressD = [float(y) for y in stepPress[5:10]] # FOR FUTURE USE
+                self.transport.pressD = [float(y) for y in stepPress[6:10]] # FOR FUTURE USE
                 # print(self.transport.pressD)
 
                 self.transport.ardT = int(stepPress[10])
                 # print(self.transport.ardT)
 
-                self.transport.caliFlag = stepPress[11]
-                # print(self.transport.caliFlag)
+                # self.transport.caliFlag = stepPress[11]
+                # # print(self.transport.caliFlag)
 
-                self.transport.caliByte = int(stepPress[12]).to_bytes(1, 'big')
+                # self.transport.caliByte = int(stepPress[12]).to_bytes(1, 'big')
                 # print(self.transport.caliByte)
 
-                self.transport.loadD = [float(z) for z in stepPress[13:17]] # FOR FUTURE USE
+                self.transport.loadD = [float(z) for z in stepPress[11:15]] # FOR FUTURE USE
                 # print(self.transport.loadD)
             except Exception as e:
                 self.transport.errorFlag = 1
@@ -430,7 +434,7 @@ if __name__ == '__main__':
             count = count + 1
             ardThread.sendStep(0, 0, 0, 0, 0, 1, 1, 0)
             [realStepL, realStepR, realStepT, realStepP], [pressL, pressR, pressT, pressP, regulatorSensor], timeL = ardThread.getData()
-            print(ardThread.loadData)
+            # print(ardThread.loadData)
 
 
     ardThread.stopThreader()

@@ -5,6 +5,26 @@ typedef union {
   uint8_t bData[4];
 }dataFloat;
 
+enum StatusCode : uint8_t
+{
+    STATUS_IDLE          = 0x00,
+    STATUS_RECEIVING     = 0x01,
+    STATUS_ACCEPTED      = 0x02,
+    STATUS_BUSY          = 0x03,
+    STATUS_COMPLETE      = 0x04,
+    STATUS_BAD_LENGTH    = 0x10,
+    STATUS_BAD_CRC       = 0x11,
+    STATUS_BAD_COMMAND   = 0x12,
+    STATUS_BAD_PARAMETER = 0x13,
+    STATUS_DRIVER_FAULT  = 0x20
+};
+
+enum CommandCode : uint8_t
+{
+    COMMAND_NOP          = 0x00,
+    COMMAND_SET_POSITION = 0x01
+};
+
 class LinAxis{
 
 
@@ -122,6 +142,47 @@ class LinAxis{
     // Initial value:
     float pressureBaseline = 0.0;
 
+    
+
+    // Fixed-length pipelined SPI packet.
+    static const uint8_t SPI_PACKET_SIZE = 9;
+
+    // Packet byte indices.
+    static const uint8_t PACKET_START_INDEX    = 0;
+    static const uint8_t PACKET_TYPE_INDEX     = 1;
+    static const uint8_t PACKET_SEQUENCE_INDEX = 2;
+    static const uint8_t PACKET_FLOAT_INDEX    = 3;
+    static const uint8_t PACKET_POWER_INDEX    = 7;
+    static const uint8_t PACKET_END_INDEX      = 8;
+
+    // Transmit and receive packet storage.
+    uint8_t txPacket[SPI_PACKET_SIZE];
+    uint8_t rxPacket[SPI_PACKET_SIZE];
+
+    // Command sequence tracking.
+    // Sequence zero is reserved for startup/idle responses.
+    uint8_t nextSequence = 1;
+    uint8_t lastCommandSequence = 0;
+    uint8_t previousCommandSequence = 0;
+
+    // Latest acknowledgement returned by the uStepper.
+    uint8_t acknowledgedSequence = 0;
+    StatusCode acknowledgedStatus = STATUS_IDLE;
+
+    // Actual power state reported by the uStepper.
+    char actualPowerState = 'N';
+
+    // Response validation state.
+    bool responseFramingValid = false;
+    bool responseSequenceValid = false;
+    bool communicationHealthy = false;
+
+    // Diagnostic information.
+    unsigned long acknowledgementTime = 0;
+    uint16_t acknowledgementErrorCount = 0;
+    uint16_t framingErrorCount = 0;
+    uint16_t sequenceErrorCount = 0;
+
 
 
     ////////////////////////////////////////////////////////////////////////////
@@ -137,6 +198,20 @@ class LinAxis{
     float convertAngleToSpeed(float changeAngle);
     bool moveToLimit();
     float convertDistanceToAngle(float distance);
+
+    /*
+     * Send command N and receive the response prepared after
+     * an earlier command, normally N-1.
+     */
+    bool sendCommandPipelined(float desiredAngle, char requestedPowerState);
+
+    /*
+     * Send a NOP to retrieve the most recently prepared response.
+     */
+    bool readLatestAcknowledgement();
+
+    bool acknowledgementMatchesPreviousCommand() const;
+    bool acknowledgementSuccessful() const;
 
 
 };

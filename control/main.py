@@ -126,6 +126,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
         axialPos, rotaryPos, toolExt, wristAngle, graspPos = 0, 0, 0, 0, 0
 
         desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp = 0, 0, 0, 0, 0
+        intermedAxial, intermedRotary, intermedTool, intermedWrist, intermedGrasp = 0, 0, 0, 0, 0
 
         # Set initial pressure and calibration variables
         timeL = 0
@@ -154,7 +155,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
 
         # startThreader opens the serial connection and starts the communication thread
         pumpsConnected = pumpController.connected
-        print("Connected to Control Unit? ", pumpsConnected)
+        # print("Connected to Control Unit? ", pumpsConnected)
         
         dictLabel["pumpLabel"][1] = pumpsConnected
         # dictLabel["pumpLabel"].config(fg = "green") if pumpsConnected else dictLabel["pumpLabel"].config(fg = "red")
@@ -211,74 +212,44 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 intermedWrist, desWristAngle = kineSolve.setWristMotor(desWristAngle)
                 intermedGrasp, desGraspPos = kineSolve.setGraspMotor(desGraspPos)
                 # print("Motor angles: ", desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, "\n")
-                dictLabel["axialLabel"][1] = '{0:.2f}'.format(desAxialPos) + ' mm'
-                # dictLabel["axialLabel"].config(text = '{0:.2f}'.format(desAxialPos) + ' mm')
-                dictLabel["rotaryLabel"][1] = '{0:.2f}'.format(desRotaryPos) + ' deg'
-                # dictLabel["rotaryLabel"].config(text = '{0:.2f}'.format(desRotaryPos) + ' deg')
-                dictLabel["toolLabel"][1] = '{0:.2f}'.format(desToolExt) + ' mm'
-                # dictLabel["toolLabel"].config(text = '{0:.2f}'.format(desToolExt) + ' mm')
-                dictLabel["wristLabel"][1] = '{0:.2f}'.format(desWristAngle) + ' deg'
-                # dictLabel["wristLabel"].config(text = '{0:.2f}'.format(desWristAngle) + ' deg')
-                dictLabel["graspLabel"][1] = '{0:.2f}'.format(desGraspPos) + ' mm'
-                # dictLabel["graspLabel"].config(text = '{0:.2f}'.format(desGraspPos) + ' mm')
+                dictLabel["axialLabel"][1]  = '{0:.2f}'.format(desAxialPos)     + ' mm'
+                dictLabel["rotaryLabel"][1] = '{0:.2f}'.format(desRotaryPos)    + ' deg'
+                dictLabel["toolLabel"][1]   = '{0:.2f}'.format(desToolExt)      + ' mm'
+                dictLabel["wristLabel"][1]  = '{0:.2f}'.format(desWristAngle)   + ' deg'
+                dictLabel["graspLabel"][1]  = '{0:.2f}'.format(desGraspPos)     + ' mm'
 
-                desiredThetaAxial = intermedAxial + jointOffsetList[0]
-                desiredThetaRotary = intermedRotary + jointOffsetList[1]
-                desiredThetaTool = intermedTool + jointOffsetList[2]
-                desiredThetaWrist = intermedWrist + jointOffsetList[3]
-                desiredThetaGrasp = intermedGrasp + jointOffsetList[4]
 
-                # frameRotAngle = dictLabel["rotationSlider"].get()
+            desiredThetaAxial = intermedAxial + jointOffsetList[0]
+            desiredThetaRotary = intermedRotary + jointOffsetList[1]
+            desiredThetaTool = intermedTool + jointOffsetList[2]
+            desiredThetaWrist = intermedWrist + jointOffsetList[3]
+            desiredThetaGrasp = intermedGrasp + jointOffsetList[4]
+
+            # frameRotAngle = dictLabel["rotationSlider"].get()
                 
 
             if classSettings.goToHome:
                 controllerButtons = 0
 
             dictLabel["graspLabel"][1] = controllerButtons
-            # if controllerButtons == 1:
-            #     dictLabel["grasperLabel"].config(text = "Grasper open", fg = "green")
-            # elif controllerButtons == 2:
-            #     dictLabel["grasperLabel"].config(text = "Grasper close", fg = "red")
-            # else:
-            #     dictLabel["grasperLabel"].config(text = "Grasper", fg = "white")
-
             dictLabel["joystickXLabel"][1] = ps4.RstickX
-            # if ps4.RstickX > 1e-8:
-            #     dictLabel["joystickXLabel"].config(text = 'Joystick LR: +' + '{0:.2f}'.format(ps4.RstickX), fg = "green")
-            # elif ps4.RstickX < 1e-8:
-            #     dictLabel["joystickXLabel"].config(text = 'Joystick LR: ' + '{0:.2f}'.format(ps4.RstickX), fg = "red")
-            # else:
-            #     dictLabel["joystickXLabel"].config(text = 'Joystick LR: +' + '{0:.2f}'.format(ps4.RstickX), fg = "white")
-
             dictLabel["joystickYLabel"][1] = ps4.RstickY
-            # if ps4.RstickY > 1e-8:
-            #     dictLabel["joystickYLabel"].config(text = 'Joystick UD: +' + '{0:.2f}'.format(ps4.RstickY), fg = "green")
-            # elif ps4.RstickY < 1e-8:
-            #     dictLabel["joystickYLabel"].config(text = 'Joystick UD: ' + '{0:.2f}'.format(ps4.RstickY), fg = "red")
-            # else:
-            #     dictLabel["joystickYLabel"].config(text = 'Joystick UD: +' + '{0:.2f}'.format(ps4.RstickY), fg = "white")
 
-            
             if axialPos < desAxialPos:
                 dictLabel["R1R2Label"][1] = 'R2 - Out'
             elif axialPos > desAxialPos:
                 dictLabel["R1R2Label"][1] = 'R1 - In' 
             else:dictLabel["R1R2Label"][1] = 'R1R2'
-
-
             
             if desToolExt < toolExt:
                 dictLabel["extendLabel"][1] = 1
-                # dictLabel["extendLabel"].config(text = "Tool retract", fg = "orange")
             elif desToolExt > toolExt:
                 dictLabel["extendLabel"][1] = 2
-                # dictLabel["extendLabel"].config(text = "Tool extend", fg = "cyan")
             else:
                 dictLabel["extendLabel"][1] = 3
-                # dictLabel["extendLabel"].config(text = "Tool", fg = "white")
 
 
-            visualiseOffset = 0
+            visualiseOffset = 1
             viewerInputList[0] = desAxialPos + axialAdjustForWrist + jointOffsetList[0]*visualiseOffset
             viewerInputList[1] = desRotaryPos   + jointOffsetList[1]*visualiseOffset
             viewerInputList[2] = desToolExt     + jointOffsetList[2]*visualiseOffset
@@ -298,18 +269,12 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                 robotYaw = viewerInputList[10]
                 posLogging.posLog(robotX, robotY, robotZ, robotRoll, robotPitch, robotYaw)
                 #Show position on GUI
-                dictLabel["robotXLabel"][1] = '{0:.2f}'.format(robotX) + ' mm'
-                # dictLabel["robotXLabel"].config(text = '{0:.2f}'.format(robotX) + ' mm')
-                dictLabel["robotYLabel"][1] = '{0:.2f}'.format(robotY) + ' mm'
-                # dictLabel["robotYLabel"].config(text = '{0:.2f}'.format(robotY) + ' mm')
-                dictLabel["robotZLabel"][1] = '{0:.2f}'.format(robotZ) + ' mm'
-                # dictLabel["robotZLabel"].config(text = '{0:.2f}'.format(robotZ) + ' mm')
-                dictLabel["robotRollLabel"][1] = '{0:.2f}'.format(robotRoll) + ' deg'
-                # dictLabel["robotRollLabel"].config(text = '{0:.2f}'.format(robotRoll) + ' deg')
-                dictLabel["robotPitchLabel"][1] = '{0:.2f}'.format(robotPitch) + ' deg'
-                # dictLabel["robotPitchLabel"].config(text = '{0:.2f}'.format(robotPitch) + ' deg')
-                dictLabel["robotYawLabel"][1] = '{0:.2f}'.format(robotYaw) + ' deg'
-                # dictLabel["robotYawLabel"].config(text = '{0:.2f}'.format(robotYaw) + ' deg')
+                dictLabel["robotXLabel"][1]     = '{0:.2f}'.format(robotX)      + ' mm'
+                dictLabel["robotYLabel"][1]     = '{0:.2f}'.format(robotY)      + ' mm'
+                dictLabel["robotZLabel"][1]     = '{0:.2f}'.format(robotZ)      + ' mm'
+                dictLabel["robotRollLabel"][1]  = '{0:.2f}'.format(robotRoll)   + ' deg'
+                dictLabel["robotPitchLabel"][1] = '{0:.2f}'.format(robotPitch)  + ' deg'
+                dictLabel["robotYawLabel"][1]   = '{0:.2f}'.format(robotYaw)    + ' deg'
 
             if pumpsConnected:
 
@@ -339,9 +304,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
 
                 # Get current pump position, pressure and times from arduinos
                 stepList, pressList, timeL, loadList = pumpController.getData()
-                # [realStepL, realStepR, realStepT, realStepP] = stepList
-                # [pressL, pressR, pressT, pressP, regulatorSensor] = pressList
-                # [loadL, loadR, loadT, loadP] = loadList
+
 
             # Check if new data has been received from pump controller 
             if (timeL - prevTimeL > 0):
@@ -427,9 +390,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                     # print(x)
                 time.sleep(0.2)
                 stepList, pressList, timeL, loadList = pumpController.getData()
-                # [realStepL, realStepR, realStepT, realStepP] = stepList
-                # [pressL, pressR, pressT, pressP, regulatorSensor] = pressList
-                # [loadL, loadR, loadT, loadP] = loadList
+
 
 
             # #Save optitrack data

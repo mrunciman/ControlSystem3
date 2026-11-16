@@ -38,11 +38,11 @@ class ardLogger():
 
 
     def ardLogAll(self, stepList, pressList, timeL, loadList):
-        [realStepL, realStepR, realStepT, realStepP] = stepList
-        [pressL, pressR, pressT, pressP, regulatorSensor] = pressList
+        [realStepL, realStepR, realStepT, realStepP, realStepG] = stepList
+        [pressL, pressR, pressT, pressP] = pressList
         [loadL, loadR, loadT, loadP] = loadList
-        self.tempData.extend([realStepL] + [realStepR] + [realStepT] + [realStepP] +
-                             [pressL] + [pressR] + [pressT] + [pressP] + [regulatorSensor] +
+        self.tempData.extend([realStepL] + [realStepR] + [realStepT] + [realStepP] + [realStepG] +
+                             [pressL] + [pressR] + [pressT] + [pressP] + 
                              [loadL] + [loadR] + [loadT] + [loadP] +
                              [timeL])
         self.ardData.append(self.tempData)
