@@ -53,10 +53,6 @@ enum StatusCode : uint8_t
 };
 
 
-volatile uint8_t receivedSequence = 0;
-volatile uint8_t completedSequence = 0;
-volatile uint8_t commandStatus = STATUS_IDLE;
-
 enum CommandCode : uint8_t
 {
     COMMAND_NOP          = 0x00,
@@ -84,27 +80,10 @@ unsigned long timeLastExecution;
 bool ENABLECLOSEDLOOP = false;
 float angleEncoder = 0.0;
 float prevAngleEncoder = angleEncoder;
-float angleDelta = 0.0;
 float angleDesired = 0.0;
-int encoderChangeCount = 0;
-int changeCountThresh = 50;
-bool encoderOK = true;
-float angPos = 0.0;
+
+
 float brakeCurrent = 5.0; // percent 
-
-volatile dataFloat posEncoder;
-volatile dataFloat posFromController;
-const int NUM_CHARS = 4;
-const int LAST_CHAR_NUM = 5;
-
-// char inputArray[56];
-
-// volatile int posIndex = 0;
-volatile uint8_t lastByte = 0;
-
-// volatile bool startMsgReceived = false; 
-// volatile bool endMsgReceived = false; 
-// volatile bool receivedOK = false;
 
 // New receive and response buffers
 volatile uint8_t rxPacket[PACKET_SIZE];
@@ -115,30 +94,21 @@ volatile uint8_t txIndex = 0;
 
 volatile bool packetReady = false;
 
-volatile StatusCode = STATUS_IDLE;
-voltaile commandStatus = COMMAND_NOP;
+volatile StatusCode commandStatus = STATUS_IDLE;
 volatile uint8_t receivedSequence = 0;
 volatile uint8_t completedSequence = 0;
 
-volatile bool requestedPowerState = false;
 bool powerState = false;
 bool powerEnabled = false;
-
-int microDelay = 25;
 
 char START_MESSAGE = '<';
 char END_MESSAGE = '>';
 char POWER_ON_FLAG = 'Y';
 char POWER_OFF_FLAG = 'N';
-// volatile bool powerState = false;
-// volatile bool prevPowerState = false;
-
 
 float LEAD = 8.0;
 float STEPS_PER_MM = 200*32; //51200.0; // 32 microsteps per 1.8 deg step
-long prevStepCountDesired = 0;
 long stepCountDesired = 0;
-long stepCountDesiredLocal = 0;
 
 long stepCountDriver = 0;
 long prevStepCountDriver = 0;
@@ -147,7 +117,23 @@ long stepCountLocal = 0;
 long stepError = 0.0;
 
 float angleEstDriver = 0.0;
-float angleEstLocal = 0.0;
+
+
+// Forward declarations.
+void buildResponsePacket(
+    StatusCode status,
+    uint8_t sequence,
+    bool actualPowerState,
+    float currentPosition);
+
+void setupPeripheralSPI();
+
+void processPendingCommand();
+
+long convertDesiredAngleToStepNumber(float angleDes);
+
+float convertStepToAngle(long stepCountDri);
+
 
 
 
@@ -160,19 +146,11 @@ void setup(void)
   else{
     stepper.setup();
   }
-  // stepper.setup(CLOSEDLOOP,200);   // stepper.setup();     //Initiate the stepper object with default settings
-  
-  // Initialise data structures
-  posEncoder.fData = 0.0;
-  // angleEncoder = posEncoder.fData;
-  posFromController.fData = 0.0;
-  // Serial.println("Start");
 
 
   // For the closed loop position control the acceleration and velocity parameters define the response of the control:
   stepper.setMaxAcceleration(500);
   stepper.setMaxVelocity(1500);        //Max velocity in fullsteps/s
-
 
   // After orientation check, turn off motors:
   stepper.setBrakeMode(FREEWHEELBRAKE);
@@ -184,9 +162,6 @@ void setup(void)
   pinMode(D3, OUTPUT); // MISO1 to master
   pinMode(D2, INPUT); // MOSI1 from master
   pinMode(SS_Pin, INPUT_PULLUP);
-  noInterrupts();
-  setupPeripheralSPI();
-  interrupts();
 
   buildResponsePacket(
     STATUS_IDLE,
@@ -194,37 +169,45 @@ void setup(void)
     powerEnabled,
     angleEstDriver);
 
+  noInterrupts();
+  setupPeripheralSPI();
+  interrupts();
+
 }
 
 
 void buildResponsePacket(
-    StatusCode status,
-    uint8_t sequence,
-    bool actualPowerState,
-    float currentPosition)
-{
-    dataFloat position;
-    position.fData = currentPosition;
+  StatusCode status,
+  uint8_t sequence,
+  bool actualPowerState,
+  float currentPosition)
+  {
+  dataFloat position;
+  position.fData = currentPosition;
 
-    noInterrupts();
+  noInterrupts();
 
-    txPacket[0] = START_MESSAGE;
-    txPacket[1] = static_cast<uint8_t>(status);
-    txPacket[2] = sequence;
+  txPacket[0] = START_MESSAGE;
+  txPacket[1] = static_cast<uint8_t>(status);
+  txPacket[2] = sequence;
+  txPacket[3] = position.bData[0];
+  txPacket[4] = position.bData[1];
+  txPacket[5] = position.bData[2];
+  txPacket[6] = position.bData[3];
+  txPacket[7] =  actualPowerState ? POWER_ON_FLAG : POWER_OFF_FLAG;
+  txPacket[8] = END_MESSAGE;
 
-    txPacket[3] = position.bData[0];
-    txPacket[4] = position.bData[1];
-    txPacket[5] = position.bData[2];
-    txPacket[6] = position.bData[3];
+  txIndex = 0;
 
-    txPacket[7] =
-        actualPowerState
-            ? POWER_ON_FLAG
-            : POWER_OFF_FLAG;
+  /*
+  * If SPI1 is already enabled, preload response byte zero.
+  */
+  if (LL_SPI_IsEnabled(SPI1))
+  {
+    LL_SPI_TransmitData8(SPI1, txPacket[0]);
+  }
 
-    txPacket[8] = END_MESSAGE;
-
-    interrupts();
+  interrupts();
 }
 
 void setupPeripheralSPI()
@@ -240,9 +223,7 @@ void setupPeripheralSPI()
     * PA6 = D3 = SPI1 MISO
     * PA7 = D2 = SPI1 MOSI
     */
-    gpio.Pin = LL_GPIO_PIN_5 |
-              LL_GPIO_PIN_6 |
-              LL_GPIO_PIN_7;
+    gpio.Pin = LL_GPIO_PIN_5 | LL_GPIO_PIN_6 | LL_GPIO_PIN_7;
     gpio.Mode = LL_GPIO_MODE_ALTERNATE;
     gpio.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
     gpio.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
@@ -253,31 +234,24 @@ void setupPeripheralSPI()
 
     LL_SPI_Disable(SPI1);
 
-    LL_SPI_SetTransferDirection(
-        SPI1, LL_SPI_FULL_DUPLEX);
+    LL_SPI_SetTransferDirection(SPI1, LL_SPI_FULL_DUPLEX);
 
-    LL_SPI_SetMode(
-        SPI1, LL_SPI_MODE_SLAVE);
+    LL_SPI_SetMode(SPI1, LL_SPI_MODE_SLAVE);
 
-    LL_SPI_SetDataWidth(
-        SPI1, LL_SPI_DATAWIDTH_8BIT);
+    LL_SPI_SetDataWidth(SPI1, LL_SPI_DATAWIDTH_8BIT);
 
     /* Same as the original CPOL=0, CPHA=0 */
-    LL_SPI_SetClockPolarity(
-        SPI1, LL_SPI_POLARITY_LOW);
+    LL_SPI_SetClockPolarity(SPI1, LL_SPI_POLARITY_LOW);
 
-    LL_SPI_SetClockPhase(
-        SPI1, LL_SPI_PHASE_1EDGE);
+    LL_SPI_SetClockPhase(SPI1, LL_SPI_PHASE_1EDGE);
 
-    LL_SPI_SetTransferBitOrder(
-        SPI1, LL_SPI_MSB_FIRST);
+    LL_SPI_SetTransferBitOrder(SPI1, LL_SPI_MSB_FIRST);
 
     /*
      * CS is checked manually on D5, rather than using
      * the SPI peripheral's hardware NSS pin.
      */
-    LL_SPI_SetNSSMode(
-        SPI1, LL_SPI_NSS_SOFT);
+    LL_SPI_SetNSSMode(SPI1, LL_SPI_NSS_SOFT);
 
     NVIC_SetPriority(SPI1_IRQn, 1);
     NVIC_EnableIRQ(SPI1_IRQn);
@@ -294,74 +268,133 @@ void setupPeripheralSPI()
 
 extern "C" void SPI1_IRQHandler(void)
 {
-    if (LL_SPI_IsActiveFlag_RXNE(SPI1))
-    {
-        uint8_t c = LL_SPI_ReceiveData8(SPI1);
-        // Serial.print(c);
-        uint8_t reply = 0;
+  if (LL_SPI_IsActiveFlag_RXNE(SPI1))
+  {
+    /*
+    * Reading the data register consumes the byte received
+    * during the completed SPI transfer.
+    */
+    const uint8_t receivedByte = LL_SPI_ReceiveData8(SPI1);
 
-        if (digitalRead(SS_Pin) == LOW)
+    /*
+    * D5 is the software chip-select and is active-low.
+    * Traffic received while this board is not selected is ignored.
+    */
+    if (digitalRead(SS_Pin) != LOW)
+    {
+        rxIndex = 0;
+        txIndex = 0;
+
+        /*
+        * Prepare response byte zero for the next transaction.
+        */
+        LL_SPI_TransmitData8(SPI1, txPacket[0]);
+    }
+    else
+    {
+      /*
+      * The byte transmitted during this transfer was already
+      * present in SPI1->DR before the transfer began.
+      *
+      * Prepare the following response byte for the next transfer.
+      */
+      if (txIndex < (PACKET_SIZE - 1))
+      {
+          txIndex++;
+
+          LL_SPI_TransmitData8(SPI1, txPacket[txIndex]);
+      }
+      else
+      {
+          /*
+          * All response bytes have been supplied.
+          * The value here is only a fallback for excess clocks.
+          */
+          LL_SPI_TransmitData8(SPI1, 0);
+      }
+
+      /*
+      * Do not overwrite a complete command that loop() has
+      * not yet copied and processed.
+      */
+      if (!packetReady)
+      {
+        /*
+        * When idle, only a start marker begins a packet.
+        */
+        if (rxIndex == 0)
         {
-            if (startMsgReceived)
-            {
-                if (posIndex < NUM_CHARS)
-                {
-                    posFromController.bData[posIndex] = c;
-                    reply = posEncoder.bData[posIndex];
-                    posIndex++;
-                }
-                else if (posIndex == NUM_CHARS)
-                {
-                    prevPowerState = powerState;
-                    powerState = (c == POWER_ON_FLAG);
-                    posIndex++;
-                }
-                else if (posIndex == LAST_CHAR_NUM)
-                {
-                    receivedOK = (c == END_MESSAGE);
-                    endMsgReceived = receivedOK;
-                    startMsgReceived = false;
-                    posIndex++;
-                }
-                else
-                {
-                    startMsgReceived = false;
-                    endMsgReceived = false;
-                    receivedOK = false;
-                    posIndex = 0;
-                }
-            }
-            else if (c == START_MESSAGE)
-            {
-                startMsgReceived = true;
-                endMsgReceived = false;
-                receivedOK = false;
-                posIndex = 0;
-            }
-            else
-            {
-                receivedOK = false;
-            }
+          if (receivedByte == START_MESSAGE)
+          {
+            rxPacket[RX_START_INDEX] = receivedByte;
+            rxIndex = 1;
+            commandStatus = STATUS_RECEIVING;
+          }
         }
         else
         {
-            startMsgReceived = false;
-            endMsgReceived = false;
-            receivedOK = false;
-            posIndex = 0;
+          /*
+          * Store subsequent bytes in the fixed packet.
+          */
+          if (rxIndex < PACKET_SIZE)
+          {
+              rxPacket[rxIndex] = receivedByte;
+              rxIndex++;
+          }
+
+          /*
+          * A complete physical packet has arrived.
+          */
+          if (rxIndex == PACKET_SIZE)
+          {
+            const bool framingValid =
+                (rxPacket[RX_START_INDEX] == START_MESSAGE) &&
+                (rxPacket[RX_END_INDEX] == END_MESSAGE);
+
+            if (framingValid)
+            {
+                receivedSequence = rxPacket[RX_SEQUENCE_INDEX];
+                commandStatus = STATUS_ACCEPTED;
+                packetReady = true;
+            }
+            else
+            {
+                commandStatus = STATUS_BAD_LENGTH;
+            }
+
+            /*
+              * Prepare to receive the next transaction.
+              */
+            rxIndex = 0;
+            txIndex = 0;
+          }
         }
-
-        // Loaded now, transmitted during the next master byte
-        LL_SPI_TransmitData8(SPI1, reply);
+      }
     }
+  }
 
-    if (LL_SPI_IsActiveFlag_OVR(SPI1))
-    {
-        volatile uint32_t clear;
-        clear = SPI1->DR;
-        clear = SPI1->SR;
-        (void)clear;
-    }
+  /*
+  * Clear an SPI overrun. An overrun means at least one byte may
+  * have been lost, so reject the partially received packet.
+  */
+  if (LL_SPI_IsActiveFlag_OVR(SPI1))
+  {
+    volatile uint32_t clear;
+
+    clear = SPI1->DR;
+    clear = SPI1->SR;
+
+    (void)clear;
+
+    rxIndex = 0;
+    txIndex = 0;
+    packetReady = false;
+    commandStatus = STATUS_BAD_LENGTH;
+
+    LL_SPI_TransmitData8(
+        SPI1,
+        txPacket[0]);
+  }
 }
 
 
@@ -381,7 +414,6 @@ void processPendingCommand()
         }
 
         packetReady = false;
-        commandStatus = STATUS_BUSY;
         localPacketReady = true;
     }
 
@@ -400,19 +432,21 @@ void processPendingCommand()
 
     if (command == COMMAND_NOP)
     {
-        /*
-         * A NOP clocks out the previously prepared acknowledgement.
-         * Do not replace that acknowledgement with a new sequence.
-         */
-        return;
+      /*
+        * A NOP clocks out the previously prepared acknowledgement.
+        * Do not replace that acknowledgement with a new sequence.
+        */
+      return;
     }
+
+    commandStatus = STATUS_BUSY;
 
     if (command != COMMAND_SET_POSITION)
     {
         commandStatus = STATUS_BAD_COMMAND;
 
         buildResponsePacket(
-            STATUS_BAD_COMMAND,
+            commandStatus,
             sequence,
             powerEnabled,
             angleEstDriver);
@@ -449,7 +483,7 @@ void processPendingCommand()
         commandStatus = STATUS_BAD_PARAMETER;
 
         buildResponsePacket(
-            STATUS_BAD_PARAMETER,
+            commandStatus,
             sequence,
             powerEnabled,
             angleEstDriver);
@@ -465,7 +499,7 @@ void processPendingCommand()
         commandStatus = STATUS_BAD_PARAMETER;
 
         buildResponsePacket(
-            STATUS_BAD_PARAMETER,
+            commandStatus,
             sequence,
             powerEnabled,
             angleEstDriver);
@@ -502,16 +536,9 @@ void processPendingCommand()
         powerEnabled = false;
     }
 
-    stepCountDesired =
-        convertDesiredAngleToStepNumber(
-            angleDesired);
-
-    stepCountDriver =
-        stepper.driver.getPosition();
-
-    stepError =
-        stepCountDesired -
-        stepCountDriver;
+    stepCountDesired = convertDesiredAngleToStepNumber(angleDesired);
+    stepCountDriver = stepper.driver.getPosition();
+    stepError = stepCountDesired - stepCountDriver;
 
     if (powerEnabled)
     {
@@ -529,7 +556,7 @@ void processPendingCommand()
      * SPI transaction.
      */
     buildResponsePacket(
-        STATUS_COMPLETE,
+        commandStatus,
         completedSequence,
         powerEnabled,
         angleEstDriver);
@@ -546,74 +573,74 @@ long convertDesiredAngleToStepNumber(float angleDes){
 
 
 // Convert position in microsteps to anglular position in degrees
-float convertStepToAngle(float stepCountDri){
+float convertStepToAngle(long stepCountDri){
   float angleDri = float(stepCountDri)*360.0/(LEAD*STEPS_PER_MM);
   return angleDri;
 }
 
 
 
-int checkInput(){
-  if (receivedOK == true){
-    startMsgReceived = false;
-    endMsgReceived = false;
-    receivedOK = false;
-    return 1;    
-  }
-  else{
-    return 0;
-  }
-}
+// int checkInput(){
+//   if (receivedOK == true){
+//     startMsgReceived = false;
+//     endMsgReceived = false;
+//     receivedOK = false;
+//     return 1;    
+//   }
+//   else{
+//     return 0;
+//   }
+// }
 
 
 
-int checkEncoder(bool encoderFlag){
-    if (encoderFlag == true){
-      return 1;
-    }
-    else{
-      return 0;
-    }
-}
+// int checkEncoder(bool encoderFlag){
+//     if (encoderFlag == true){
+//       return 1;
+//     }
+//     else{
+//       return 0;
+//     }
+// }
 
 
 
-void encoderFlag(){
-  // Check if the encoder values are changing 
-  if (angleEncoder == prevAngleEncoder){
-    encoderChangeCount = encoderChangeCount + 1;
-  }
-  else{
-    encoderChangeCount = 0;
-  }
+// void encoderFlag(){
+//   // Check if the encoder values are changing 
+//   if (angleEncoder == prevAngleEncoder){
+//     encoderChangeCount = encoderChangeCount + 1;
+//   }
+//   else{
+//     encoderChangeCount = 0;
+//   }
 
-  // if the encoder hasn't changed values for 50 loops then ignore incoming angle
-  if (encoderChangeCount > changeCountThresh){
-    encoderOK = false;
-  }
-  else{
-    encoderOK = true;
-  }
-}
+//   // if the encoder hasn't changed values for 50 loops then ignore incoming angle
+//   if (encoderChangeCount > changeCountThresh){
+//     encoderOK = false;
+//   }
+//   else{
+//     encoderOK = true;
+//   }
+// }
 
 
 
-void toggleMotorPower(bool powState, bool prevPowState){
-  // Disable motor power based on status byte from controllerz
-  // First check for a change in status:
-  if (prevPowState != powState){
-    if(powState == true){
-      stepper.setBrakeMode(HARDBRAKE, brakeCurrent);
-      if (ENABLECLOSEDLOOP){
-        stepper.enablePid();
-      }
-    }
-    else {
-      stepper.setBrakeMode(FREEWHEELBRAKE);
-      stepper.disablePid();
-    }
-  }
-}
+// void toggleMotorPower(bool powState, bool prevPowState){
+//   // Disable motor power based on status byte from controllerz
+//   // First check for a change in status:
+//   if (prevPowState != powState){
+//     if(powState == true){
+//       stepper.setBrakeMode(HARDBRAKE, brakeCurrent);
+//       if (ENABLECLOSEDLOOP){
+//         stepper.enablePid();
+//       }
+//     }
+//     else {
+//       stepper.setBrakeMode(FREEWHEELBRAKE);
+//       stepper.disablePid();
+//     }
+//   }
+// }
 
 
 
@@ -633,17 +660,16 @@ void loop(void)
     stepCountDriver = stepper.driver.getPosition();
     angleEstDriver = convertStepToAngle(stepCountDriver);
 
-    noInterrupts();
-    // Put in float variable for SPI comms
-    if (ENABLECLOSEDLOOP){
-      posEncoder.fData = angleEncoder;
-    }
-    else{
-      posEncoder.fData = angleEstDriver;
-    }
-    interrupts();
+    // noInterrupts();
+    // // Put in float variable for SPI comms
+    // if (ENABLECLOSEDLOOP){
+    //   posEncoder.fData = angleEncoder;
+    // }
+    // else{
+    //   posEncoder.fData = angleEstDriver;
+    // }
+    // interrupts();
     
-    // encoderFlag();
   }
 
   processPendingCommand();

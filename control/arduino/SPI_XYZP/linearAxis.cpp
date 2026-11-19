@@ -2,8 +2,7 @@
 // #include <avr/dtostrf.h> // for atoi() function on Due
 #include <SPI.h>
 
-//656250
-//328125
+
 LinAxis::LinAxis():  settingsSPI(500000, MSBFIRST, SPI_MODE0) 
 {
 
@@ -96,146 +95,154 @@ bool LinAxis::sendCommandPipelined(
     float desiredAngle,
     char requestedPowerState)
 {
-    dataFloat desired;
-    desired.fData = desiredAngle;
 
-    /*
-     * The response received during this transaction should normally
-     * acknowledge the previous command.
-     */
-    previousCommandSequence = lastCommandSequence;
-    lastCommandSequence = nextSequence;
+  if (!isfinite(desiredAngle))
+  {
+    acknowledgementErrorCount++;
+    return false;
+  }
+    
+  dataFloat desired;
+  desired.fData = desiredAngle;
 
-    txPacket[PACKET_START_INDEX] =
-        '<';
+  /*
+  * The response received during this transaction should normally
+  * acknowledge the previous command.
+  */
+  previousCommandSequence = lastCommandSequence;
+  lastCommandSequence = nextSequence;
+  responseFramingValid = false;
+  responseSequenceValid = false;
+  communicationHealthy = false;
 
-    txPacket[PACKET_TYPE_INDEX] =
-        COMMAND_SET_POSITION;
+  txPacket[PACKET_START_INDEX] =
+      '<';
 
-    txPacket[PACKET_SEQUENCE_INDEX] =
-        lastCommandSequence;
+  txPacket[PACKET_TYPE_INDEX] =
+      COMMAND_SET_POSITION;
 
-    txPacket[PACKET_FLOAT_INDEX + 0] =
-        desired.bData[0];
+  txPacket[PACKET_SEQUENCE_INDEX] =
+      lastCommandSequence;
 
-    txPacket[PACKET_FLOAT_INDEX + 1] =
-        desired.bData[1];
+  txPacket[PACKET_FLOAT_INDEX + 0] =
+      desired.bData[0];
 
-    txPacket[PACKET_FLOAT_INDEX + 2] =
-        desired.bData[2];
+  txPacket[PACKET_FLOAT_INDEX + 1] =
+      desired.bData[1];
 
-    txPacket[PACKET_FLOAT_INDEX + 3] =
-        desired.bData[3];
+  txPacket[PACKET_FLOAT_INDEX + 2] =
+      desired.bData[2];
 
-    txPacket[PACKET_POWER_INDEX] =
-        static_cast<uint8_t>(requestedPowerState);
+  txPacket[PACKET_FLOAT_INDEX + 3] =
+      desired.bData[3];
 
-    txPacket[PACKET_END_INDEX] =
-        '>';
+  txPacket[PACKET_POWER_INDEX] =
+      static_cast<uint8_t>(requestedPowerState);
 
-
-    SPI.beginTransaction(settingsSPI);
-
-    digitalWrite(selectPin, LOW);
-    delayMicroseconds(microDelay);
-
-    for (uint8_t i = 0; i < SPI_PACKET_SIZE; i++)
-    {
-        rxPacket[i] =
-            SPI.transfer(txPacket[i]);
-
-        delayMicroseconds(microDelay);
-    }
-
-    digitalWrite(selectPin, HIGH);
-    delayMicroseconds(microDelay);
-
-    SPI.endTransaction();
-
-    /*
-     * Validate the fixed response frame.
-     */
-    responseFramingValid =
-        (rxPacket[PACKET_START_INDEX] == '<') &&
-        (rxPacket[PACKET_END_INDEX] == '>');
-
-    if (!responseFramingValid)
-    {
-        framingErrorCount++;
-        acknowledgementErrorCount++;
-        communicationHealthy = false;
-    }
-    else
-    {
-        acknowledgedStatus =
-            static_cast<StatusCode>(
-                rxPacket[PACKET_TYPE_INDEX]);
-
-        acknowledgedSequence =
-            rxPacket[PACKET_SEQUENCE_INDEX];
-
-        dataFloat returnedAngle;
-
-        returnedAngle.bData[0] =
-            rxPacket[PACKET_FLOAT_INDEX + 0];
-
-        returnedAngle.bData[1] =
-            rxPacket[PACKET_FLOAT_INDEX + 1];
-
-        returnedAngle.bData[2] =
-            rxPacket[PACKET_FLOAT_INDEX + 2];
-
-        returnedAngle.bData[3] =
-            rxPacket[PACKET_FLOAT_INDEX + 3];
-
-        prevAngleIn = angleIn;
-        angleIn =
-            REAL_DIRECTION *
-            returnedAngle.fData;
-
-        actualPowerState =
-            static_cast<char>(
-                rxPacket[PACKET_POWER_INDEX]);
-
-        responseSequenceValid =
-            (acknowledgedSequence ==
-             previousCommandSequence);
-
-        /*
-         * STATUS_IDLE with sequence 0 is expected on the first
-         * transaction after startup.
-         */
-        const bool startupResponse =
-            (previousCommandSequence == 0) &&
-            (acknowledgedSequence == 0) &&
-            (acknowledgedStatus == STATUS_IDLE);
-
-        if (responseSequenceValid || startupResponse)
-        {
-            communicationHealthy = true;
-            acknowledgementTime = millis();
-        }
-        else
-        {
-            sequenceErrorCount++;
-            acknowledgementErrorCount++;
-            communicationHealthy = false;
-        }
-    }
+  txPacket[PACKET_END_INDEX] =
+      '>';
 
 
-    /*
-     * Advance sequence number. Zero is reserved for startup/idle.
-     */
-    nextSequence++;
+  SPI.beginTransaction(settingsSPI);
 
-    if (nextSequence == 0)
-    {
-        nextSequence = 1;
-    }
+  digitalWrite(selectPin, LOW);
+  delayMicroseconds(microDelay);
+
+  for (uint8_t i = 0; i < SPI_PACKET_SIZE; i++)
+  {
+      rxPacket[i] =
+          SPI.transfer(txPacket[i]);
+
+      delayMicroseconds(microDelay);
+  }
+
+  digitalWrite(selectPin, HIGH);
+  delayMicroseconds(microDelay);
+
+  SPI.endTransaction();
+
+  /*
+    * Validate the fixed response frame.
+    */
+  responseFramingValid =
+      (rxPacket[PACKET_START_INDEX] == '<') &&
+      (rxPacket[PACKET_END_INDEX] == '>');
+
+  if (!responseFramingValid)
+  {
+      framingErrorCount++;
+      acknowledgementErrorCount++;
+      communicationHealthy = false;
+  }
+  else
+  {
+      acknowledgedStatus =
+          static_cast<StatusCode>(
+              rxPacket[PACKET_TYPE_INDEX]);
+
+      acknowledgedSequence =
+          rxPacket[PACKET_SEQUENCE_INDEX];
+
+      dataFloat returnedAngle;
+
+      returnedAngle.bData[0] =
+          rxPacket[PACKET_FLOAT_INDEX + 0];
+
+      returnedAngle.bData[1] =
+          rxPacket[PACKET_FLOAT_INDEX + 1];
+
+      returnedAngle.bData[2] =
+          rxPacket[PACKET_FLOAT_INDEX + 2];
+
+      returnedAngle.bData[3] =
+          rxPacket[PACKET_FLOAT_INDEX + 3];
+
+      prevAngleIn = angleIn;
+      angleIn =
+          REAL_DIRECTION *
+          returnedAngle.fData;
+
+      actualPowerState =
+          static_cast<char>(
+              rxPacket[PACKET_POWER_INDEX]);
+
+      responseSequenceValid = (acknowledgedSequence == previousCommandSequence);
+
+      /*
+      * STATUS_IDLE with sequence 0 is expected on the first
+      * transaction after startup.
+      */
+      const bool startupResponse =
+          (previousCommandSequence == 0) &&
+          (acknowledgedSequence == 0) &&
+          (acknowledgedStatus == STATUS_IDLE);
+
+      if (responseSequenceValid || startupResponse)
+      {
+          communicationHealthy = true;
+          acknowledgementTime = millis();
+      }
+      else
+      {
+          sequenceErrorCount++;
+          acknowledgementErrorCount++;
+          communicationHealthy = false;
+      }
+  }
 
 
-    return acknowledgementSuccessful();
+  /*
+    * Advance sequence number. Zero is reserved for startup/idle.
+    */
+  nextSequence++;
+
+  if (nextSequence == 0)
+  {
+      nextSequence = 1;
+  }
+
+
+  return acknowledgementSuccessful();
 }
 
 

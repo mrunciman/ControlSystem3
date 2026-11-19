@@ -41,8 +41,8 @@ unsigned long LOOP_FREQ = 100; // Hz
 unsigned long LOOP_PERIOD_MICRO = round(1000000/LOOP_FREQ);
 float LOOP_PERIOD = 1.0f/float(LOOP_FREQ);
 
-const int number_pumps = 5;
-const int number_pressure_regs = 0;
+const int NUMBER_PUMPS = 5;
+const int NUMBER_PRESSSURE_REGS = 0;
 
 
 /////////////////////////////////////////////////////////////
@@ -71,6 +71,7 @@ int buttonState = STOP_GRASP;
 #define POWER_ON 'Y'
 #define POWER_OFF 'N' 
 char powerState = POWER_OFF;
+bool communicationShutdownTriggered = false;
 
 int allCalibrated = 0;
 int calibratedBytes = 0;
@@ -145,11 +146,11 @@ char pressYStr[10];
 char pressZStr[10];
 char pressPStr[10]; 
 
-float angles[number_pumps];
-// char *angleStrings[number_pumps] = {posXStr, posYStr, posZStr, posPStr}; // array of char pointers
+float angles[NUMBER_PUMPS];
+// char *angleStrings[NUMBER_PUMPS] = {posXStr, posYStr, posZStr, posPStr}; // array of char pointers
 
-int pressures[number_pumps + number_pressure_regs];
-float pressuresF[number_pumps + number_pressure_regs];
+int pressures[NUMBER_PUMPS + NUMBER_PRESSSURE_REGS];
+float pressuresF[NUMBER_PUMPS + NUMBER_PRESSSURE_REGS];
 float P_ATMOS = 0.0; // kPa gauge
 float P_INFLATED = 100.0; //kPa gauge
 
@@ -173,6 +174,8 @@ char endByte = '>';
 char calibrationFlag = 'N';
 unsigned long writeTime;
 const int SERIAL_MICRO_DELAY = 100;
+const int SERIAL_TIMEOUT = 50;
+const int EXPECTED_MESSAGE_SIZE = 41;
 
 ////////////////////////////////////////////////////////
 // Setting Serial input variables
@@ -184,8 +187,7 @@ String flushInputBuffer;
 // Input string is comma delimited
 // position 1, ..., position n
 char inputArray[97];
-char *positionInputs[number_pumps]; // an array of pointers to the pieces of the above array after strtok()
-char *pressureInput[1];// = malloc(32);
+char *positionInputs[NUMBER_PUMPS]; // an array of pointers to the pieces of the above array after strtok()
 char *ptr = NULL;
 bool correctNumPositions = false;
 
@@ -224,9 +226,9 @@ int PORT_NUM_LOAD_CELLS[NUMBER_OF_SENSORS] = {3,0,1,4};
 
 
 const unsigned long ACK_TIMEOUT_MS = 100;
-const uint16_t MAX_CONSECUTIVE_ACK_FAILURES = 3;
+const uint16_t MAX_CONSECUTIVE_ACK_FAILURES = 5;
 
-uint16_t consecutiveAckFailures[5] =
+uint16_t consecutiveAckFailures[NUMBER_PUMPS] =
 {
     0, 0, 0, 0, 0
 };
@@ -290,11 +292,11 @@ void updateEncoderData(){
   // Read encoder value from each motor. 
   int i = 0;
   for(auto &item : axisList){
-    if (positionInputs[i] != nullptr) {
-      // angles[i] = atof(positionInputs[i]);
-      angles[i] = item.angleIn;
-      i++;
-    }
+
+    // angles[i] = atof(positionInputs[i]);
+    angles[i] = item.angleIn;
+    i++;
+
   }
 }
 
@@ -329,7 +331,7 @@ void setMotorAngleChanges(){
 void moveMotors(){
   allMotorCommunicationsHealthy = true;
 
-  uint8_t index = 0;
+  uint8_t motorIndex = 0;
   // Iterate through list of uStepper objects
   for(auto &item : axisList){ 
     // For each motor, SPI transfer desired and true angular positions
@@ -342,27 +344,33 @@ void moveMotors(){
       * not STATUS_COMPLETE.
       */
     const bool startupResponse =
+        item.responseFramingValid &&
+        item.communicationHealthy &&
         (item.previousCommandSequence == 0) &&
+        (item.acknowledgedSequence) == 0 &&
         (item.acknowledgedStatus == STATUS_IDLE);
 
-    if (previousCommandAcknowledged ||
-        startupResponse)
+    const bool acknowledgementTimedOut =
+        item.acknowledgementTime != 0 &&
+        (millis() - item.acknowledgementTime > ACK_TIMEOUT_MS);
+
+    if ((previousCommandAcknowledged || startupResponse) && !acknowledgementTimedOut)
     {
-      consecutiveAckFailures[index] = 0;
+      // For this motor index, message received correctly
+      consecutiveAckFailures[motorIndex] = 0;
     }
     else
     {
-      consecutiveAckFailures[index]++;
+      consecutiveAckFailures[motorIndex]++;
 
-      if (consecutiveAckFailures[index] >=
+      if (consecutiveAckFailures[motorIndex] >=
           MAX_CONSECUTIVE_ACK_FAILURES)
       {
           allMotorCommunicationsHealthy = false;
       }
     }
 
-    index++;
-
+    motorIndex++;
 
   }
   /*
@@ -374,6 +382,15 @@ void moveMotors(){
   if (!allMotorCommunicationsHealthy)
   {
     powerState = POWER_OFF;
+    if (!communicationShutdownTriggered)
+    {
+      requestAllMotorsOff();
+      communicationShutdownTriggered = true;
+    }
+  }
+  else
+  {
+    communicationShutdownTriggered = false;
   }
 
 }
@@ -455,15 +472,22 @@ void writeData(){
   writeTime = millis();
   // Clear data char array
   data[0] ='\0';
-
-  sprintf(data, "%c,%s,%s,%s,%s,%s,%s,%s,%s,%s,%lu,%s,%s,%s,%s,%c\n", \
+  const int written = snprintf(data, sizeof(data), "%c,%s,%s,%s,%s,%s,%s,%s,%s,%s,%lu,%s,%s,%s,%s,%c\n", \
     startByte,\
     posXStr, posYStr, posZStr, posPStr, posGStr,\
     pressXStr, pressYStr, pressZStr, pressPStr,\
     writeTime,\
     loadXStr, loadYStr, loadZStr, loadPStr,\
     endByte);
-  Serial.write(data);
+
+
+  if ((written > 0) && (written < static_cast<int>(sizeof(data))))
+  {
+    Serial.write(
+        reinterpret_cast<const uint8_t *>(data),
+        written);
+  }
+
 }
 
 
@@ -502,16 +526,14 @@ void readSerial() {
       if (stateError == 0){
         // Read in array of positions
         // Serial.println("Get input");
-        getArray(); // THIS IS BLOCKING - WAITS for '\n' CHAR
-        // Split array and assign desired positions to each pump
-        // Serial.println("Split");
-        // pressureRegulator.prevInputPress = pressureRegulator.inputPress;
-        // Serial.println(pressureRegulator.prevInputPress);
-        splitArray(); 
+        if (getArray()){// THIS IS BLOCKING - WAITS for '\n' CHAR
+          // Split array and assign desired positions to each pump
+          // Serial.println("Split");
+          splitArray();
+        } 
+
       }
     }
-    // Send out data over serial
-    // writeData();
   }
 }
 
@@ -523,7 +545,7 @@ int setStates(){
 
     if (firstDigit == 'C'){
       // This condition prevents entering calibration protocol twice in a row, like debouncing
-      if ((systemState == CALIBRATING) && (allCalibrated == number_pumps)){
+      if ((systemState == CALIBRATING) && (allCalibrated == NUMBER_PUMPS)){
         systemState = HOLDING;
         powerState = POWER_ON;
         // Serial.println("Calibration done, holding");
@@ -589,44 +611,47 @@ int setStates(){
 
 
 
-void getArray(){
+bool getArray(){
   // Begin by zeroing input arrays
   memset(inputArray, 0, sizeof(inputArray));
   inputArray[0] = '\0';
   // Zero all position input arrays
-  for (int j = 0; j < number_pumps; j++){
+  for (int j = 0; j < NUMBER_PUMPS; j++){
     positionInputs[j] = nullptr;
   }
-  // Zero pressure input array
-  pressureInput[0] = '\0';
-  // memset(pressureInput, 0 ,32);
-  // Serial.println(strlen(*pressureInput[0]));
-  // int availableBytes = Serial.available();
+
   char charRead = '\0';
   int i = 0;
-  int timeout = 0;
-  while(charRead != '\n'){ // Add a timeout function?
+  const unsigned long startTime = millis();
+  // int timeout = 0;
+  // while(charRead != '\n'){ // Add a timeout function?
+  while ((millis() - startTime) < SERIAL_TIMEOUT){
     delayMicroseconds(SERIAL_MICRO_DELAY);
-    if (i == sizeof(inputArray)-1){
-      break;
-    }
+
     if (Serial.available() > 0){
-      timeout = 0;
+
       charRead = Serial.read();
-      if (charRead != '\n'){
+      if (charRead == '\n'){
+        inputArray[i] = '\0';
+        // Reached the end of the line, exit succesfully
+        return true;
+      }
+      // Add latest char to end of array if not out of size bounds
+      else if(i < sizeof(inputArray)-1){
         inputArray[i] = charRead;
+      }
+      // If at the end of inputArray size without finding \n
+      // Something wrong: null terminate and exit function
+      else{
+        inputArray[i] = '\0';
+        return false;
       }
       i++;
     }
   }
+  // Serial command has timed out
   inputArray[i] = '\0';
-    // else{
-    //   timeout++;
-    //   if (timeout > 100){
-    //     break;
-    //   }
-    // }
-  
+  return false;
 
 }
 
@@ -650,7 +675,7 @@ void splitArray(){
       endIndex = k;
       endPresent = true;
     }
-    if ((startPresent && endPresent) && (endIndex - startIndex == 41)){
+    if ((startPresent && endPresent) && (endIndex - startIndex == EXPECTED_MESSAGE_SIZE)){
       break;
     }
   }
@@ -658,7 +683,7 @@ void splitArray(){
   // Serial.print("Flags - Start: "); Serial.print(startPresent); Serial.print(" End: "); Serial.println(endPresent);
 
   if ((startPresent && endPresent) && (startIndex < endIndex)){
-    if(endIndex - startIndex == 41){
+    if(endIndex - startIndex == EXPECTED_MESSAGE_SIZE){
       int n = 0;
       for (n = 0; n < endIndex - startIndex - 1; n++){
         truncArray[n] = inputArray[startIndex + 1 + n];
@@ -675,28 +700,37 @@ void splitArray(){
   // puts next part of message into memory at ptr
   ptr = strtok(truncArray, ",");
   while (ptr != NULL){
-    if (i < number_pumps){
+    if (i < NUMBER_PUMPS){
       // For all the uStepper motors save desired positions based on index
       positionInputs[i] = ptr;
     }
-    // else if(i == number_pumps){
-    //   // For pressure regulator, save in designated char pointer
-    //   pressureInput[0] = ptr;
-    // }
     i++;
     ptr = strtok(NULL, ",");
   }
   // Serial.println(i);
   // Check if correct number of values were received
-  if (i == number_pumps + number_pressure_regs){
+  if (i == NUMBER_PUMPS + NUMBER_PRESSSURE_REGS){
     // Serial.println("Correct number inputs");
     // Update desired angular positions relative to 'zero volume angle'
     int j = 0;
     for (auto &item : axisList){
-      item.prevDesiredAngle = item.desiredAngle;
-      item.desiredAngle = atof(positionInputs[j]);
-      // Serial.print("Desired angular positions: ");
-      // Serial.println(positionInputs[j]);
+      char *conversionEnd = nullptr;
+
+      const double parsedValue =
+          strtod(positionInputs[j], &conversionEnd);
+
+      const bool valid =
+          (conversionEnd != positionInputs[j]) &&
+          (*conversionEnd == '\0') &&
+          isfinite(parsedValue);
+
+      if (valid){
+        item.prevDesiredAngle = item.desiredAngle;
+        item.desiredAngle = static_cast<float>(parsedValue);
+        // Serial.print("Desired angular positions: ");
+        // Serial.println(positionInputs[j]);
+      }
+
       j++;
     }
   }
@@ -740,7 +774,7 @@ void calibrationProtocol(){
     // Serial.println(item.pumpCalibrated);
   }
 
-  if (allCalibrated == number_pumps) {
+  if (allCalibrated == NUMBER_PUMPS) {
     // Serial.println("Calibration complete.");
     calibrationFlag = 'Y';
   }
@@ -784,79 +818,6 @@ void calibrationProtocol(){
 // }
 
 
-
-
-
-
-
-
-
-///////////////////////////////////////////////////////////
-
-// NEED TO DECIDE IF SWITCH CASE WILL BE INSIDE A FOR(ITEM) LOOP OR NOT
-
-// READ STATE FROM CONTROL COMP IN MAIN LOOP? THEN ENTER SWITCH CASE IN TIMED STATEMENT?
-
-// Can check state derived from individual motors against the desired controllerMode coming from comp 
-
-// INDIVIDUAL PUMPS DETERMINE GLOBAL STATE - ALL HAVE TO BE CALIBRATED FOR 'GLOBAL' FLAG TO BE SET.
-// NEED TO UPDATE CONTROL COMPUTER ON GLOBAL STATE? NOT REALLY, CONTROL COMP CAN JUST SEND SAME FORMAT ALWAYS 
-
-
-
-
-
-
-    // CALIBRATION MODE:
-
-    // Read in flag that tells motors to calibrate  like handshake()
-    // Set desired pressures                        initialised in class
-    // Read pressures from each pump                readActuatorPressures();
-    // Filter pressures
-    // Compare to desired pressure                  like pressInitZeroVol()
-    // Calculate change in angle                    need a setAngles(), but this could be based on stage's linear speed as it is currently
-    // Move motors                                  moveMotors()
-    // Repeat until all pressures stable            need a flag for derived controller state
-    // Tell control computer                        add start byte to writeData() to tell current state?
-    // Go to Hold Mode                              change state variable
-
-
-
-    // HOLD MODE:
-
-    // Keep motors powered
-    // wait for mode flag from control computer
-    // Read pressures
-    // Go to calibration or hold mode
- 
-    
-  
-    // ACTIVE MODE:
-
-    // Read absolute angular position values from control computer
-    // Check values / verify / filter
-    // Compare with current angular positions
-    // Find changes in angle 
-    // Read pressures
-    // Move motors
-
-
-
-
-
-
-    // INFLATION
-
-    // Only enter this state after control computer command
-    // Set desired structure pressure
-    // Pressurise the structure
-
-
-    // DEFLATION
-
-    // Can only go to this state after calibration and inflation
-    // Go to 'zero' volumes for actuators
-    // Set pressure on press reg to atmospheric
     
 
 
@@ -899,6 +860,8 @@ void loop() {
     }// system state loop
 
 
+    // Move the motors based on the angles set in the state machine
+    moveMotors();
 
     // Put encoder values in array to be sent
     updateEncoderData();
@@ -911,10 +874,6 @@ void loop() {
 
     // Send out data over serial
     writeData();
-
-    // Move the motors based on the angles set in the state machine
-    moveMotors();
-
     
   
   } //Timing loop

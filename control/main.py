@@ -381,7 +381,7 @@ def moveRobot(dictButtons, dictLabel, classSettings, pumpController, viewerInput
                     HOLD_MODE, DEFLATION_MODE, controllerButtons
                     )
                 time.sleep(0.2)
-                n = 20
+                n = 5
                 for x in range(n):
                     pumpController.sendStep(desiredThetaAxial, desiredThetaRotary, desiredThetaTool, desiredThetaWrist, desiredThetaGrasp, 
                                             HOLD_MODE, DEFLATION_MODE, controllerButtons

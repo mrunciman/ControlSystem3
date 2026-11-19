@@ -55,37 +55,6 @@ class ardThreader:
         self.t.start()
         transport, self.protocol = self.t.connect()
 
- 
-    # The pump controller takes the desired angles (from zero volume)
-    def sendStepOld(self, desiredAngle1, desiredAngle2, desiredAngle3, desiredAngle4, desiredPressure, controlState = None, inflationState = None, buttonsValue = None):
-        """
-        This function sends ideal position (stepNumber) then receives
-        the real step count (stepCount) from arduino.
-        steps = sendStep(serialConnection, stepNumber)
-        """
-        # self.ser.reset_output_buffer()
-        inputList = [desiredAngle1, desiredAngle2, desiredAngle3, desiredAngle4, desiredPressure]
-        stringList = ['', '', '', '', '']
-
-        for i in range(len(inputList)):
-            if type(inputList[i]) != str:
-                stringList[i] = "{:7.2f}".format(inputList[i])
-            else:
-                stringList[i] = inputList[i]
-
-        # If we are sending the extra state variables, alter the 
-        # output message appropriately
-        # 0 for no buttons, 1 for dark grey (far), 2 for light grey (close) button, 3 for both
-        if controlState is not None:
-            msg = self.setState(controlState, inflationState, buttonsValue)
-        else:
-            msg = 'H_N'
-        message = 'B' + msg + '[' + stringList[0] + ',' + stringList[1] + ',' + stringList[2] + ',' + stringList[3] + ',' + stringList[4] + ',]' + "\n"
-        # print("Message: ", repr(message))
-        message = message.encode('utf-8', 'replace')
-        numBytes = self.t.write(message)
-        # print(numBytes)
-        return
     
 
     # The pump controller takes the desired angles (from zero volume)
@@ -136,6 +105,7 @@ class ardThreader:
         # Choice of inflation states of I or D
         # inflated state is I
         # deflated is D
+        #TODO Use this byte to send individual power_states per motor
         if inflationState == 0:
             msg = msg + "I"
         elif inflationState == 1:
@@ -347,7 +317,7 @@ class SerialReaderProtocolLine(LineReader):
     
     def handle_line(self, line):
         """New line waiting to be processed"""
-        # print(line)
+        print(line)
         #Example of "line" string: '0.00,-00075,     0.00,-48,     0.00,-31,     0.00,-21,-88,13001,E'
         #Future example of "line" string: '0.00, 0.00, 0.00, 0.00, -00075, -48, -31, -21, -88,13001,E'
         startOK = False

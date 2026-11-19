@@ -1,362 +1,686 @@
-
 #include <uStepperS.h>
+#include <math.h>
+
+
+// Mega to uStepper
+// Byte 0: START_MESSAGE
+// Byte 1: COMMAND_SET_POSITION
+// Byte 2: sequence number N
+// Byte 3: angle byte 0
+// Byte 4: angle byte 1
+// Byte 5: angle byte 2
+// Byte 6: angle byte 3
+// Byte 7: power flag
+// Byte 8: END_MESSAGE
+
+// uStepper to Mega
+// Byte 0: START_MESSAGE
+// Byte 1: status
+// Byte 2: completed sequence number
+// Byte 3: encoder byte 0
+// Byte 4: encoder byte 1
+// Byte 5: encoder byte 2
+// Byte 6: encoder byte 3
+// Byte 7: actual power-enabled flag
+// Byte 8: END_MESSAGE
 
 
 uStepperS stepper;
 
+
+// Software chip-select from the Mega.
 const uint8_t SS_Pin = 3;
 
-union dataFloat{
-  float fData;
-  uint8_t bData[4];
+/*
+ * This direct register definition assumes Arduino pin 3 on the
+ * uStepper S maps to PD3.
+ *
+ * Verify this against the selected uStepper board definition.
+ */
+#define SOFTWARE_SS_PIN_REG PIND
+#define SOFTWARE_SS_BIT PD3
+
+
+union dataFloat
+{
+    float fData;
+    uint8_t bData[4];
 };
 
 
-unsigned long LOOP_FREQ = 100; // Hz
-float LOOP_PERIOD = 1.0/LOOP_FREQ;
-unsigned long LOOP_PERIOD_MICRO = round(1000000*LOOP_PERIOD);
+enum StatusCode : uint8_t
+{
+    STATUS_IDLE          = 0x00,
+    STATUS_RECEIVING     = 0x01,
+    STATUS_ACCEPTED      = 0x02,
+    STATUS_BUSY          = 0x03,
+    STATUS_COMPLETE      = 0x04,
+    STATUS_BAD_LENGTH    = 0x10,
+    STATUS_BAD_CRC       = 0x11,
+    STATUS_BAD_COMMAND   = 0x12,
+    STATUS_BAD_PARAMETER = 0x13,
+    STATUS_DRIVER_FAULT  = 0x20
+};
 
-// Time variables for loop frequency
+
+enum CommandCode : uint8_t
+{
+    COMMAND_NOP          = 0x00,
+    COMMAND_SET_POSITION = 0x01
+};
+
+
+constexpr uint8_t PACKET_SIZE = 9;
+
+constexpr uint8_t RX_START_INDEX    = 0;
+constexpr uint8_t RX_COMMAND_INDEX  = 1;
+constexpr uint8_t RX_SEQUENCE_INDEX = 2;
+constexpr uint8_t RX_ANGLE_INDEX    = 3;
+constexpr uint8_t RX_POWER_INDEX    = 7;
+constexpr uint8_t RX_END_INDEX      = 8;
+
+
+const unsigned long LOOP_FREQ = 100;
+const unsigned long LOOP_PERIOD_MICRO =
+    1000000UL / LOOP_FREQ;
+
+
+// Time variables for loop frequency.
 unsigned long timeSinceExec = 0;
-unsigned long timeNow;
-unsigned long timeLastExecution;
+unsigned long timeNow = 0;
+unsigned long timeLastExecution = 0;
+
 
 bool ENABLECLOSEDLOOP = false;
-float angleEncoder = 0.0;
-float prevAngleEncoder = angleEncoder;
-float angleDelta = 0.0;
-float angleDesired = 0.0;
-int encoderChangeCount = 0;
-int changeCountThresh = 50;
-bool encoderOK = true;
-float angPos = 0.0;
-float brakeCurrent = 5.0; // percent 
 
-volatile dataFloat posEncoder;
-volatile dataFloat posFromController;
-const int NUM_CHARS = 4;
-const int LAST_CHAR_NUM = 5;
+float angleEncoder = 0.0f;
+float prevAngleEncoder = 0.0f;
+float angleDesired = 0.0f;
 
-char inputArray[56];
-
-volatile int posIndex = 0;
-volatile uint8_t lastByte = 0;
-
-volatile bool startMsgReceived = false; 
-volatile bool endMsgReceived = false; 
-volatile bool receivedOK = false;
-
-int microDelay = 25;
-
-char START_MESSAGE = '<';
-char END_MESSAGE = '>';
-char POWER_ON_FLAG = 'Y';
-char POWER_OFF_FLAG = 'N';
-volatile bool powerState = false;
-volatile bool prevPowerState = false;
+float brakeCurrent = 5.0f;
 
 
-float LEAD = 8.0;
-float STEPS_PER_MM = 200*32; //51200.0; // 32 microsteps per 1.8 deg step
-long prevStepCountDesired = 0;
+// Receive and response buffers.
+volatile uint8_t rxPacket[PACKET_SIZE];
+volatile uint8_t txPacket[PACKET_SIZE];
+
+volatile uint8_t rxIndex = 0;
+volatile uint8_t txIndex = 0;
+
+volatile bool packetReady = false;
+
+volatile StatusCode commandStatus = STATUS_IDLE;
+volatile uint8_t receivedSequence = 0;
+volatile uint8_t completedSequence = 0;
+
+
+bool powerState = false;
+bool powerEnabled = false;
+
+
+const uint8_t START_MESSAGE = '<';
+const uint8_t END_MESSAGE = '>';
+const uint8_t POWER_ON_FLAG = 'Y';
+const uint8_t POWER_OFF_FLAG = 'N';
+
+
+float LEAD = 8.0f;
+float STEPS_PER_MM = 200.0f * 32.0f;
+
 long stepCountDesired = 0;
-long stepCountDesiredLocal = 0;
-
 long stepCountDriver = 0;
-long prevStepCountDriver = 0;
+long stepError = 0;
 
-long stepCountLocal = 0;
-long stepError = 0.0;
+float angleEstDriver = 0.0f;
 
-float angleEstDriver = 0.0;
-float angleEstLocal = 0.0;
+
+// Forward declarations.
+void buildResponsePacket(
+    StatusCode status,
+    uint8_t sequence,
+    bool actualPowerState,
+    float currentPosition);
+
+void setupPeripheralSPI();
+
+void processPendingCommand();
+
+long convertDesiredAngleToStepNumber(float angleDes);
+
+float convertStepToAngle(long stepCountDri);
 
 
 void setup(void)
 {
-  noInterrupts();
-  Serial.begin(115200);
-  if (ENABLECLOSEDLOOP){
-    stepper.setup(CLOSEDLOOP,200);   // stepper.setup();     //Initiate the stepper object with default settings
-  }
-  else{
-    stepper.setup();
-  }
-  // stepper.setup(CLOSEDLOOP,200);   // stepper.setup();     //Initiate the stepper object with default settings
-  
-  // Initialise data structures
-  posEncoder.fData = 0.0;
-  // angleEncoder = posEncoder.fData;
-  posFromController.fData = 0.0;
-  // Serial.println("Start");
+    Serial.begin(115200);
+
+    if (ENABLECLOSEDLOOP)
+    {
+        stepper.setup(CLOSEDLOOP, 200);
+    }
+    else
+    {
+        stepper.setup();
+    }
 
 
-  // For the closed loop position control the acceleration and velocity parameters define the response of the control:
-  stepper.setMaxAcceleration(500);   //use an acceleration of 2000 fullsteps/s^2
-  stepper.setMaxVelocity(1500);        //Max velocity of 800 fullsteps/s
-  
-  // stepper.checkOrientation(4.0);      //Check orientation of motor connector with +/- 30 microsteps movement
-  // stepper.setControlThreshold(15);    //Adjust the control threshold - here set to 15 microsteps before making corrective action
+    stepper.setMaxAcceleration(500);
+    stepper.setMaxVelocity(1500);
 
-  // After orientation check, turn off motors:
-  stepper.setBrakeMode(FREEWHEELBRAKE);
-  stepper.disablePid();
 
-  ///////////////////////////////////////////
-  // have to send on controller in, peripheral out
-  pinMode(MISO0, OUTPUT);
-  pinMode(SS0, INPUT);
-  // pinMode(SCK0, INPUT);
-  pinMode(SS_Pin, INPUT);
-  
-  // turn on SPI in peripheral mode, but with no interrupt
-  SPCR0 = 0;
-  SPCR0 |= (1<<SPIE0)|(1<<SPE0)|(0<<DORD0)|(0<<MSTR0)|(0<<CPOL0)|(0<<CPHA0)|(0<<SPR01)|(0<<SPR00); // SPI_MODE Defined by CPOL and CPHA)
-  SPSR0 &= ~(0<<SPI2X0);
+    // Start with the motor disabled.
+    stepper.setBrakeMode(FREEWHEELBRAKE);
+    stepper.disablePid();
 
-  interrupts();
+    powerState = false;
+    powerEnabled = false;
+
+
+    /*
+     * Construct the initial response before enabling SPI.
+     */
+    buildResponsePacket(
+        STATUS_IDLE,
+        completedSequence,
+        powerEnabled,
+        angleEstDriver);
+
+
+    setupPeripheralSPI();
 }
 
 
+void buildResponsePacket(
+    StatusCode status,
+    uint8_t sequence,
+    bool actualPowerState,
+    float currentPosition)
+{
+    dataFloat position;
+    position.fData = currentPosition;
 
 
-ISR (SPI_STC_vect){
-  // Continue if this peripheral is selected
-  if (digitalRead(SS_Pin) == LOW){
-    char c = SPDR0;
-    // delayMicroseconds(microDelay);
-    // If start byte was received in a previous call and
-    // number of bytes received is in correct range, then store data
-    if (startMsgReceived == true){
-      // Serial.println(posIndex);
-      if (posIndex < NUM_CHARS){
-        // Serial.println(c);
-        posFromController.bData[posIndex] = uint8_t(c);
-        // delayMicroseconds(microDelay);
-        SPDR0 = posEncoder.bData[posIndex];
-        // Serial.print(c, DEC);
-        posIndex++;
-      }
-      else if(posIndex == NUM_CHARS){//(c is power state bit){
-        // Serial.println(c, DEC);
-        prevPowerState = powerState;
-        if (c == POWER_ON_FLAG){
-          powerState = true;
+    noInterrupts();
+
+
+    txPacket[0] = START_MESSAGE;
+
+    txPacket[1] =
+        static_cast<uint8_t>(status);
+
+    txPacket[2] = sequence;
+
+    txPacket[3] = position.bData[0];
+    txPacket[4] = position.bData[1];
+    txPacket[5] = position.bData[2];
+    txPacket[6] = position.bData[3];
+
+    txPacket[7] =
+        actualPowerState
+            ? POWER_ON_FLAG
+            : POWER_OFF_FLAG;
+
+    txPacket[8] = END_MESSAGE;
+
+
+    txIndex = 0;
+
+
+    /*
+     * If SPI0 is already enabled, preload response byte zero.
+     */
+    if (SPCR0 & (1 << SPE0))
+    {
+        SPDR0 = txPacket[0];
+    }
+
+
+    interrupts();
+}
+
+
+void setupPeripheralSPI()
+{
+    /*
+     * This board returns data to the Mega through MISO0.
+     */
+    pinMode(MISO0, OUTPUT);
+
+    /*
+     * SPI0's hardware SS pin remains an input.
+     *
+     * The Mega selects this peripheral using SS_Pin instead.
+     */
+    pinMode(SS0, INPUT);
+
+    /*
+     * Software chip-select from the Mega.
+     */
+    pinMode(SS_Pin, INPUT_PULLUP);
+
+
+    noInterrupts();
+
+
+    rxIndex = 0;
+    txIndex = 0;
+    packetReady = false;
+
+    commandStatus = STATUS_IDLE;
+    receivedSequence = 0;
+    completedSequence = 0;
+
+
+    /*
+     * Configure SPI0:
+     *
+     * SPIE0 = 1: SPI transfer-complete interrupt enabled
+     * SPE0  = 1: SPI enabled
+     * DORD0 = 0: MSB first
+     * MSTR0 = 0: slave mode
+     * CPOL0 = 0: clock idle low
+     * CPHA0 = 0: sample on first edge
+     *
+     * This is SPI Mode 0.
+     */
+    SPCR0 =
+        (1 << SPIE0) |
+        (1 << SPE0);
+
+
+    /*
+     * Preload the first byte returned to the Mega.
+     */
+    SPDR0 = txPacket[0];
+
+
+    interrupts();
+}
+
+
+/*
+ * Triggered when SPI0 completes one eight-bit transfer, provided:
+ *
+ * - SPI0 is enabled;
+ * - SPIE0 is set;
+ * - global interrupts are enabled.
+ *
+ * A transition on the software chip-select pin does not itself
+ * trigger this ISR.
+ */
+ISR(SPI_STC_vect)
+{
+    /*
+     * Read the byte received during the completed transfer.
+     */
+    const uint8_t receivedByte = SPDR0;
+
+
+    /*
+     * The software chip-select is active-low.
+     *
+     * Ignore traffic while this board is not selected.
+     */
+    if ((SOFTWARE_SS_PIN_REG &
+         _BV(SOFTWARE_SS_BIT)) != 0)
+    {
+        rxIndex = 0;
+        txIndex = 0;
+
+        /*
+         * Prepare response byte zero for the next transaction.
+         */
+        SPDR0 = txPacket[0];
+
+        return;
+    }
+
+
+    /*
+     * The byte transmitted during the current transfer was already
+     * in SPDR0 before the transfer began.
+     *
+     * Load the following response byte for the next transfer.
+     */
+    if (txIndex < (PACKET_SIZE - 1))
+    {
+        txIndex++;
+        SPDR0 = txPacket[txIndex];
+    }
+    else
+    {
+        /*
+         * Fallback value for any excess clock pulses.
+         */
+        SPDR0 = 0;
+    }
+
+
+    /*
+     * Do not overwrite a complete command which loop() has not
+     * yet copied and processed.
+     */
+    if (packetReady)
+    {
+        return;
+    }
+
+
+    /*
+     * When idle, only a start marker begins a new packet.
+     */
+    if (rxIndex == 0)
+    {
+        if (receivedByte == START_MESSAGE)
+        {
+            rxPacket[RX_START_INDEX] =
+                receivedByte;
+
+            rxIndex = 1;
+
+            commandStatus =
+                STATUS_RECEIVING;
         }
-        else{
-          powerState = false;
+
+        return;
+    }
+
+
+    /*
+     * Store subsequent bytes in the fixed-size packet.
+     */
+    if (rxIndex < PACKET_SIZE)
+    {
+        rxPacket[rxIndex] =
+            receivedByte;
+
+        rxIndex++;
+    }
+
+
+    /*
+     * A complete physical packet has arrived.
+     */
+    if (rxIndex == PACKET_SIZE)
+    {
+        const bool framingValid =
+            (rxPacket[RX_START_INDEX] ==
+             START_MESSAGE) &&
+            (rxPacket[RX_END_INDEX] ==
+             END_MESSAGE);
+
+
+        if (framingValid)
+        {
+            receivedSequence =
+                rxPacket[RX_SEQUENCE_INDEX];
+
+            commandStatus =
+                STATUS_ACCEPTED;
+
+            packetReady = true;
         }
-        posIndex++;
-      }
-      else if(posIndex == LAST_CHAR_NUM){//(c == END_MESSAGE){
-        // Serial.println(c, DEC);
-        if(c == END_MESSAGE){
-          // Serial.println("End message");
-          receivedOK = true;
-          endMsgReceived = true;
-          startMsgReceived = false;
+        else
+        {
+            commandStatus =
+                STATUS_BAD_LENGTH;
         }
-        posIndex++;
-      }
-      else{
-        // posIndex is incorrect
-        // data doesn't correspond to start or end bytes 
-        startMsgReceived = false;
-        endMsgReceived = false;
-        receivedOK = false;
-        // Serial.println(c, BIN);
-      }
-    }
-
-    else if (c == START_MESSAGE){
-      startMsgReceived = true;
-      endMsgReceived = false;
-      receivedOK = false;
-      // Serial.println();
-      // Serial.println("Start message");
-      // Serial.println(c);    
-      posIndex = 0;
-      // SPDR0 = 0;//posEncoder.bData[posIndex];
-    }
-    else if (c == END_MESSAGE){
-      endMsgReceived = true;
-      startMsgReceived = false;
-      receivedOK = false;
-      // check for posIndex == 4    - this should always be the case
-      // Serial.println("End message - wrong place");
-    }
-    else{
-      startMsgReceived = false;
-      receivedOK = false;
-      // either startMsgReceived is false or posIndex is too high, and
-      // data doesn't correspond to start or end bytes 
-      // Serial.print(c, BIN);
-      // posIndex++;
-    }
-  }
-}// end of SPI interrupt routine
 
 
-
-// Convert desired angle coming from controller to position in microsteps
-long convertDesiredAngleToStepNumber(float angleDes){
-  long stepCountDes = long(round(angleDes*LEAD*STEPS_PER_MM/360.0));
-  return stepCountDes;
-}
-
-
-// Convert position in microsteps to anglular position in degrees
-float convertStepToAngle(float stepCountDri){
-  float angleDri = float(stepCountDri)*360.0/(LEAD*STEPS_PER_MM);
-  return angleDri;
-}
-
-
-
-
-int checkInput(){
-  if (receivedOK == true){
-    startMsgReceived = false;
-    endMsgReceived = false;
-    receivedOK = false;
-    return 1;    
-  }
-  else{
-    return 0;
-  }
-}
-
-int checkEncoder(bool encoderFlag){
-    if (encoderFlag == true){
-      return 1;
-    }
-    else{
-      return 0;
+        /*
+         * Prepare to receive the next transaction.
+         *
+         * The next response byte zero is normally preloaded by
+         * buildResponsePacket() after the command is processed.
+         */
+        rxIndex = 0;
+        txIndex = 0;
     }
 }
 
 
-void encoderFlag(){
-  // Check if the encoder values are changing 
-  if (angleEncoder == prevAngleEncoder){
-    encoderChangeCount = encoderChangeCount + 1;
-  }
-  else{
-    encoderChangeCount = 0;
-  }
+void processPendingCommand()
+{
+    uint8_t localPacket[PACKET_SIZE];
+    bool localPacketReady = false;
 
-  // if the encoder hasn't changed values for 50 loops then ignore incoming angle
-  if (encoderChangeCount > changeCountThresh){
-    encoderOK = false;
-  }
-  else{
-    encoderOK = true;
-  }
+
+    noInterrupts();
+
+
+    if (packetReady)
+    {
+        for (uint8_t i = 0;
+             i < PACKET_SIZE;
+             i++)
+        {
+            localPacket[i] =
+                rxPacket[i];
+        }
+
+        packetReady = false;
+        localPacketReady = true;
+    }
+
+
+    interrupts();
+
+
+    if (!localPacketReady)
+    {
+        return;
+    }
+
+
+    const uint8_t command =
+        localPacket[RX_COMMAND_INDEX];
+
+    const uint8_t sequence =
+        localPacket[RX_SEQUENCE_INDEX];
+
+
+    if (command == COMMAND_NOP)
+    {
+        /*
+         * A NOP only clocks out the previously prepared
+         * acknowledgement.
+         *
+         * Restore byte zero so another status read begins with the
+         * response start marker.
+         */
+        noInterrupts();
+
+        txIndex = 0;
+        SPDR0 = txPacket[0];
+
+        interrupts();
+
+        return;
+    }
+
+
+    commandStatus = STATUS_BUSY;
+
+
+    if (command != COMMAND_SET_POSITION)
+    {
+        commandStatus =
+            STATUS_BAD_COMMAND;
+
+        buildResponsePacket(
+            commandStatus,
+            sequence,
+            powerEnabled,
+            angleEstDriver);
+
+        return;
+    }
+
+
+    dataFloat requestedAngle;
+
+    requestedAngle.bData[0] =
+        localPacket[RX_ANGLE_INDEX + 0];
+
+    requestedAngle.bData[1] =
+        localPacket[RX_ANGLE_INDEX + 1];
+
+    requestedAngle.bData[2] =
+        localPacket[RX_ANGLE_INDEX + 2];
+
+    requestedAngle.bData[3] =
+        localPacket[RX_ANGLE_INDEX + 3];
+
+
+    bool localPowerState = false;
+
+
+    if (localPacket[RX_POWER_INDEX] ==
+        POWER_ON_FLAG)
+    {
+        localPowerState = true;
+    }
+    else if (localPacket[RX_POWER_INDEX] ==
+             POWER_OFF_FLAG)
+    {
+        localPowerState = false;
+    }
+    else
+    {
+        commandStatus =
+            STATUS_BAD_PARAMETER;
+
+        buildResponsePacket(
+            commandStatus,
+            sequence,
+            powerEnabled,
+            angleEstDriver);
+
+        return;
+    }
+
+
+    /*
+     * Reject NaN and infinity before converting the requested
+     * angle to microsteps.
+     */
+    if (!isfinite(requestedAngle.fData))
+    {
+        commandStatus =
+            STATUS_BAD_PARAMETER;
+
+        buildResponsePacket(
+            commandStatus,
+            sequence,
+            powerEnabled,
+            angleEstDriver);
+
+        return;
+    }
+
+
+    powerState = localPowerState;
+    angleDesired = requestedAngle.fData;
+
+
+    /*
+     * Apply the requested motor-power state.
+     */
+    if (powerState)
+    {
+        if (!powerEnabled)
+        {
+            stepper.setBrakeMode(
+                HARDBRAKE,
+                brakeCurrent);
+
+            if (ENABLECLOSEDLOOP)
+            {
+                stepper.enablePid();
+            }
+
+            powerEnabled = true;
+        }
+    }
+    else
+    {
+        stepper.setBrakeMode(
+            FREEWHEELBRAKE);
+
+        stepper.disablePid();
+
+        powerEnabled = false;
+    }
+
+
+    stepCountDesired =
+        convertDesiredAngleToStepNumber(
+            angleDesired);
+
+    stepCountDriver =
+        stepper.driver.getPosition();
+
+    stepError =
+        stepCountDesired -
+        stepCountDriver;
+
+
+    if (powerEnabled)
+    {
+        stepper.moveSteps(stepError);
+    }
+
+
+    /*
+     * The command has been applied.
+     */
+    completedSequence = sequence;
+    commandStatus = STATUS_COMPLETE;
+
+
+    /*
+     * Prepare the response returned during the next transaction.
+     */
+    buildResponsePacket(
+        commandStatus,
+        completedSequence,
+        powerEnabled,
+        angleEstDriver);
 }
 
 
-void toggleMotorPower(bool powState, bool prevPowState){
-  // Disable motor power based on status byte from controllerz
-  // First check for a change in status:
-  if (prevPowState != powState){
-    if(powState == true){
-      stepper.setBrakeMode(HARDBRAKE, brakeCurrent);
-      if (ENABLECLOSEDLOOP){
-        stepper.enablePid();
-      }
-    }
-    else {
-      stepper.setBrakeMode(FREEWHEELBRAKE);
-      stepper.disablePid();
-    }
-  }
+// Convert desired angle to position in microsteps.
+long convertDesiredAngleToStepNumber(float angleDes)
+{
+    return static_cast<long>(round(angleDes * LEAD * STEPS_PER_MM / 360.0f));
+}
+
+
+// Convert position in microsteps to angular position in degrees.
+float convertStepToAngle(long stepCountDri)
+{
+    return static_cast<float>(stepCountDri) * 360.0f / (LEAD * STEPS_PER_MM);
 }
 
 
 void loop(void)
 {
+    timeNow = micros();
+    timeSinceExec = timeNow - timeLastExecution;
 
-  // Check if sampling period has been reached
-  timeNow = micros();
-  timeSinceExec = timeNow - timeLastExecution;
-  // if enough time has passed, change actuator and strucure behaviour
-  if (timeSinceExec >= LOOP_PERIOD_MICRO){
-    timeLastExecution = micros(); 
+    if (timeSinceExec >= LOOP_PERIOD_MICRO)
+    {
+        timeLastExecution = timeNow;
 
-    // Get angle data from encoder
-    prevAngleEncoder = angleEncoder;
-    angleEncoder = stepper.encoder.getAngleMoved();
-    // Get estimated (open loop) position from driver
-    stepCountDriver = stepper.driver.getPosition();
-    angleEstDriver = convertStepToAngle(stepCountDriver);
+        prevAngleEncoder = angleEncoder;
 
-    // Put in float variable for SPI comms
-    if (ENABLECLOSEDLOOP){
-      posEncoder.fData = angleEncoder;
-    }
-    else{
-      posEncoder.fData = angleEstDriver;
-    }
-    
-    // encoderFlag();
+        angleEncoder = stepper.encoder.getAngleMoved();
 
+        stepCountDriver = stepper.driver.getPosition();
 
-  }
-
-
-  // If both start and end messages received correctly,
-  // change angular position received from controller
-  if (checkInput() == 1){// Check the input array and reset the receivedOK flag
-    toggleMotorPower(powerState, prevPowerState);
-    checkEncoder(encoderOK);
-
-    // Read desired angle from pump controller
-    angleDesired = posFromController.fData;
-    // Convert desired angle to number of microsteps
-    stepCountDesired = convertDesiredAngleToStepNumber(angleDesired);    
-
-    // Update actual position, expressed in microsteps
-    stepCountDriver = stepper.driver.getPosition();
-    // int load = stepper.driver.getStallValue();
-    // Serial.println(angleDesired);
-
-    // Calculate difference between desired position and actual position
-    stepError = stepCountDesired - stepCountDriver;
-
-    // Move towards target position
-    if(powerState){
-      // Checking the power first will make sure stepCountDriver is accurate
-      stepper.moveSteps(stepError);
+        angleEstDriver = convertStepToAngle(stepCountDriver);
     }
 
-    // IF angleEncoder FROM ENCODER DOESN'T MATCH THE ESTIMATED ANGLE 
-    // angleEstDriver FROM THE DRIVER THEN WE HAVE A PROBLEM
 
-
-    // Serial.print("Encoder:    ");
-    // Serial.println(angleEncoder);
-
-    // Serial.print("Est angle:  ");
-    // Serial.println(angleEstDriver);
-    // Serial.print("Angle in:   ");
-    // Serial.println(angleDesired);
-
-    // Serial.print("Est steps:  ");
-    // Serial.println(stepCountDriver);
-    // Serial.print("Step in:    ");
-    // Serial.println(stepCountDesired);
-
-    // Serial.print("Step error: ");
-    // Serial.println(stepError);
-
-    // Serial.print("Power:      ");
-    // Serial.println(powerState);
-    // Serial.println();
-
-    // Clear message flags so that any one message
-    // will only move the motor once.
-    startMsgReceived = false;
-    endMsgReceived = false;
-  }
-  
+    processPendingCommand();
 }

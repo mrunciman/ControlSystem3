@@ -1,3 +1,6 @@
+#ifndef LINEAR_AXIS_H
+#define LINEAR_AXIS_H
+
 #include <SPI.h>
 
 typedef union {
@@ -190,7 +193,6 @@ class LinAxis{
     void init(int CS_Pin, int P_Pin, float periodSeconds, int L_Pin);
     void pressInitZeroVol();
     void sendRecvFloat_POWER(dataFloat *outData, dataFloat *inData, char powerStatus);
-    void sendRecvFloat(dataFloat *outData, dataFloat *inData);
     float readPressure();
     float readPressureADC(float v_adc);
     float convertFlowRateToAngle(float flow_rate);
@@ -215,3 +217,6 @@ class LinAxis{
 
 
 };
+
+
+#endif
